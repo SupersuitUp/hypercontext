@@ -1,0 +1,136 @@
+{
+  "list": ["an-other", "ann-lee", "bo-kim", "cy-ng", "dee-ray"],
+  "list_archive": ["an-other", "ann-lee", "bo-kim", "cy-ng", "dee-ray", "old-pal"],
+  "resolve": [
+    ["cy-ng", "cy-ng"], ["(512) 555-0103", "cy-ng"], ["CY@example.com", "cy-ng"], ["Cy Ng", "cy-ng"],
+    ["Cee", "cy-ng"], ["cyng", "cy-ng"], ["Bo Kim", "bo-kim"], ["ann.lee@home.example", "ann-lee"], ["ANNIE@old.example", "ann-lee"], ["ann@work.example", "ann-lee"], ["lee@corp.example", "ann-lee"], ["nobody at all", null], ["Annie", "AMBIGUOUS:an-other,ann-lee"],
+    ["Dee", "dee-ray"], ["D. Ray", "dee-ray"],
+    ["   ", null], ["", null]
+  ],
+  "blocked": {"bo-kim": true, "ann-lee": false, "cy-ng": false},
+  "circle": {"ann-lee": "inner", "bo-kim": "known", "cy-ng": "close", "dee-ray": "close"},
+  "layout": {"ann-lee": "flat", "cy-ng": "folder", "old-pal": "flat"},
+  "header": {
+    "dee-ray": {"title": "Dee Ray", "circle": "close", "aliases": ["Dee", "D. Ray"], "note": "keep # this"},
+    "bo-kim": {"title": "Bo Kim", "last_interaction_summary": "long folded text", "do_not_contact": true},
+    "cy-ng": {"aliases": ["Cee"], "relationship": ["friend", "collaborator"], "github": "cyng"}
+  },
+  "workspace_layout": "folder",
+  "edge": {
+    "dir": "people-parity-edge",
+    "blocked": {"upper-true": true, "caps-true": true, "yes-val": true, "false-val": false, "no-val": false, "quoted-comment": true},
+    "refused_slugs": ["../x", "../../etc/passwd", "/etc/passwd", "a\\b", "a/../b", "./x", ".hidden", "archive/.x", "x/..", "a//b", "", ".."],
+    "allowed_slugs": [["archive/old-edge", "flat"]]
+  },
+  "circle_values": {"the-3": "inner", "active-orbit": "active", "blacklist": "blocked", "inner-circle": "inner", "extended": "close", "new": "known", "": "known", "Inner-Circle": "inner", "bogus": "known"},
+  "vocab": [
+    [["Friend"], {"relationship": ["friend"], "tags": []}],
+    [["Collaborator", "Strategic Partner"], {"relationship": ["collaborator"], "tags": []}],
+    [["Mentor"], {"relationship": ["mentor"], "tags": []}],
+    [["Mentor/Advisor"], {"relationship": ["mentor"], "tags": []}],
+    [["Advisor"], {"relationship": ["advisor"], "tags": []}],
+    [["Student/Mentee"], {"relationship": ["mentee"], "tags": []}],
+    [["Mentee"], {"relationship": ["mentee"], "tags": []}],
+    [["Investor"], {"relationship": ["investor"], "tags": []}],
+    [["Investor/VC"], {"relationship": ["investor"], "tags": []}],
+    [["Investor/Funder"], {"relationship": ["investor"], "tags": []}],
+    [["Family"], {"relationship": ["relative"], "tags": []}],
+    [["Client"], {"relationship": ["client"], "tags": []}],
+    [["Client (Continental Works)"], {"relationship": ["client"], "tags": []}],
+    [["Partner"], {"relationship": ["collaborator"], "tags": []}],
+    [["Spiritual Brother"], {"relationship": ["spiritual-family"], "tags": []}],
+    [["Old Friend"], {"relationship": ["friend"], "tags": []}],
+    [["College Roommate"], {"relationship": ["friend"], "tags": []}],
+    [["Housemate"], {"relationship": ["friend"], "tags": []}],
+    [["Former Colleague"], {"relationship": ["colleague"], "tags": []}],
+    [["VC/Investor"], {"relationship": ["investor"], "tags": []}],
+    [["Business Advisor"], {"relationship": ["advisor"], "tags": []}],
+    [["Key Advisor"], {"relationship": ["advisor"], "tags": []}],
+    [["Accountant"], {"relationship": ["provider"], "tags": []}],
+    [["Wealth Manager / Advisor"], {"relationship": ["provider"], "tags": []}],
+    [["Vendor/Service Provider"], {"relationship": ["provider"], "tags": []}],
+    [["Service Provider"], {"relationship": ["provider"], "tags": []}],
+    [["Contact"], {"relationship": ["contact"], "tags": []}],
+    [["New Contact"], {"relationship": ["contact"], "tags": []}],
+    [["Acquaintance"], {"relationship": ["contact"], "tags": []}],
+    [["Self"], {"relationship": ["self"], "tags": []}],
+    [["  FRIEND  "], {"relationship": ["friend"], "tags": []}],
+    [["Friend", "Collaborator", "Friend"], {"relationship": ["friend", "collaborator"], "tags": []}],
+    [["Professional Contact"], {"relationship": ["contact"], "tags": ["professional-contact"]}],
+    [["Friend", "Wizard Of Oz!"], {"relationship": ["friend"], "tags": ["wizard-of-oz"]}],
+    [["Wizard", "Wizard"], {"relationship": ["contact"], "tags": ["wizard"]}],
+    [[], {"relationship": ["contact"], "tags": []}],
+    [[""], {"relationship": ["contact"], "tags": []}],
+    [["!!!"], {"relationship": ["contact"], "tags": []}]
+  ],
+  "routes": [
+    ["Transcripts", "log"],
+    ["Other Interactions (no transcript or scraped from text/email/etc)", "log"],
+    ["Recent Interactions", "log"],
+    ["Interaction History", "log"],
+    ["Interaction Log", "log"],
+    ["Interactions", "log"],
+    ["interaction history", "log"],
+    ["Interactions (2025-06-01)", "log"],
+    ["Group Chats", "threads"],
+    ["Key Quotes", "quotes"],
+    ["Key Quotes & Insights", "quotes"],
+    ["Notable Quotes", "quotes"],
+    ["Quotes", "quotes"],
+    ["Dr. Alexander Partnership Discussion (June 7, 2025)", "story"],
+    ["Meeting 2025-06-07", "story"],
+    ["Notes", "story"],
+    ["Background", "story"],
+    ["Old header fields", "story"],
+    ["", "story"]
+  ],
+  "last_contact": {
+    "cases": [
+      {"in": {"date": "2026-09-28"}, "line": "last_contact: {date: 2026-09-28}"},
+      {"in": {"date": "2026-09-28", "how": "iMessage"}, "line": "last_contact: {date: 2026-09-28, how: iMessage}"},
+      {"in": {"date": "2026-09-28", "how": "call", "about": "the deck"}, "line": "last_contact: {date: 2026-09-28, how: call, about: the deck}"},
+      {"in": {"date": "2026-09-28", "how": "text", "about": "venue, 5pm: confirmed"}, "line": "last_contact: {date: 2026-09-28, how: text, about: \"venue, 5pm: confirmed\"}"},
+      {"in": {"date": "2026-09-28", "about": "line one\nline two  "}, "line": "last_contact: {date: 2026-09-28, about: line one line two}"},
+      {"in": {"date": "2026-09-28", "how": "#hash"}, "line": "last_contact: {date: 2026-09-28, how: \"#hash\"}"},
+      {"in": {"date": "2026-09-28", "how": "\ufeffiMessage\ufeff", "about": "a\u00a0b\u2028c"}, "line": "last_contact: {date: 2026-09-28, how: iMessage, about: a b c}"}
+    ],
+    "replaceable_before": [
+      "last_contact:\n",
+      "last_contact: {date: 2026-01-01, how: x} # note\n",
+      "last_contact:\n  date: 2026-01-01\n  how: old\n",
+      "last_contact: {date: 2026-01-01}\n",
+      "last_contact: {date: 2026-01-01, how: a\u2028b}\n"
+    ],
+    "refused_before": [
+      "last_contact:\n- a\n- b\n",
+      "last_contact:\n  - a\n  - b\n",
+      "last_contact:\n  date: 2026-01-01\n\n  how: old\n",
+      "last_contact: 2026-01-01\n",
+      "last_contact: [a, b]\n",
+      "last_contact: {date: 2026-01-01,\n  how: x}\n",
+      "last_contact: {date: 2026-01-01}\n\n  stray: line\n",
+      "last_contact:\n  date: 2026-01-01\n  nested:\n    a: b\n",
+      "last_contact: |\n  text\n",
+      "last_contact: \ufeff\n",
+      "last_contact:\n  \ufeff\n"
+    ],
+    "block_before": "last_contact:\n  date: 2026-01-01\n  how: old\n",
+    "refused_dates": ["Sept", "2026-9-1", "", "20260928"],
+    "lid": {
+      "_": "last_interaction_date is held to last_contact's date by setLastContact (both twins). Each 'before' goes right after the opening fence.",
+      "line": "last_interaction_date: \"2026-09-28\"",
+      "replaceable_before": [
+        "last_interaction_date: \"2026-01-01\"\n",
+        "last_interaction_date: 2026-01-01\n",
+        "last_interaction_date: \"Unknown\"\n",
+        "last_interaction_date:\n",
+        "last_interaction_date: \"2026-01-01\" # note\n"
+      ],
+      "refused_before": [
+        "last_interaction_date:\n  - 2026-01-01\n",
+        "last_interaction_date: >\n  2026-01-01\n",
+        "last_interaction_date:\n  date: 2026-01-01\n"
+      ]
+    }
+  }
+}

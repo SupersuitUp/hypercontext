@@ -1,0 +1,45 @@
+Freedom
+Copyright (c) 2026 Continental Works. All rights reserved.
+
+This software and its accompanying files (the "Software") are the proprietary
+property of Continental Works. Access to this repository is granted to named
+individuals for the purpose of running Freedom on their own machines and
+contributing improvements back to Continental Works.
+
+You may:
+
+- run the Software on machines you control;
+- modify it for your own use;
+- submit modifications to Continental Works as pull requests or issues.
+
+You may not, without prior written permission from Continental Works:
+
+- redistribute the Software or any substantial part of it, in source or
+  binary form, to anyone who has not been granted access by Continental Works;
+- publish it, in whole or in part, in any public repository or package;
+- sell, sublicense, or offer the Software as a product or service to others;
+- remove or alter this notice.
+
+Contributions. By submitting a pull request, patch, or other modification to
+Continental Works, you grant Continental Works a perpetual, worldwide,
+irrevocable, royalty-free license to use, reproduce, modify, distribute, and
+sublicense that contribution as part of the Software, and you confirm that you
+have the right to grant it.
+
+That license is non-exclusive. You keep ownership of what you contribute and
+every right to use it however you like, in Freedom or anywhere else. Once
+Continental Works ships your contribution, you receive it back as part of the
+Software under these same terms, like everyone else running Freedom.
+
+Every pull request confirms this grant with the ticked Licensing line in its
+description (.github/pull_request_template.md). A pull request without it is
+not merged, and none of its code is used.
+
+Your own files stay yours. This license covers the Software only. The workspace
+you build with it (your people, projects, documents, transcripts, and every
+other file Freedom keeps for you) is yours, and nothing here claims any right
+to it.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED. IN NO EVENT SHALL CONTINENTAL WORKS BE LIABLE FOR ANY CLAIM, DAMAGES,
+OR OTHER LIABILITY ARISING FROM THE USE OF THE SOFTWARE.
