@@ -312,3 +312,19 @@ test("engine configuration refuses nested literal secrets", () => {
     /configuration/,
   );
 });
+
+test("factory paths configure openProjects and query without per-call paths", (t) => {
+  factory();
+  const root = fixture(t);
+  const paths = { root, projects: join(root, "projects") };
+  mkdirSync(paths.projects);
+  const E = mod.createProjectEngine({ paths });
+  const created = E.scaffoldProject({
+    root: paths.projects,
+    slug: "configured",
+    today: "2026-10-04",
+    ...spec,
+  });
+  assert.equal(E.openProjects().length, 1);
+  assert.equal(E.query("project").rows[0].dir, created.dir);
+});

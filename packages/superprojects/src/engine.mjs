@@ -1180,7 +1180,13 @@ export function createProjectEngine(options = {}) {
     return m ? +m[1] * (m[2] === "week" ? 7 : 1) : null;
   };
 
-  function openProjects({ paths, now = new Date() } = {}) {
+  function openProjects({
+    paths = options.paths ?? {
+      root: process.cwd(),
+      projects: joinPath(process.cwd(), "projects"),
+    },
+    now = new Date(),
+  } = {}) {
     const declared = (paths.projectsRoots ?? [paths.projects]).filter(Boolean);
     if (!declared.length) return [];
     const workspace = paths.root || declared[0];
