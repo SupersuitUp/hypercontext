@@ -328,3 +328,56 @@ test("factory paths configure openProjects and query without per-call paths", (t
   assert.equal(E.openProjects().length, 1);
   assert.equal(E.query("project").rows[0].dir, created.dir);
 });
+
+test("context scaffold refuses duplicate identities and missing relationship targets before creation", (t) => {
+  const E = factory(),
+    root = fixture(t),
+    context = {
+      context_version: "1",
+      id: "same",
+      summary: "Example",
+      read_when: "Before work",
+      as_of: "2026-10-04",
+      keep: "keep",
+      audience: "self",
+      next_actor: "human",
+    };
+  E.scaffoldProject({
+    root,
+    slug: "existing",
+    today: "2026-10-04",
+    ...spec,
+    context,
+    stateContext: { ...context, id: "same:state" },
+  });
+  assert.throws(
+    () =>
+      E.scaffoldProject({
+        root,
+        slug: "duplicate",
+        today: "2026-10-04",
+        ...spec,
+        context,
+      }),
+    /Duplicate context identity/,
+  );
+  assert.equal(existsSync(join(root, "2026-10-04-duplicate")), false);
+  assert.throws(
+    () =>
+      E.scaffoldProject({
+        root,
+        slug: "missing",
+        today: "2026-10-04",
+        ...spec,
+        context: {
+          ...context,
+          id: "different",
+          relations: JSON.stringify([
+            { type: "depends-on", target: "missing" },
+          ]),
+        },
+      }),
+    /missing target/,
+  );
+  assert.equal(existsSync(join(root, "2026-10-04-missing")), false);
+});

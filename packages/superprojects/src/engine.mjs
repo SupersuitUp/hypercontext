@@ -20,7 +20,12 @@ import {
   defaultFrontmatter,
   FrontmatterSyntaxError,
 } from "./frontmatter/index.mjs";
-import { validateContext, assertSafeConfig } from "./context.mjs";
+import {
+  validateContext,
+  assertSafeConfig,
+  contextGraph,
+  readContext,
+} from "./context.mjs";
 import { ROLE_KEYS } from "./frontmatter/kinds.mjs";
 import { HANDLE_RE, validNickname, NICKNAME_MAX } from "./handle.mjs";
 /** Configure product dependencies once; core algorithms never launch a shell. */
@@ -1016,6 +1021,57 @@ export function createProjectEngine(options = {}) {
     );
   }
 
+  /** Project/state context plus explicitly linked Markdown records; never an export bundle. */
+  function contextRecords({
+    paths: P = options.paths ?? {
+      root: process.cwd(),
+      projects: joinPath(process.cwd(), "projects"),
+    },
+    prospective = [],
+  } = {}) {
+    const files = [...filesOf("project", P), ...filesOf("state", P)];
+    const additions = new Map(
+      prospective.map((record) => [resolve(record.path), record]),
+    );
+    const records = files
+      .filter((file) => !additions.has(resolve(file)))
+      .map((file) => {
+        read(file); // Enforce the shared document-size cap and syntax refusal before loading.
+        return { path: resolve(file), text: readFileSync(file, "utf8") };
+      });
+    records.push(...additions.values());
+    const seen = new Set(records.map((record) => resolve(record.path)));
+    for (let i = 0; i < records.length; i++) {
+      let context;
+      try {
+        context = readContext(records[i].text);
+      } catch {
+        continue;
+      }
+      for (const relation of context.relations) {
+        if (
+          typeof relation.target !== "string" ||
+          !/^[^?#]+\.md(?:[#?].*)?$/.test(relation.target)
+        )
+          continue;
+        let target;
+        try {
+          target = resolve(
+            dirname(records[i].path),
+            decodeURIComponent(relation.target.split(/[?#]/)[0]),
+          );
+        } catch {
+          continue;
+        }
+        if (seen.has(target) || !existsSync(target)) continue;
+        seen.add(target);
+        read(target);
+        records.push({ path: target, text: readFileSync(target, "utf8") });
+      }
+    }
+    return records;
+  }
+
   function scaffoldProject({ root, slug, today, ...spec }) {
     if (!root || !slug || !today)
       throw new Error("scaffold: root, slug and today are required");
@@ -1060,6 +1116,20 @@ export function createProjectEngine(options = {}) {
       cadence: spec.cadence,
       context: spec.stateContext,
     });
+    if (spec.context || spec.stateContext) {
+      const records = contextRecords({
+        paths: options.paths ?? { root, projects: root },
+        prospective: [
+          { path: join(dir, "PROJECT.md"), text: project },
+          { path: join(dir, "STATE.md"), text: state },
+        ],
+      });
+      const errors = contextGraph(records).findings.filter(
+        (f) => f.level === "error",
+      );
+      if (errors.length)
+        throw new Error(`scaffold: ${errors.map((f) => f.message).join("; ")}`);
+    }
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "PROJECT.md"), project);
     writeFileSync(join(dir, "STATE.md"), state);
@@ -1546,6 +1616,7 @@ export function createProjectEngine(options = {}) {
     renderProjectMd,
     renderStateMd,
     scaffoldProject,
+    contextRecords,
     cadenceDays,
     openProjects,
     subprojectsOf,
