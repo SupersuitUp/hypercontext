@@ -1,0 +1,15 @@
+import * as core from '../../lib/freedom-conversations.mjs';
+import {probe} from './native.mjs';
+export const canProjectConversation = (...args)=>probe(core.canProjectConversation,args);
+export const classifyConversationPath = (...args)=>probe(core.classifyConversationPath,args);
+export const conversationCount = (...args)=>probe(core.conversationCount,args);
+export const conversationSections = (...args)=>probe(core.conversationSections,args);
+export const conversationSourceRefs = (...args)=>probe(core.conversationSourceRefs,args);
+export const conversationTurns = (...args)=>probe(core.conversationTurns,args);
+export const effectiveSharing = (...args)=>probe(core.effectiveSharing,args);
+export const indexConversations = (...args)=>probe(core.indexConversations,args);
+export const listConversationDirectory = (...args)=>probe(core.listConversationDirectory,args);
+export const listConversations = (...args)=>probe(core.listConversations,args);
+export const parseConversation = (...args)=>probe(core.parseConversation,args);
+export const readConversation = (...args)=>probe(core.readConversation,args);
+export const resolveConversation = (...args)=>probe(core.resolveConversation,args);
