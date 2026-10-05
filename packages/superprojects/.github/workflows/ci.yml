@@ -21,7 +21,5 @@ jobs:
           node-version: ${{ matrix.node }}
       # Zero dependencies, so there is nothing to install.
       - run: npm test
-      # The package must run the way the README says, from outside the repo.
-      - run: |
-          cd "$RUNNER_TEMP"
-          node "$GITHUB_WORKSPACE/bin/agentic-projects.mjs" --help
+      - run: npm run mutation-check
+      - run: npm run install-proof

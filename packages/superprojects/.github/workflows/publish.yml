@@ -113,6 +113,8 @@ jobs:
       # Zero runtime dependencies and no lockfile, so there is nothing to install. The
       # package is the product, so it is tested before it is published, never after.
       - run: npm test
+      - run: npm run mutation-check
+      - run: npm run install-proof
 
       - name: Refuse a tag that disagrees with package.json
         if: startsWith(github.ref, 'refs/tags/v')
