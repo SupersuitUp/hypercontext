@@ -58,7 +58,7 @@ Changes to pinned sources request rechecks; they do not automatically overturn c
 npx agentic-projects export --file path/to/permitted-record.md --to share --json
 ```
 
-Include every referenced local record using repeated `--file`; each must independently permit the destination. Unknown permission, missing relationships, private evidence and local Markdown links outside that bundle refuse export. HTTP(S) references, including bare URLs and autolinks, require `--allow-external`. Raw HTML is unsupported and refuses export; use Markdown references. Export returns text and never sends it. These checks enforce declared policy and references; they do not authenticate readers or infer whether prose contains private information.
+Include every referenced local record using repeated `--file`; each must independently permit the destination. Unknown permission, missing relationships, private evidence and local Markdown links outside that bundle refuse export. Reference definitions are checked in quotes and lists, including escaped and multiline labels; unused definitions and code examples are conservatively checked too. Markdown destinations containing literal parentheses, backslash escapes, HTML entities or control characters refuse export; use plain or percent-encoded destinations. HTTP(S) references, including bare URLs and autolinks, require `--allow-external`. Raw HTML is unsupported and refuses export; use Markdown references. Export returns text and never sends it. These checks enforce declared policy and references; they do not authenticate readers or infer whether prose contains private information.
 
 ## Product adapters
 

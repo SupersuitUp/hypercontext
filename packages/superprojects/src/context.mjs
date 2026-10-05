@@ -117,9 +117,16 @@ export function contextGraph(records) {
 function markdownTargets(body) {
   // Start at the closing label: nested labels and multiline destinations cannot bypass this.
   const links = [...body.matchAll(/\]\(\s*(?:<([^>]+)>|([^\s)]+))(?:\s+[^)]*)?\)/g)].map(m=>m[1]||m[2]);
-  links.push(...[...body.matchAll(/^\s*\[[^\]]+\]:\s*(?:<([^>]+)>|([^\s]+))/gm)].map(m=>m[1]||m[2]));
+  // Scan the definition delimiter without interpreting labels or container prefixes.
+  // This includes escaped brackets and backslash/newline labels. Conservative scanning
+  // also checks unused definitions/code examples; unknown continuations are refused.
+  links.push(...[...body.matchAll(/\]:\s*(?:<([^>]+)>|([^\s]+))/g)].map(m=>m[1]||m[2]));
   links.push(...[...body.matchAll(/<([a-z][a-z\d+.-]*:[^<>]+)>/gi)].map(m=>m[1]));
   links.push(...[...body.matchAll(/https?:\/\/[^\s<>"')]+/gi)].map(m=>m[0]));
+  // The supported destination subset is deliberately closed. Parentheses can nest,
+  // escapes can hide delimiters, and HTML entities can change a resolved path. Refuse
+  // those forms rather than validate a prefix or a spelling the renderer will replace.
+  for (const target of links) if (/[\\&()<>\x00-\x1f\x7f]/.test(target)) throw new Error('Unsupported Markdown destination syntax; use a plain or percent-encoded path');
   return links;
 }
 export function exportContext(records, { to, allowExternal = false } = {}) {

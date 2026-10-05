@@ -63,6 +63,29 @@ test('sharing refuses autolinks, raw HTML, multiline images and nested labels',(
   assert.equal(exportContext(records,{to:'share'}).length,2);
   assert.throws(()=>exportContext([{path:'/p/a.md',text:text({source_of_truth:'https://example.invalid/private-repository'})}],{to:'share'}),/External source/);
 });
+test('reference definitions inside Markdown containers and escaped labels obey bundle permission',()=>{
+  for (const body of [
+    '> [private]\n>\n> [private]: private.md',
+    '[private\\]]\n\n[private\\]]: private.md',
+    '- [private]\n\n  [private]: private.md',
+    '> [private]:\n> private.md',
+    '[multi\nline]\n\n[multi\nline]: private.md',
+    '[multi\\\nline]\n\n[multi\\\nline]: private.md',
+  ]) assert.throws(()=>exportContext([{path:'/p/a.md',text:text({},body)}],{to:'share'}),/outside.*bundle|Unsupported Markdown destination/);
+  const records=[{path:'/p/a.md',text:text({},'> [shared]\n>\n> [shared]: b.md')},{path:'/p/b.md',text:text({id:'project-beta'})}];
+  assert.equal(exportContext(records,{to:'share'}).length,2);
+});
+test('ambiguous destination syntax cannot validate a permitted prefix instead of the actual link',()=>{
+  for(const [body,prefix] of [
+    ['[source](allowed(private).md)','allowed(private'],
+    ['[source](allowed\\)private.md)','allowed\\'],
+    ['[source](allowed&sol;private.md)','allowed&sol;private.md'],
+    ['[source]\n\n[source]: allowed(private).md','allowed(private).md'],
+  ]) assert.throws(()=>exportContext([
+    {path:'/p/a.md',text:text({},body)},
+    {path:`/p/${prefix}`,text:text({id:'project-beta'})},
+  ],{to:'share'}),/Unsupported Markdown destination/);
+});
 test('parent closure refuses active descendants including done-folder children', () => {
   const parent={slug:'parent',status:'active'};
   assert.throws(()=>assertCanClose(parent,[{slug:'child',parent:'parent',status:'active',dir:'/p/done/child'}]),/child/);
