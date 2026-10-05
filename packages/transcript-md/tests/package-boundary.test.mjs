@@ -28,8 +28,8 @@ test('Python asset discovers its adjacent CLI and ignores global Freedom selecti
 });
 test('caller roots have no HOME or inherited workspace fallback',async()=>{
  const {listConversations}=await import(require.resolve('@supersuit/transcript-md'));
- assert.throws(()=>listConversations(),/explicit workspace root/);
- const root=join(consumer,'explicit');mkdirSync(root);mkdirSync(join(root,'meeting-transcripts'));assert.deepEqual(listConversations(root).records,[]);
+ assert.throws(()=>probe(listConversations,[]),/explicit workspace root/);
+ const root=join(consumer,'explicit');mkdirSync(root);mkdirSync(join(root,'meeting-transcripts'));assert.deepEqual(probe(listConversations,[root]).records,[]);
 });
 
 test('new participant self references retain the source legacy USER.md filename',async()=>{

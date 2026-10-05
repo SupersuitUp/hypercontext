@@ -99,7 +99,7 @@ test('a retained actual Git revision resolves original words and path after a li
  git('init','--quiet');
  const original=record(turn('t-000001','Historical words.\n')).original;
  const target=f.put('example-call/transcript.md',original);
- git('add','--','example-call/transcript.md');git('-c','core.hooksPath=/dev/null','-c','commit.gpgsign=false','commit','--quiet','-m','synthetic historical record','--','example-call/transcript.md');
+ git('add','--','example-call/transcript.md');git('commit','--quiet','-m','synthetic historical record','--','example-call/transcript.md');
  const commit=git('rev-parse','HEAD'),r=parseConversation(original,{file:target});
  const c=citeConversation(r,{turnIds:['t-000001'],repository:f.root,revision:{kind:'git',value:commit}});
  renameSync(join(f.root,'example-call'),join(f.root,'renamed-call'));f.put('renamed-call/transcript.md',record(turn('t-000001','Current words.\n'),{id:'renamed-call'}).original);

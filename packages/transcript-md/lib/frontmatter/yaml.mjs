@@ -46,7 +46,7 @@ const unquote = (s) => {
   return t;
 };
 
-// `"+12108731330"   # a note` is the value `+12108731330`. Only a comment that follows a CLOSED
+// `"example"   # a note` is the value `example`. Only a comment that follows a CLOSED
 // quote or a closed inline list is stripped: an unquoted value keeps any `#` it carries
 // (`C# and F#`, `page#anchor`), because the writer quotes every value containing `#` and a
 // hand-written unquoted one is safer kept whole than guessed at.
