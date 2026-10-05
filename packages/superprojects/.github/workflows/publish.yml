@@ -8,8 +8,9 @@
 # It is also the direction npm is forcing. Their own banner: "npm tokens that bypass 2FA
 # are being restricted, account changes (Aug 2026) and direct publishing (Jan 2027)."
 #
-# Copied from @supersuit/superskill on 2026-09-28, which copied it from docusaurus-preset-wiki, where every comment below was earned.
-# The build and fixture steps are gone because this package has no build and no fixture site.
+# Stamped by the publish-npm-package skill from the workflow every @supersuit package ships
+# through, where every comment below was earned. Add an install and build step above
+# `npm test` if this package has dependencies or a build.
 # A long-lived automation token in a secret would work today and stop working on a date
 # somebody else picked.
 #
@@ -56,8 +57,8 @@ jobs:
     # given an environment, this line must change to match it in the same sitting.
     #
     # The FIRST publish of a new package cannot go through this workflow: npm attaches a
-    # trusted publisher to an existing package, so 0.1.0 is published by hand (web 2FA)
-    # and the record created right after with the `npm trust` line above. Every release since is a tag push.
+    # trusted publisher to an existing package, so the first version is published by hand (web 2FA)
+    # and the record created right after. Every release since is a tag push.
     environment: blank
     steps:
       - uses: actions/checkout@v5
@@ -104,7 +105,7 @@ jobs:
         run: |
           if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
             echo "No OIDC identity available to this job."
-            echo 'The workflow needs `permissions: id-token: write`, and a fork PR never gets one.'
+            echo "The workflow needs `permissions: id-token: write`, and a fork PR never gets one."
             exit 1
           fi
           echo "OIDC identity present"

@@ -1,1 +1,6 @@
-// The public API. Export only what a stranger needs.
+export { createProjectEngine } from './engine.mjs';
+export { createFrontmatter, defaultFrontmatter, FrontmatterSyntaxError } from './frontmatter/index.mjs';
+export { parseFlat, stringifyFlat } from './frontmatter/yaml.mjs';
+export { KINDS, ROLE_KEYS, PROJECT_STATUS, validate, nestedKeysFor } from './frontmatter/kinds.mjs';
+export * from './handle.mjs';
+export * from './context.mjs';
