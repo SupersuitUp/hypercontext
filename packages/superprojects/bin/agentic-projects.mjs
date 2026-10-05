@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {readFileSync,writeFileSync} from 'node:fs';
 import {join,resolve,dirname,basename} from 'node:path';
-import {createProjectEngine,readContext,validateContext,verifyContext,exportContext,assertCanClose,assertSafeConfig,validDate} from '../src/index.mjs';
+import {createProjectEngine,readContext,validateContext,contextGraph,verifyContext,exportContext,assertCanClose,assertSafeConfig,validDate} from '../src/index.mjs';
 
 const HELP=`agentic-projects <command> [options]
 
@@ -99,12 +99,13 @@ function main(args){
     if(!parent)throw new Error(`Project not found: ${a.slug}`);
     assertCanClose(parent,projects);emit({canClose:true,slug:a.slug},a.json);return 0;
   }
-  const findings=engine.lintRoot(P.projects);
+  const findings=engine.lintRoot(P.projects),records=[];
   for(const dir of engine.projectDirs(P.projects)){
     const project=join(dir,'PROJECT.md'),state=join(dir,'STATE.md');
-    for(const file of [project,state]){try{findings.push(...validateContext(readFileSync(file,'utf8'),{file}).map(f=>({...f,file})));}catch(error){findings.push({level:'error',code:'unreadable-record',message:error.message,file});}}
+    for(const file of [project,state]){try{const text=readFileSync(file,'utf8');records.push({path:file,text});findings.push(...validateContext(text,{file}).map(f=>({...f,file})));}catch(error){findings.push({level:'error',code:'unreadable-record',message:error.message,file});}}
     try{findings.push(...engine.resumability(readFileSync(state,'utf8'),{projectText:readFileSync(project,'utf8'),today:a.date}).map(message=>({level:'error',code:'state-integrity',message,file:state})));}catch{/* unreadable file already reported */}
   }
+  findings.push(...contextGraph(records).findings);
   emit({findings},a.json);return findings.some(f=>f.level!=='ok')?1:0;
 }
 try{process.exitCode=main(process.argv.slice(2));}catch(error){console.error(error.message);process.exitCode=error instanceof Usage?2:1;}

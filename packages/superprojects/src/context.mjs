@@ -44,7 +44,8 @@ function sourceFindings(item, { file, exists = existsSync, revisionOf, snapshotO
   if (!nonempty(expected)) out.push(finding('warn', 'unpinned-evidence', 'Evidence has no revision or snapshot; its historical contents are unknown', { source: item.source }));
   else {
     const checker = item.rev ? revisionOf : snapshotOf;
-    if (checker && source) {
+    if (!checker || !source) out.push(finding('warn','unverifiable-evidence','No source revision checker was supplied; the evidence pin remains unchecked',{source:item.source}));
+    else {
       let actual;
       try { actual = checker(source); } catch { actual = null; }
       if (!actual || String(actual).endsWith('+wip') || String(expected).endsWith('+wip')) out.push(finding('warn', 'unverifiable-evidence', 'Evidence cannot be verified against a stable source', { source }));
@@ -114,9 +115,11 @@ export function contextGraph(records) {
   return {nodes,backlinks,findings};
 }
 function markdownTargets(body) {
-  // Include reference links and images: an export is of the whole record, not just metadata.
-  const links = [...body.matchAll(/!?\[[^\]]*\]\((?:<([^>]+)>|([^\s)]+))(?:\s+[^)]*)?\)/g)].map(m=>m[1]||m[2]);
+  // Start at the closing label: nested labels and multiline destinations cannot bypass this.
+  const links = [...body.matchAll(/\]\(\s*(?:<([^>]+)>|([^\s)]+))(?:\s+[^)]*)?\)/g)].map(m=>m[1]||m[2]);
   links.push(...[...body.matchAll(/^\s*\[[^\]]+\]:\s*(?:<([^>]+)>|([^\s]+))/gm)].map(m=>m[1]||m[2]));
+  links.push(...[...body.matchAll(/<([a-z][a-z\d+.-]*:[^<>]+)>/gi)].map(m=>m[1]));
+  links.push(...[...body.matchAll(/https?:\/\/[^\s<>"')]+/gi)].map(m=>m[0]));
   return links;
 }
 export function exportContext(records, { to, allowExternal = false } = {}) {
@@ -131,6 +134,8 @@ export function exportContext(records, { to, allowExternal = false } = {}) {
   if (graph.findings.length) throw new Error(graph.findings.map(f=>f.message).join('; '));
   const permitted = new Set(graph.nodes.map(n=>n.path));
   for (const node of graph.nodes) {
+    // Raw HTML has several reference-bearing attributes. Refuse the unsupported shape.
+    if (/<\/?[a-z][a-z\d-]*(?:\s|\/?>)/i.test(node.body)) throw new Error('Raw HTML is not supported in an export bundle; use Markdown references');
     const targets = [...node.evidence.map(e=>e.source),...markdownTargets(node.body)];
     for (const target of targets) {
       if (!nonempty(target)) continue;
@@ -144,6 +149,12 @@ export function exportContext(records, { to, allowExternal = false } = {}) {
 export function assertCanClose(parent, projects) {
   const id = parent.slug || parent.id || parent.metadata?.id;
   if (!nonempty(id)) throw new Error('Parent requires a slug or identity');
+  for (const child of projects) {
+    const relationship=child.parent ?? child.metadata?.parent;
+    if (relationship !== undefined && relationship !== null && !nonempty(relationship)) throw new Error('Invalid parent relationship; closing requires readable scalar parent fields');
+    const status=child.status ?? child.metadata?.status;
+    if (status !== undefined && !['active','done','parked','paused'].includes(status)) throw new Error('Invalid project status; closing requires a valid complete project set');
+  }
   const seen = new Set([id]), queue = [id], active = [];
   while (queue.length) {
     const current = queue.shift();

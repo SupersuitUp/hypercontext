@@ -35,5 +35,9 @@ test('documented commands work in an external directory',()=>{
     const shared=readFileSync(project,'utf8').replace(/keep: home/,'keep: share')+'\n[Private source](private.md)\n';
     writeFileSync(project,shared);
     assert.equal(cli('export','--file',project,'--to','share','--json').status,1,'private source links require an explicitly permitted bundle');
+    const duplicate=readFileSync(state,'utf8').replace(/id: [^\n]+/,'id: 2026-10-04-demo');
+    writeFileSync(state,duplicate);
+    const graphFindings=JSON.parse(cli('lint','--root',root,'--json').stdout).findings;
+    assert.ok(graphFindings.some(f=>f.code==='duplicate-id'),'lint checks the full identity graph');
   } finally {rmSync(dir,{recursive:true,force:true});}
 });

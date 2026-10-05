@@ -50,7 +50,7 @@ const graph = contextGraph(records); // nodes, backlinks, duplicate/missing-targ
 const bundle = exportContext(records, {to:'share'}); // throws for unknown/private permission
 ```
 
-Changes to pinned sources request rechecks; they do not automatically overturn claims. Missing pins and working tree evidence remain uncertain. Old records without context_version remain readable and produce a warning; no sharing permission, attribution or verification date is backfilled.
+Changes to pinned sources request rechecks; they do not automatically overturn claims. Missing pins, absent revision checkers and working tree evidence remain uncertain. Old records without context_version remain readable and produce a warning; no sharing permission, attribution or verification date is backfilled.
 
 ## Sharing checks
 
@@ -58,7 +58,7 @@ Changes to pinned sources request rechecks; they do not automatically overturn c
 npx agentic-projects export --file path/to/permitted-record.md --to share --json
 ```
 
-Include every referenced local record using repeated `--file`; each must independently permit the destination. Unknown permission, missing relationships, private evidence and local Markdown links outside that bundle refuse export. HTTP(S) references require `--allow-external`. Export returns text and never sends it. These checks enforce declared policy and references; they do not authenticate readers or infer whether prose contains private information.
+Include every referenced local record using repeated `--file`; each must independently permit the destination. Unknown permission, missing relationships, private evidence and local Markdown links outside that bundle refuse export. HTTP(S) references, including bare URLs and autolinks, require `--allow-external`. Raw HTML is unsupported and refuses export; use Markdown references. Export returns text and never sends it. These checks enforce declared policy and references; they do not authenticate readers or infer whether prose contains private information.
 
 ## Product adapters
 

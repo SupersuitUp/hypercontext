@@ -13,6 +13,7 @@ const cases=[
   ['frontmatter precedence','frontmatter/index.mjs','codec.test.mjs','const merged = { ...labels, ...(data ?? {}) };','const merged = { ...(data ?? {}), ...labels };'],
   ['one owner','engine.mjs','engine.test.mjs','if (owners.length !== 1)', 'if (false)'],
   ['no clobber','engine.mjs','engine.test.mjs','if (existsSync(dir))', 'if (false)'],
+  ['lint graph','../bin/agentic-projects.mjs','cli.test.mjs','findings.push(...contextGraph(records).findings);','/* graph check deliberately removed */'],
 ];
 let caught=0;
 for(const [name,source,suite,before,after] of cases){
@@ -20,6 +21,7 @@ for(const [name,source,suite,before,after] of cases){
   try{
     cpSync(join(root,'src'),join(dir,'src'),{recursive:true});
     cpSync(join(root,'test'),join(dir,'test'),{recursive:true});
+    cpSync(join(root,'bin'),join(dir,'bin'),{recursive:true});
     const file=join(dir,'src',source),text=readFileSync(file,'utf8');
     if(!text.includes(before))throw new Error(`Mutation anchor missing: ${name}`);
     writeFileSync(file,text.replace(before,after));

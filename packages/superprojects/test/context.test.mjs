@@ -36,6 +36,7 @@ test('evidence rejects invented attribution and malformed JSON; drift requests r
   assert.ok(validateContext(text({evidence:'not-json'})).some(f=>f.code==='invalid-evidence'));
   assert.ok(validateContext(text({evidence:JSON.stringify([{...evidence[0],by:''}])})).some(f=>f.code==='missing-attribution'));
   assert.ok(validateContext(text({evidence:JSON.stringify(evidence)}), {file:'/tmp/project/STATE.md',exists:()=>false}).some(f=>f.code==='missing-source'));
+  assert.ok(validateContext(text({evidence:JSON.stringify(evidence)}), {file:'/tmp/project/STATE.md',exists:()=>true}).some(f=>f.code==='unverifiable-evidence'));
 });
 test('graph derives backlinks, rejects duplicate identities and missing relationships', () => {
   const records=[{path:'/p/a.md',text:text({relations:JSON.stringify([{type:'depends-on',target:'project-beta'}])})},{path:'/p/b.md',text:text({id:'project-beta'})}];
@@ -54,11 +55,20 @@ test('export requires declared permission and closes private relationship/source
   assert.throws(()=>exportContext([{path:'/p/a.md',text:text({relations:JSON.stringify([{type:'depends-on',target:'private'}])})}],{to:'share'}),/missing.*target/);
   assert.throws(()=>exportContext([{path:'/p/a.md',text:text({evidence:JSON.stringify([{type:'claim',date:'2026-10-04',by:'owner',origin:'human',source:'private.md',rev:'abc'}])})}],{to:'share'}),/outside.*bundle/);
 });
+test('sharing refuses autolinks, raw HTML, multiline images and nested labels',()=>{
+  for(const body of ['<https://example.invalid/private-token>','https://example.invalid/raw','![image](\nprivate.png\n)','[a [nested] label](private.md)','<a href="private.md">private</a>','<img srcset="private.png 1x, other.png 2x">']){
+    assert.throws(()=>exportContext([{path:'/p/a.md',text:text({},body)}],{to:'share'}),/External source|outside.*bundle|Raw HTML/);
+  }
+  const records=[{path:'/p/a.md',text:text({},'[a [nested] label](b.md)')},{path:'/p/b.md',text:text({id:'project-beta'})}];
+  assert.equal(exportContext(records,{to:'share'}).length,2);
+});
 test('parent closure refuses active descendants including done-folder children', () => {
   const parent={slug:'parent',status:'active'};
   assert.throws(()=>assertCanClose(parent,[{slug:'child',parent:'parent',status:'active',dir:'/p/done/child'}]),/child/);
   assert.throws(()=>assertCanClose(parent,[{slug:'child',parent:'parent',status:'done'},{slug:'grandchild',parent:'child',status:'active'}]),/grandchild/);
   assert.equal(assertCanClose(parent,[{slug:'child',parent:'parent',status:'done'}]),true);
+  assert.throws(()=>assertCanClose(parent,[{slug:'child',parent:['parent'],status:'active'}]),/Invalid parent/);
+  assert.throws(()=>assertCanClose(parent,[{slug:'child',parent:'parent',status:['done']}]),/Invalid project status/);
 });
 test('configuration refuses secrets recursively', () => {
   assert.throws(()=>assertSafeConfig({adapter:{apiKey:'literal'}}),/configuration/);
