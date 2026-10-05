@@ -12,7 +12,7 @@ test('creation is idempotent only for identical content',()=>{
 import {readFileSync,existsSync,readdirSync,symlinkSync,mkdirSync,writeFileSync,realpathSync,chmodSync,unlinkSync,linkSync} from 'node:fs';
 import {join,dirname,relative,sep} from 'node:path';
 import {createHash} from 'node:crypto';
-import {spawn,execFileSync} from './helpers/native.mjs';
+import {spawn,execFileSync,endInput} from './helpers/native.mjs';
 import {once} from 'node:events';
 import {fileURLToPath} from 'node:url';
 import {capture,locator,evidence,participant,bytes} from './helpers/conversation-fixture.mjs';
@@ -127,8 +127,8 @@ test('CLI create annotate and informational commands work outside source reposit
  assert.match(cli(f,['--help']),/recover/);
 });
 async function holder(f,code){
- const child=ownedMutation({root:f.root},()=>spawn(process.execPath,['--input-type=module','-e',code],{cwd:f.root,env:{...process.env,FREEDOM_HOME:join(f.root,'test-home'),FREEDOM_WORKSPACE:undefined,GIT_DIR:undefined,GIT_WORK_TREE:undefined,GIT_COMMON_DIR:undefined},stdio:['ignore','pipe','pipe','ipc']}));
- const message=once(child,'message'),exit=once(child,'exit');await message;return {child,finish:async()=>{child.send('release');await exit;}};
+ const child=ownedMutation({root:f.root},()=>spawn(process.execPath,['--input-type=module','-e',code],{cwd:f.root,env:{...process.env,FREEDOM_HOME:join(f.root,'test-home'),FREEDOM_WORKSPACE:undefined,GIT_DIR:undefined,GIT_WORK_TREE:undefined,GIT_COMMON_DIR:undefined},stdio:['pipe','pipe','pipe','ipc']}));
+ const message=once(child,'message'),exit=once(child,'exit');await message;return {child,finish:async()=>{endInput(child,'release',f.root);const [code,signal]=await exit;assert.equal(code,0);assert.equal(signal,null);}};
 }
 const lockModule=new URL('../lib/freedom-conversation-lock.mjs',import.meta.url).href;
 const captureModule=new URL('../lib/freedom-migrate-common.mjs',import.meta.url).href;
@@ -136,10 +136,12 @@ test('common Git lock contends across linked worktrees, and releases capture ref
  const f=own(fixture());ownedMutation({root:f.root},()=>{assert.equal(conversationLockContext(f.root).gitCommonDir,null);return execFileSync('git',['init','-q'],{cwd:f.root});});ownedMutation({root:f.root},()=>{execFileSync('git',['add','.freedom.json'],{cwd:f.root});execFileSync('git',['commit','-qm','synthetic fixture'],{cwd:f.root});});
  const wt=join(f.root,'sibling');ownedMutation({root:f.root},()=>execFileSync('git',['worktree','add','-q','--detach',wt,'HEAD'],{cwd:f.root}));mkdirSync(join(wt,f.rel));
  assert.equal(conversationLockContext(f.root).gitCommonDir,conversationLockContext(wt).gitCommonDir);
- const held=await holder(f,`import {withConversationLock} from ${JSON.stringify(lockModule)};withConversationLock(${JSON.stringify(wt)},{pid:process.pid,by:'child'},()=>{process.send('ready');Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,700);});`);
- assert.throws(()=>withConversationLock(f.root,{pid:process.pid,by:'test'},()=>{}),/LOCKED/);await held.finish();
- const captureHeld=await holder(f,`import {withRunLock} from ${JSON.stringify(captureModule)};withRunLock(${JSON.stringify(f.root)},{pid:process.pid,by:'child'},()=>{process.send('ready');Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,700);});`);
- assert.throws(()=>withConversationLock(f.root,{pid:process.pid,by:'test'},()=>{}),/LOCKED/);await captureHeld.finish();
+ // Keep each real lock held until the parent explicitly closes the owned pipe.
+ // Input verification may take arbitrarily longer than a timer on another OS.
+ const held=await holder(f,`import {readFileSync} from 'node:fs';import {withConversationLock} from ${JSON.stringify(lockModule)};withConversationLock(${JSON.stringify(wt)},{pid:process.pid,by:'child'},()=>{process.send('ready');if(readFileSync(0,'utf8')!=='release')throw Error('wrong release input');});process.disconnect();`);
+ try{assert.throws(()=>withConversationLock(f.root,{pid:process.pid,by:'test'},()=>{}),/LOCKED/);}finally{await held.finish();}
+ const captureHeld=await holder(f,`import {readFileSync} from 'node:fs';import {withRunLock} from ${JSON.stringify(captureModule)};withRunLock(${JSON.stringify(f.root)},{pid:process.pid,by:'child'},()=>{process.send('ready');if(readFileSync(0,'utf8')!=='release')throw Error('wrong release input');});process.disconnect();`);
+ try{assert.throws(()=>withConversationLock(f.root,{pid:process.pid,by:'test'},()=>{}),/LOCKED/);}finally{await captureHeld.finish();}
  assert.equal(withConversationLock(f.root,{pid:process.pid,by:'test'},()=>42),42);
 });
 test('concurrent children creating same id or capture leave exactly one record',async()=>{
