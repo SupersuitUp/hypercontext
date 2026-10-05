@@ -136,7 +136,7 @@ export function exportContext(records, { to, allowExternal = false } = {}) {
   for (const node of graph.nodes) {
     // Raw HTML has several reference-bearing attributes. Refuse the unsupported shape.
     if (/<\/?[a-z][a-z\d-]*(?:\s|\/?>)/i.test(node.body)) throw new Error('Raw HTML is not supported in an export bundle; use Markdown references');
-    const targets = [...node.evidence.map(e=>e.source),...markdownTargets(node.body)];
+    const targets = [...node.evidence.map(e=>e.source),...markdownTargets(node.text)];
     for (const target of targets) {
       if (!nonempty(target)) continue;
       if (remote(target)) { if (!allowExternal) throw new Error(`External source requires explicit permission: ${target}`); continue; }

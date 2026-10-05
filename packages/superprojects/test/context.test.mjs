@@ -61,6 +61,7 @@ test('sharing refuses autolinks, raw HTML, multiline images and nested labels',(
   }
   const records=[{path:'/p/a.md',text:text({},'[a [nested] label](b.md)')},{path:'/p/b.md',text:text({id:'project-beta'})}];
   assert.equal(exportContext(records,{to:'share'}).length,2);
+  assert.throws(()=>exportContext([{path:'/p/a.md',text:text({source_of_truth:'https://example.invalid/private-repository'})}],{to:'share'}),/External source/);
 });
 test('parent closure refuses active descendants including done-folder children', () => {
   const parent={slug:'parent',status:'active'};
