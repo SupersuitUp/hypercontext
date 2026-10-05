@@ -110,7 +110,7 @@ jobs:
           fi
           echo "OIDC identity present"
 
-      # Zero runtime dependencies and no lockfile, so there is nothing to install. The
+      # Zero runtime dependencies, so there is nothing to install. The
       # package is the product, so it is tested before it is published, never after.
       - run: npm test
       - run: npm run mutation-check
