@@ -14,7 +14,8 @@ const finding = (level, code, message, extra = {}) => ({ level, code, message, .
 export function validDate(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00Z`);
-  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+  const [year,month,day] = value.split('-').map(Number);
+  return Number.isFinite(date.getTime()) && date.getUTCFullYear() === year && date.getUTCMonth()+1 === month && date.getUTCDate() === day;
 }
 function jsonList(value, name) {
   if (value === undefined) return [];
@@ -116,17 +117,17 @@ export function contextGraph(records) {
 }
 function markdownTargets(body) {
   // Start at the closing label: nested labels and multiline destinations cannot bypass this.
-  const links = [...body.matchAll(/\]\(\s*(?:<([^>]+)>|([^\s)]+))(?:\s+[^)]*)?\)/g)].map(m=>m[1]||m[2]);
+  const links = [...body.matchAll(/\]\([ \t\r\n]*(?:<([^>]+)>|([^ \t\r\n)]+))(?:[ \t\r\n]+[^)]*)?\)/g)].map(m=>m[1]||m[2]);
   // Scan the definition delimiter without interpreting labels or container prefixes.
   // This includes escaped brackets and backslash/newline labels. Conservative scanning
   // also checks unused definitions/code examples; unknown continuations are refused.
-  links.push(...[...body.matchAll(/\]:\s*(?:<([^>]+)>|([^\s]+))/g)].map(m=>m[1]||m[2]));
+  links.push(...[...body.matchAll(/\]:[ \t\r\n]*(?:<([^>]+)>|([^ \t\r\n]+))/g)].map(m=>m[1]||m[2]));
   links.push(...[...body.matchAll(/<([a-z][a-z\d+.-]*:[^<>]+)>/gi)].map(m=>m[1]));
   links.push(...[...body.matchAll(/https?:\/\/[^\s<>"')]+/gi)].map(m=>m[0]));
   // The supported destination subset is deliberately closed. Parentheses can nest,
   // escapes can hide delimiters, and HTML entities can change a resolved path. Refuse
   // those forms rather than validate a prefix or a spelling the renderer will replace.
-  for (const target of links) if (/[\\&()<>\x00-\x1f\x7f]/.test(target)) throw new Error('Unsupported Markdown destination syntax; use a plain or percent-encoded path');
+  for (const target of links) if (/[\\&()<>\x00-\x1f\x7f]|[^\S \t\r\n]/.test(target)) throw new Error('Unsupported Markdown destination syntax; use a plain or percent-encoded path');
   return links;
 }
 export function exportContext(records, { to, allowExternal = false } = {}) {
@@ -146,6 +147,7 @@ export function exportContext(records, { to, allowExternal = false } = {}) {
     const targets = [...node.evidence.map(e=>e.source),...markdownTargets(node.text)];
     for (const target of targets) {
       if (!nonempty(target)) continue;
+      if (target.startsWith('//')) throw new Error(`Unsupported source protocol: ${target}`);
       if (remote(target)) { if (!allowExternal) throw new Error(`External source requires explicit permission: ${target}`); continue; }
       if (/^[a-z][a-z\d+.-]*:/i.test(target)) throw new Error(`Unsupported source protocol: ${target}`);
       if (!permitted.has(pathOf(target,node.path))) throw new Error(`Source outside permitted bundle: ${target}`);

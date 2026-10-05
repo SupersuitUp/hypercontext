@@ -86,6 +86,18 @@ test('ambiguous destination syntax cannot validate a permitted prefix instead of
     {path:`/p/${prefix}`,text:text({id:'project-beta'})},
   ],{to:'share'}),/Unsupported Markdown destination/);
 });
+test('non-ASCII whitespace cannot truncate or hide a Markdown destination',()=>{
+  for(const separator of ['\u00a0','\u1680','\u2003','\u2028','\u2029','\u202f','\u205f','\u3000','\ufeff']){
+    for(const body of [`[source](allowed.md${separator}private.md)`,`[source](${separator})`,`[source]\n\n[source]: allowed.md${separator}private.md`])
+      assert.throws(()=>exportContext([{path:'/p/a.md',text:text({},body)},{path:'/p/allowed.md',text:text({id:'project-beta'})}],{to:'share'}),/Unsupported Markdown destination/);
+  }
+});
+test('protocol-relative URLs cannot be mistaken for a permitted local filename',()=>{
+  assert.throws(()=>exportContext([
+    {path:'/p/a.md',text:text({},'[source](//example.invalid/private.md)')},
+    {path:'/example.invalid/private.md',text:text({id:'project-beta'})},
+  ],{to:'share'}),/Unsupported source protocol/);
+});
 test('parent closure refuses active descendants including done-folder children', () => {
   const parent={slug:'parent',status:'active'};
   assert.throws(()=>assertCanClose(parent,[{slug:'child',parent:'parent',status:'active',dir:'/p/done/child'}]),/child/);

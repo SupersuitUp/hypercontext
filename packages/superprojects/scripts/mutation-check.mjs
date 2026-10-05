@@ -14,7 +14,7 @@ const cases=[
   ['one owner','engine.mjs','engine.test.mjs','if (owners.length !== 1)', 'if (false)'],
   ['no clobber','engine.mjs','engine.test.mjs','if (existsSync(dir))', 'if (false)'],
   ['lint graph','../bin/agentic-projects.mjs','cli.test.mjs','findings.push(...contextGraph(records).findings);','/* graph check deliberately removed */'],
-  ['reference definitions','context.mjs','context.test.mjs','links.push(...[...body.matchAll(/\\]:\\s*(?:<([^>]+)>|([^\\s]+))/g)].map(m=>m[1]||m[2]));','/* reference definition check deliberately removed */'],
+  ['reference definitions','context.mjs','context.test.mjs','links.push(...[...body.matchAll(/\\]:[ \\t\\r\\n]*(?:<([^>]+)>|([^ \\t\\r\\n]+))/g)].map(m=>m[1]||m[2]));','/* reference definition check deliberately removed */'],
   ['ambiguous destinations','context.mjs','context.test.mjs',"throw new Error('Unsupported Markdown destination syntax; use a plain or percent-encoded path');","{}"],
 ];
 let caught=0;
