@@ -70,3 +70,90 @@ test("beforeWrite callback receives validated next data and can refuse before by
   );
   assert.equal(readFileSync(file, "utf8"), text);
 });
+
+const quotedValueCases = [
+  {
+    "name": "escaped quote adjacent to comma",
+    "raw": "\"say \\\", comma\"",
+    "value": "say \", comma"
+  },
+  {
+    "name": "three backslashes before an escaped quote",
+    "raw": "\"say \\\\\\\", comma\"",
+    "value": "say \\\", comma"
+  },
+  {
+    "name": "two backslashes before a closing quote",
+    "raw": "\"ends \\\\\"",
+    "value": "ends \\"
+  },
+  {
+    "name": "four backslashes before a closing quote",
+    "raw": "\"ends \\\\\\\\\"",
+    "value": "ends \\\\"
+  },
+  {
+    "name": "escaped backslash before an interior escaped quote",
+    "raw": "\"slash \\\\\\\\ then \\\"quote\\\", comma\"",
+    "value": "slash \\\\ then \"quote\", comma"
+  },
+  {
+    "name": "single quotes retain backslashes and commas",
+    "raw": "'say \\\", comma'",
+    "value": "say \\\", comma"
+  },
+  {
+    "name": "backslash does not escape a single quote closer",
+    "raw": "'ends \\'",
+    "value": "ends \\"
+  },
+  {
+    "name": "invalid double-quoted escape stays literal",
+    "raw": "\"path C:\\q, tail\"",
+    "value": "path C:\\q, tail"
+  }
+];
+
+for (const { name, raw, value } of quotedValueCases) {
+  test(`quoted list values: ${name}`, () => {
+    const body = "# Synthetic body\n\n";
+    const text = `---\npaths: [${raw}, "next"]\n---\n${body}`;
+    for (const F of [factory(), mod]) {
+      assert.deepEqual(F.split(text).data.paths, [value, "next"]);
+      assert.deepEqual(F.readText(text, "project").data.paths, [value, "next"]);
+      assert.equal(F.split(text).body, body);
+      const serialized = F.join({ paths: [value, "next"] }, body);
+      assert.deepEqual(F.split(serialized).data.paths, [value, "next"]);
+      assert.equal(F.split(serialized).body, body);
+    }
+  });
+
+  test(`allowed nested flow-map values: ${name}`, () => {
+    const F = mod.createFrontmatter({ nestedKeysFor: (kind) => kind === "custom" ? ["metadata"] : [] });
+    const body = "# Synthetic body\n\n";
+    const text = `---\nmetadata:\n  slot: { value: ${raw}, next: "next" }\n---\n${body}`;
+    const expected = { metadata: { slot: { value, next: "next" } } };
+    assert.deepEqual(F.split(text, { kind: "custom" }).data, expected);
+    assert.deepEqual(F.readText(text, "custom").data, expected);
+    assert.equal(F.split(text, { kind: "custom" }).body, body);
+    const serialized = F.join(expected, body, { kind: "custom" });
+    assert.deepEqual(F.split(serialized, { kind: "custom" }).data, expected);
+    assert.equal(F.split(serialized, { kind: "custom" }).body, body);
+    assert.throws(() => F.split(text), /nested map/);
+    assert.throws(() => F.join(expected, body), /nested maps/);
+  });
+}
+
+test("quoted-value handling preserves structural syntax refusals", () => {
+  const F = factory();
+  for (const raw of [
+    "paths: [one",
+    "goal: one\ngoal: two",
+    "BadKey: value",
+    "  - orphan",
+    "goal: value\n  continuation",
+  ]) {
+    assert.throws(() => F.split(`---\n${raw}\n---\nbody`), mod.FrontmatterSyntaxError);
+  }
+  assert.throws(() => F.split("---\ngoal: value"), /unterminated frontmatter/);
+});

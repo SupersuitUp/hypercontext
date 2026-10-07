@@ -71,8 +71,16 @@ export const stripTrailingComment = (v) => {
 // `a, "b, c"`: split on commas outside quotes, leaving each piece unparsed.
 const splitTopLevel = (inner) => {
   const out = []; let cur = ""; let q = null;
-  for (const ch of inner) {
-    if (q) { cur += ch; if (ch === q) q = null; continue; }
+  for (let i = 0; i < inner.length; i++) {
+    const ch = inner[i];
+    if (q) {
+      cur += ch;
+      // Keep escaped pairs intact for unquote(). Paired backslashes leave a following
+      // quote free to close; single-quoted values have no backslash escapes.
+      if (ch === "\\" && q === '"') { cur += inner[++i] ?? ""; continue; }
+      if (ch === q) q = null;
+      continue;
+    }
     if (ch === '"' || ch === "'") { q = ch; cur += ch; continue; }
     if (ch === ",") { out.push(cur); cur = ""; continue; }
     cur += ch;
