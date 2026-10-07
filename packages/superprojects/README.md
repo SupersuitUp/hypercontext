@@ -64,6 +64,8 @@ Include every referenced local record using repeated `--file`; each must indepen
 
 `createProjectEngine(options)` supplies header parsing/roles, rendering/scaffold, lint/backfill, root enumeration, project/state query, open-project/cadence and resumability algorithms. `createFrontmatter({KINDS, validate, nestedKeysFor, personExists, beforeWrite})` shares the codec with a product's other document kinds. `parseFlat`/`stringifyFlat` expose the codec directly.
 
+Quoted values keep commas inside an inline list item or an allowed nested flow-map value. Double-quoted values decode JSON-style escaped quotes and backslashes, including a backslash immediately before the closing quote; an invalid escape stays literal. Single-quoted values retain backslashes literally. Nesting still requires explicit `nestedKeysFor` permission for that kind.
+
 Engine options include `frontmatter`, people resolution (`personExists`, `personPath`, `personHref`, `recordPath`, `recordName`, `workspaceLayout`), workspace paths, `deriveSourceOfTruth`, `continentOperators`, `localDay`, `lastRunAt` and `parseBooked`. Optional command formatters produce advice in the product's vocabulary. `scaffoldProject` accepts explicit `context` and `stateContext`; calls without them preserve legacy behavior.
 
 `assertCanClose(parent, projects)` refuses unfinished descendants, including records in done folders. Pass the full set, including snoozed/done records, rather than a filtered open-project list. The product's write/move adapter calls it before closing. The library does not move or relink folders itself.
