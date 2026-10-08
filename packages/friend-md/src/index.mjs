@@ -598,7 +598,25 @@ const REQUIRED = ["kind", "id", "name", "summary", "read_when", "as_of", "keep",
 const KNOWN_FILES = new Set([FRIEND_FILE, "story.md", "voice.md", "quotes.md", "private.md", "media.md", "log", "threads", "messages"]);
 export const LOG_LINE = /^- \d{4}-\d{2}(-\d{2})? · .+ (\[[^\]]+\]|\(my read\)|\(said by [^)]+\))$/;
 
+/** Facets a workspace adds to the vocabulary: people/README.md, a `## Facets` section, one
+ *  `- name: what it means` line each. The README tells operators to add their own there, so the
+ *  lint has to read it, or the warning it promises to stop never stops. */
+export function declaredFacets(dir) {
+  let text;
+  try { text = lf(readFileSync(join(dir, "README.md"), "utf8")); } catch { return []; }
+  const out = [];
+  let inside = false;
+  for (const line of text.split("\n")) {
+    if (/^#{2,3}\s+Facets\s*$/i.test(line)) { inside = true; continue; }
+    if (/^#{1,6}\s/.test(line)) { inside = false; continue; }
+    const m = inside && line.match(/^-\s+`?([a-z0-9][a-z0-9-]*)`?:\s+\S/);
+    if (m) out.push(m[1]);
+  }
+  return out;
+}
+
 export function lint(dir, { slug } = {}) {
+  const knownFacets = new Set([...FACETS, ...declaredFacets(dir)]);
   const out = [];
   const add = (s, rule, severity, message) => out.push({ slug: s, rule, severity, message });
   const folderWs = workspaceLayout(dir) === "folder";
@@ -625,7 +643,7 @@ export function lint(dir, { slug } = {}) {
       const now = sectionsOf(parts(text).body).Now;
       if (now && now.split("\n").filter((l) => l.trim()).length > LIMITS.nowLines) add(s, "now-too-long", "error", `Now is over ${LIMITS.nowLines} lines`);
       if (raw.circle && !CIRCLES.includes(String(raw.circle))) add(s, "bad-circle", "error", `circle "${raw.circle}"`);
-      const bad = n.relationship.filter((r) => !FACETS.includes(r));
+      const bad = n.relationship.filter((r) => !knownFacets.has(r));
       if (bad.length) add(s, "unknown-facet", "warn", `facets not in the vocabulary: ${bad.join(", ")}`);
       const logDir = join(folderDir, "log");
       let logs = [];

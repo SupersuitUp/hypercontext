@@ -602,3 +602,24 @@ test("Freedom 5: operator() follows a remapped self/ through .freedom.json", () 
                     "me/self.md": "---\nkind: self\nname: Pat Self\n---\n" });
   assert.equal(P.operator(ws)?.name, "Pat Self");
 });
+
+// ---- declared facets (Freedom's people README: "Add your own facets here, and the lint will stop warning about them")
+const FACETFM = (id, rel) => `---\nkind: friend\nid: ${id}\nname: N\nsummary: s\nread_when: r\nas_of: 2026-09-30\nkeep: home\ncircle: close\nrelationship: [${rel}]\n---\n## Now\nx\n`;
+const unknownFacets = (d) => P.lint(d).filter((f) => f.rule === "unknown-facet");
+
+test("a facet outside the vocabulary warns when nothing declares it", () => {
+  const d = tree({ "README.md": "---\nlayout: friend-md\n---\n", "fo-pal/friend.md": FACETFM("fo-pal", "founder") });
+  assert.equal(unknownFacets(d).length, 1);
+});
+
+test("a facet declared under ## Facets in people/README.md stops warning", () => {
+  const d = tree({ "README.md": "---\nlayout: friend-md\n---\n# People\n\n## Facets\n\n- founder: started a company I work with\n- `keeper`: holds a family archive\n\n## Other\n- coach: not a declaration\n",
+    "fo-pal/friend.md": FACETFM("fo-pal", "founder, keeper"), "co-pal/friend.md": FACETFM("co-pal", "coach") });
+  assert.deepEqual(P.declaredFacets(d), ["founder", "keeper"]);
+  assert.deepEqual(unknownFacets(d).map((f) => f.slug), ["co-pal"], "only the facet outside the section still warns");
+});
+
+test("no README means no declared facets, never a crash", () => {
+  const d = tree({ "fo-pal/friend.md": FACETFM("fo-pal", "friend") });
+  assert.deepEqual(P.declaredFacets(d), []);
+});
