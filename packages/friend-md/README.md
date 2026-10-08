@@ -105,6 +105,10 @@ rewriting, OS message capture and self-folder conversion remain in Freedom. This
 release does not switch Freedom's deployed implementation to an npm dependency.
 
 The [format reference](docs/format.md) describes files, required fields and limits.
+
+The relationship vocabulary (`FACETS`) is a default, not a closed list. A workspace adds its own
+facets in `people/README.md` under a `## Facets` heading, one `- name: what it means` line each;
+`lint` reads them (`declaredFacets(dir)`) and stops warning about them.
 The package also exports its existing vocabulary, normalization and path helpers;
 [src/index.mjs](src/index.mjs) carries their signatures and contract comments.
 
