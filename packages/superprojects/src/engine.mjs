@@ -1821,6 +1821,7 @@ export function createProjectEngine(options = {}) {
     projectsRootOf,
     topRootOf,
     enclosingProjectDir,
+    inDone,
     projectDirs,
     projectDirsOf,
     nestingPlan,

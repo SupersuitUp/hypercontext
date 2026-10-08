@@ -103,6 +103,8 @@ test("every reader finds subprojects at any depth, live and done, and nothing el
   assert.equal(E.enclosingProjectDir(grand.dir), child.dir);
   assert.equal(E.enclosingProjectDir(doneDir), parent.dir);
   assert.equal(E.enclosingProjectDir(parent.dir), null);
+  assert.equal(E.inDone(doneDir), true);
+  assert.equal(E.inDone(grand.dir), false);
 
   const paths = { root: ws, projects: root };
   const open = E.openProjects({ paths, now: NOW });
