@@ -41,3 +41,17 @@ test('documented commands work in an external directory',()=>{
     assert.ok(graphFindings.some(f=>f.code==='duplicate-id'),'lint checks the full identity graph');
   } finally {rmSync(dir,{recursive:true,force:true});}
 });
+test('subprojects scaffold inside their parent, close-check sees them, nest-plan reports flat ones',()=>{
+  const dir=mkdtempSync(join(tmpdir(),'project-cli-')),root=join(dir,'projects');
+  const base=['--name','Demo','--owner','alex','--goal','Deliver a reviewed guide','--date','2026-10-04','--summary','Guide ready for review','--read-when','Resuming the guide','--keep','home','--audience','self','--actor','alex','--next-action','Alex reviews the guide'];
+  try {
+    assert.equal(cli('scaffold','--root',root,'--slug','parent',...base).status,0);
+    const child=cli('scaffold','--root',root,'--slug','child','--parent','2026-10-04-parent',...base,'--json');
+    assert.equal(child.status,0,child.stderr);
+    assert.equal(JSON.parse(child.stdout).dir,join(root,'2026-10-04-parent','projects','2026-10-04-child'));
+    assert.equal(cli('close-check','--root',root,'--slug','2026-10-04-parent','--json').status,1,'an open subproject blocks closing its parent');
+    const plan=JSON.parse(cli('nest-plan','--root',root,'--json').stdout);
+    assert.deepEqual(plan.moves,[]);
+    assert.match(cli('nest-plan','--root',root).stdout,/already sits inside/);
+  } finally {rmSync(dir,{recursive:true,force:true});}
+});

@@ -93,8 +93,12 @@ export function createProjectEngine(options = {}) {
   const peopleDirFor =
     options.peopleDirFor ??
     ((dir) => {
-      for (const rel of ["../../people", "../../../people"])
+      // A subproject sits two levels deeper per generation (`<parent>/projects/<child>`), so
+      // the people folder is found by climbing rather than by a fixed list of depths.
+      for (let up = 2; up <= 2 + 2 * MAX_NESTING + 1; up++) {
+        const rel = Array(up).fill("..").join("/") + "/people";
         if (existsSync(resolve(dir, rel))) return rel;
+      }
       return "../../people";
     });
   const FRIEND_FILE = options.peopleFileName ?? "friend.md";
@@ -162,6 +166,18 @@ export function createProjectEngine(options = {}) {
     sponsor: "visible",
     subject: "subject",
   };
+
+  const isDir = (p) => {
+    try {
+      return statSync(p).isDirectory();
+    } catch {
+      return false;
+    }
+  };
+  // A subproject lives in its parent's `projects/` folder; nesting deeper than this is refused
+  // by discovery rather than walked forever through a symlink loop.
+  const NESTED_ROOT = "projects";
+  const MAX_NESTING = 8;
 
   const WARN = "warn",
     ERROR = "error",
@@ -638,8 +654,24 @@ export function createProjectEngine(options = {}) {
       }
     }
     const parentSlug = block?.parent;
+    const physical = enclosingProjectDir(dir);
+    if (physical && !parentSlug) {
+      add(
+        ERROR,
+        "projects:header:parent-location",
+        `${slug} sits inside ${basename(physical)}'s folder and names no parent.`,
+        `Set parent: ${basename(physical)} in ${file}, or move the folder out of ${basename(physical)}.`,
+      );
+    } else if (physical && parentSlug !== basename(physical)) {
+      add(
+        ERROR,
+        "projects:header:parent-location",
+        `${slug} says it is a subproject of ${parentSlug} and sits inside ${basename(physical)}'s folder. One of them moved.`,
+        `Set parent: ${basename(physical)} in ${file}, or move the folder into ${parentSlug}/${NESTED_ROOT}/.`,
+      );
+    }
     if (parentSlug) {
-      const root = projectsRootOf(dir);
+      const root = topRootOf(dir);
       if (parentSlug === slug) {
         add(
           ERROR,
@@ -655,6 +687,14 @@ export function createProjectEngine(options = {}) {
           `Set parent in ${file} to an existing project's folder name, or remove it.`,
         );
       } else {
+        if (!physical)
+          add(
+            WARN,
+            "projects:header:parent-not-nested",
+            `${slug} is a subproject of ${parentSlug} and sits beside it rather than inside it.`,
+            options.nestCommand?.(dir) ??
+              `Move ${slug} into ${parentSlug}/${NESTED_ROOT}/ and rewrite the links that pointed at it.`,
+          );
         const chain = [slug];
         let cur = parentSlug;
         for (let hops = 0; cur && hops < 50; hops++) {
@@ -684,33 +724,197 @@ export function createProjectEngine(options = {}) {
     return out;
   }
 
-  function findProjectDir(projectsRoot, slug) {
-    for (const d of [
-      join(projectsRoot, slug),
-      join(projectsRoot, "done", slug),
-    ])
-      if (existsSync(join(d, "PROJECT.md"))) return d;
-    return null;
-  }
-
-  const projectsRootOf = (dir) =>
-    basename(dirname(dir)) === "done" ? dirname(dirname(dir)) : dirname(dir);
-
-  function projectDirs(root) {
+  /**
+   * Every project folder under a projects root, at any depth.
+   *
+   * A root holds `<slug>/` folders and a `done/` folder of closed ones. A subproject lives
+   * INSIDE its parent, under the parent's own `projects/` folder, which is a projects root in
+   * every respect: it has live children and a `done/` of its own. Only that folder name is
+   * descended into, so a stray PROJECT.md in a project's documents or anywhere else is never
+   * counted as a project.
+   */
+  function projectFolders(root, { stateOnly = true } = {}) {
     const out = [];
-    for (const r of [root, join(root, "done")]) {
-      if (!existsSync(r)) continue;
-      for (const slug of readdirSync(r).sort()) {
-        const dir = join(r, slug);
+    const walk = (r, depth) => {
+      for (const base of [r, join(r, "done")]) {
+        if (!existsSync(base)) continue;
+        let names;
         try {
-          if (!statSync(dir).isDirectory()) continue;
+          names = readdirSync(base).sort();
         } catch {
           continue;
         }
-        if (existsSync(join(dir, "PROJECT.md"))) out.push(dir);
+        for (const name of names) {
+          if (name.startsWith(".") || name === "node_modules") continue;
+          if (base === r && name === "done") continue;
+          const dir = join(base, name);
+          if (!isDir(dir)) continue;
+          const isProject =
+            existsSync(join(dir, "PROJECT.md")) ||
+            (stateOnly && existsSync(join(dir, "STATE.md")));
+          if (!isProject) continue;
+          out.push(dir);
+          if (depth < MAX_NESTING) walk(join(dir, NESTED_ROOT), depth + 1);
+        }
+      }
+    };
+    walk(root, 0);
+    return out;
+  }
+
+  /** The folder of the project called `slug` under `projectsRoot`, at any depth; live first. */
+  function findProjectDir(projectsRoot, slug) {
+    const hits = projectFolders(projectsRoot, { stateOnly: false }).filter(
+      (d) => basename(d) === slug,
+    );
+    return hits.find((d) => !inDone(d)) ?? hits[0] ?? null;
+  }
+
+  /** True when the folder sits in a `done/` folder, its own or an ancestor project's. */
+  const inDone = (dir) => {
+    for (let d = dir; d; d = enclosingProjectDir(d))
+      if (basename(dirname(d)) === "done") return true;
+    return false;
+  };
+
+  /** The projects root that directly holds `dir` (its `done/` folder is part of the root). */
+  const projectsRootOf = (dir) =>
+    basename(dirname(dir)) === "done" ? dirname(dirname(dir)) : dirname(dir);
+
+  /** The project whose folder holds `dir` as a subproject, or null for a top-level project. */
+  function enclosingProjectDir(dir) {
+    const r = projectsRootOf(dir);
+    if (basename(r) !== NESTED_ROOT) return null;
+    const up = dirname(r);
+    return existsSync(join(up, "PROJECT.md")) || existsSync(join(up, "STATE.md"))
+      ? up
+      : null;
+  }
+
+  /** The outermost projects root above `dir`: the one a workspace declares. */
+  function topRootOf(dir) {
+    let d = dir;
+    for (let up; (up = enclosingProjectDir(d)); ) d = up;
+    return projectsRootOf(d);
+  }
+
+  function projectDirs(root) {
+    return projectFolders(root, { stateOnly: false });
+  }
+
+  /**
+   * Where each subproject that sits BESIDE its parent should live instead: inside it, at
+   * `<parent>/projects/<child>/` (or `<parent>/projects/done/<child>/` for a closed child).
+   * Computes; moves nothing. Each move is `{slug, parent, from, to}`, ordered so a parent that
+   * itself moves comes before its children, and `to` is the FINAL location. A child already
+   * inside its parent is carried by the parent's move and gets no move of its own. Anything
+   * that cannot be placed safely is returned in `skipped` with the reason.
+   */
+  function nestingPlan(root) {
+    const dirs = projectDirs(root);
+    const bySlug = new Map();
+    for (const d of dirs) {
+      const s = basename(d);
+      if (!bySlug.has(s)) bySlug.set(s, []);
+      bySlug.get(s).push(d);
+    }
+    const parentOf = new Map();
+    const statusOf = new Map();
+    for (const d of dirs) {
+      let data = null;
+      try {
+        data = split(readFileSync(join(d, "PROJECT.md"), "utf8")).data;
+      } catch {
+        data = null;
+      }
+      parentOf.set(d, data?.parent ? String(data.parent) : null);
+      statusOf.set(d, String(data?.status || "active").toLowerCase());
+    }
+    const skipped = [];
+    const skip = new Map();
+    const refuse = (d, why) => {
+      if (!skip.has(d)) {
+        skip.set(d, why);
+        skipped.push({ slug: basename(d), from: d, why });
+      }
+    };
+    const closed = (d) => inDone(d) || /^done\b/.test(statusOf.get(d));
+    const parentDir = new Map();
+    for (const d of dirs) {
+      const p = parentOf.get(d);
+      const physical = enclosingProjectDir(d);
+      if (!p) {
+        if (physical) parentDir.set(d, physical);
+        continue;
+      }
+      if (bySlug.get(basename(d)).length > 1) {
+        refuse(d, `${bySlug.get(basename(d)).length} folders are named ${basename(d)}; rename one first`);
+        continue;
+      }
+      if (physical && basename(physical) !== p) {
+        refuse(d, `sits inside ${basename(physical)} but names ${p} as its parent; fix the parent field or move it by hand`);
+        continue;
+      }
+      const pds = bySlug.get(p) ?? [];
+      if (!pds.length) {
+        refuse(d, `its parent ${p} names no project folder`);
+        continue;
+      }
+      if (pds.length > 1) {
+        refuse(d, `its parent ${p} names ${pds.length} folders; rename one first`);
+        continue;
+      }
+      if (inDone(pds[0]) && !closed(d)) {
+        refuse(d, `its parent ${p} is closed and it is not; close it or reopen the parent first`);
+        continue;
+      }
+      parentDir.set(d, pds[0]);
+    }
+    // Cycles: a chain that comes back to itself has no inside.
+    for (const d of parentDir.keys()) {
+      const seen = new Set([d]);
+      for (let c = parentDir.get(d); c; c = parentDir.get(c)) {
+        if (seen.has(c)) {
+          refuse(d, `its parent chain comes back to itself`);
+          break;
+        }
+        seen.add(c);
       }
     }
-    return out;
+    // A child whose ancestor is refused stays where it is, with the ancestor.
+    const blocked = (d) => {
+      for (let c = d; c; c = parentDir.get(c)) if (skip.has(c)) return true;
+      return false;
+    };
+    const finals = new Map();
+    const finalOf = (d) => {
+      if (finals.has(d)) return finals.get(d);
+      let out = d;
+      const pd = parentDir.get(d);
+      if (pd && !blocked(d)) {
+        const physical = enclosingProjectDir(d);
+        out =
+          physical === pd
+            ? join(finalOf(pd), relative(pd, d))
+            : join(finalOf(pd), NESTED_ROOT, ...(inDone(d) ? ["done"] : []), basename(d));
+      }
+      finals.set(d, out);
+      return out;
+    };
+    const moves = [];
+    for (const d of dirs) {
+      const pd = parentDir.get(d);
+      if (!pd || blocked(d) || enclosingProjectDir(d) === pd) continue;
+      const to = finalOf(d);
+      if (existsSync(to)) {
+        refuse(d, `${to} already exists; resolve by hand`);
+        continue;
+      }
+      moves.push({ slug: basename(d), parent: basename(pd), from: d, to });
+    }
+    const depth = (p) => p.split("/").length;
+    moves.sort((a, b) => depth(a.to) - depth(b.to) || (a.to < b.to ? -1 : 1));
+    return { moves: moves.filter((m) => !skip.has(m.from)), skipped };
   }
 
   function lintRoot(root, opts = {}) {
@@ -838,6 +1042,7 @@ export function createProjectEngine(options = {}) {
       nickname = null,
       parent = null,
       parentName = null,
+      parentHref = null,
       goodLooksLike = "",
       failure = "",
       peopleDir = "../../people",
@@ -930,7 +1135,7 @@ export function createProjectEngine(options = {}) {
       "",
       ...(parent
         ? [
-            `A subproject of [${parentName || parent}](../${parent}/PROJECT.md).`,
+            `A subproject of [${parentName || parent}](${parentHref || `../../PROJECT.md`}).`,
             "",
           ]
         : []),
@@ -1076,10 +1281,14 @@ export function createProjectEngine(options = {}) {
     if (!root || !slug || !today)
       throw new Error("scaffold: root, slug and today are required");
     const folder = /^\d{4}-\d{2}-\d{2}-/.test(slug) ? slug : `${today}-${slug}`;
-    const dir = join(root, folder);
-    if (existsSync(dir))
-      throw new Error(`scaffold: ${dir} already exists; update it instead`);
+    let dir = join(root, folder);
+    // A slug names one project wherever it sits, so a subproject cannot reuse a name taken
+    // anywhere else under the root (and the reverse).
+    const taken = existsSync(dir) ? dir : findProjectDir(root, folder);
+    if (taken)
+      throw new Error(`scaffold: ${taken} already exists; update it instead`);
     let parentName = null;
+    let parentHref = null;
     if (spec.parent) {
       const pd = findProjectDir(root, spec.parent);
       if (!pd)
@@ -1095,17 +1304,28 @@ export function createProjectEngine(options = {}) {
           `scaffold: parent "${spec.parent}" is done; a closed project takes no new subprojects`,
         );
       parentName = (ptext.match(/^#\s+(.+)$/m) || [])[1]?.trim() || spec.parent;
+      if (inDone(pd))
+        throw new Error(
+          `scaffold: parent "${spec.parent}" is done; a closed project takes no new subprojects`,
+        );
+      // The subproject lives INSIDE its parent, in the parent's own projects root.
+      dir = join(pd, NESTED_ROOT, folder);
+      if (existsSync(dir))
+        throw new Error(`scaffold: ${dir} already exists; update it instead`);
+      parentHref = relative(dir, join(pd, "PROJECT.md"));
     }
     const sourceOfTruth = spec.sourceOfTruth ?? deriveSourceOfTruth(root);
     const bareNames = spec.bareNames ?? continentOperators(root);
     const peopleDirAbs = spec.peopleDirAbs ?? peopleDirAbsFor(root);
     const projectFile = workspaceRootFor(root) ? join(dir, "PROJECT.md") : null;
     const project = renderProjectMd({
+      peopleDir: relative(dir, resolve(root, "..", "people")),
       ...spec,
       sourceOfTruth,
       bareNames,
       peopleDirAbs,
       parentName,
+      parentHref,
       projectFile,
     });
     const state = renderStateMd({
@@ -1140,34 +1360,17 @@ export function createProjectEngine(options = {}) {
       multiplayer: parseHeader(project, { projectDir: dir }).multiplayer,
     };
   }
-  const isDir = (p) => {
-    try {
-      return statSync(p).isDirectory();
-    } catch {
-      return false;
-    }
-  };
-
-  const subdirs = (dir) => {
-    if (!existsSync(dir)) return [];
-    return readdirSync(dir)
-      .filter((n) => !n.startsWith(".") && n !== "node_modules")
-      .map((n) => joinPath(dir, n))
-      .filter(isDir);
-  };
-
-  function projectRoots(P) {
+  /** Every project folder under every declared root, subprojects and done/ included. */
+  function projectDirsOf(P) {
     const declared = (P.projectsRoots ?? [P.projects]).filter(Boolean);
-    return declared.flatMap((r) => [r, joinPath(r, "done")]);
+    return [...new Set(declared.flatMap((r) => projectFolders(r)))];
   }
 
   function projectFilesOf(filename, P) {
     const files = [];
-    for (const root of projectRoots(P)) {
-      for (const dir of subdirs(root)) {
-        const f = joinPath(dir, filename);
-        if (existsSync(f)) files.push(f);
-      }
+    for (const dir of projectDirsOf(P)) {
+      const f = joinPath(dir, filename);
+      if (existsSync(f)) files.push(f);
     }
     return [...new Set(files)];
   }
@@ -1394,8 +1597,11 @@ export function createProjectEngine(options = {}) {
         repo,
         sourceOfTruth,
         goal: P.goal ?? null,
-        parent: P.parent ?? null,
-        parentName: P.parent ? (nameBySlug.get(P.parent) ?? null) : null,
+        dir,
+        parent: P.parent ?? physicalParent(dir),
+        parentName: (P.parent ?? physicalParent(dir))
+          ? (nameBySlug.get(P.parent ?? physicalParent(dir)) ?? null)
+          : null,
         deadline: P.deadline ?? null,
         phase: S.phase ?? null,
         cadence,
@@ -1431,6 +1637,11 @@ export function createProjectEngine(options = {}) {
       enumerable: false,
     });
     return sorted;
+  }
+
+  function physicalParent(dir) {
+    const up = enclosingProjectDir(dir);
+    return up ? basename(up) : null;
   }
 
   function subprojectsOf(projects, slug) {
@@ -1608,7 +1819,12 @@ export function createProjectEngine(options = {}) {
     lintProject,
     findProjectDir,
     projectsRootOf,
+    topRootOf,
+    enclosingProjectDir,
     projectDirs,
+    projectDirsOf,
+    nestingPlan,
+    NESTED_ROOT,
     lintRoot,
     peopleDirFor,
     backfillProject,

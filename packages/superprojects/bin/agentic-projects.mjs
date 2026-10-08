@@ -13,6 +13,8 @@ query        Query project or state metadata (--root --kind [--where key=value])
 verify       Set a verification date from attributed evidence (--file)
 export       Check an explicit permitted bundle (--file repeated --to home|share)
 close-check  Refuse closing a parent with unfinished descendants (--root --slug)
+nest-plan    List the subprojects sitting beside their parent and where each belongs
+             inside it (--root). Read-only: the product moves folders and relinks.
 
 Common: --root <projects-directory> --file <record> --json --help
 Scaffold: --slug --name --owner --goal --date YYYY-MM-DD --summary
@@ -50,7 +52,7 @@ const paths=a=>{requireKeys(a,['root']);const root=resolve(a.root);return {root:
 function main(args){
   const {command,values:a}=parse(args);
   if(a.help||!command){console.log(HELP);return 0;}
-  const allowed=['scaffold','list','read','lint','query','verify','export','close-check'];
+  const allowed=['scaffold','list','read','lint','query','verify','export','close-check','nest-plan'];
   if(!allowed.includes(command))throw new Usage(`Unknown command: ${command}`);
   if(a.write&&command!=='verify')throw new Usage('--write is only supported by verify');
   const engine=createProjectEngine();
@@ -95,9 +97,15 @@ function main(args){
   if(command==='close-check'){
     requireKeys(a,['slug']);const result=engine.query('project',{paths:P,workspace:P.root});
     if(result.problems.length)throw new Error('Unreadable projects prevent a safe parent-close check');
-    const projects=result.rows.map(r=>({slug:r.slug,...r.data}));const parent=projects.find(p=>p.slug===a.slug);
+    // A subproject inside its parent's folder is that parent's child even before its header says so.
+    const projects=result.rows.map(r=>{const up=engine.enclosingProjectDir(r.dir);return {slug:r.slug,...(up&&!r.data.parent?{parent:basename(up)}:{}),...r.data};});const parent=projects.find(p=>p.slug===a.slug);
     if(!parent)throw new Error(`Project not found: ${a.slug}`);
     assertCanClose(parent,projects);emit({canClose:true,slug:a.slug},a.json);return 0;
+  }
+  if(command==='nest-plan'){
+    const plan=engine.nestingPlan(P.projects);
+    emit(a.json?plan:[...plan.moves.map(m=>`move ${m.from} -> ${m.to}`),...plan.skipped.map(s=>`skip ${s.from}: ${s.why}`)].join('\n')||'Every subproject already sits inside its parent.',a.json);
+    return 0;
   }
   const findings=engine.lintRoot(P.projects),records=[];
   for(const dir of engine.projectDirs(P.projects)){
