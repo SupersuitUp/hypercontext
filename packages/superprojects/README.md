@@ -85,6 +85,8 @@ Quoted values keep commas inside an inline list item or an allowed nested flow-m
 
 Engine options include `frontmatter`, people resolution (`personExists`, `personPath`, `personHref`, `recordPath`, `recordName`, `workspaceLayout`), workspace paths, `deriveSourceOfTruth`, `continentOperators`, `localDay`, `lastRunAt` and `parseBooked`. Optional command formatters produce advice in the product's vocabulary. `scaffoldProject` accepts explicit `context` and `stateContext`; calls without them preserve legacy behavior.
 
+`openProjects({ includeSnoozed: true })` returns snoozed projects as full rows marked `snoozedUntil`, for a survey that must see every open project; by default they stay in the list's `.snoozed` only. Each row carries `dir`.
+
 `assertCanClose(parent, projects)` refuses unfinished descendants, including records in done folders. Pass the full set, including snoozed/done records, rather than a filtered open-project list. The product's write/move adapter calls it before closing. The library does not move or relink folders itself.
 
 Freedom vendors this package with SHA-256 checks and thin adapters. Change generic behavior in the source package; regenerate its vendor payload. Git probes, people layout and session machinery stay in Freedom.
