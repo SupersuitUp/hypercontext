@@ -1459,6 +1459,9 @@ export function createProjectEngine(options = {}) {
       projects: joinPath(process.cwd(), "projects"),
     },
     now = new Date(),
+    // A survey of EVERY open project (a weekly prune) wants snoozed ones as full rows, marked
+    // with `snoozedUntil`; every other caller keeps them off the list and in `.snoozed`.
+    includeSnoozed = false,
   } = {}) {
     const declared = (paths.projectsRoots ?? [paths.projects]).filter(Boolean);
     if (!declared.length) return [];
@@ -1536,17 +1539,17 @@ export function createProjectEngine(options = {}) {
       const statusNote = P.status_note ?? null;
       if (/^done\b/.test(status)) continue; // the folder is the record; it is not pending
       const snoozedUntil = S.snooze_until;
-      if (
+      const isSnoozed =
         snoozedUntil &&
         /^\d{4}-\d{2}-\d{2}/.test(snoozedUntil) &&
-        snoozedUntil.slice(0, 10) > localDay(now)
-      ) {
+        snoozedUntil.slice(0, 10) > localDay(now);
+      if (isSnoozed) {
         snoozed.push({
           slug,
           name: (project.match(/^#\s+(.+)$/m) || [])[1]?.trim() || slug,
           until: snoozedUntil.slice(0, 10),
         });
-        continue;
+        if (!includeSnoozed) continue;
       }
       const kind =
         (P.kind || "finite").toLowerCase() === "ongoing" ? "ongoing" : "finite";
@@ -1598,6 +1601,9 @@ export function createProjectEngine(options = {}) {
         sourceOfTruth,
         goal: P.goal ?? null,
         dir,
+        ...(includeSnoozed
+          ? { snoozedUntil: isSnoozed ? snoozedUntil.slice(0, 10) : null }
+          : {}),
         parent: P.parent ?? physicalParent(dir),
         parentName: (P.parent ?? physicalParent(dir))
           ? (nameBySlug.get(P.parent ?? physicalParent(dir)) ?? null)

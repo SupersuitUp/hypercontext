@@ -206,3 +206,21 @@ test("nestingPlan refuses a child whose destination is taken or whose slug is am
   assert.match(skipped[0].why, /already exists/);
   assert.equal(basename(skipped[0].from), "2026-10-08-kid");
 });
+
+test("includeSnoozed returns snoozed projects as full rows, marked, and the default still hides them", (t) => {
+  const E = createProjectEngine(),
+    { ws, root } = workspace(t);
+  const a = make(E, root, "awake");
+  const z = make(E, root, "asleep");
+  writeFileSync(join(z.dir, "STATE.md"), "---\nsnooze_until: 2026-11-01\nlast_worked: 2026-09-01\n---\n# State\n\n## Next action\n\nWake up.\n");
+  const paths = { root: ws, projects: root };
+  const hidden = E.openProjects({ paths, now: NOW });
+  assert.deepEqual(hidden.map((p) => p.slug), [a.folder]);
+  assert.equal(hidden.snoozed.length, 1);
+  const all = E.openProjects({ paths, now: NOW, includeSnoozed: true });
+  const row = all.find((p) => p.slug === z.folder);
+  assert.equal(row.snoozedUntil, "2026-11-01");
+  assert.equal(row.nextAction, "Wake up.");
+  assert.equal(all.find((p) => p.slug === a.folder).snoozedUntil, null);
+  assert.equal(all.snoozed.length, 1, "still reported as snoozed");
+});
