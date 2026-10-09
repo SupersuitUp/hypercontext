@@ -31,8 +31,11 @@ try{
   run(bin,['verify','--file',state,'--date','2026-10-04','--by','alex','--source','PROJECT.md','--origin','human','--write']);
   assert.equal(JSON.parse(run(bin,['close-check','--root','demo/projects','--slug','2026-10-04-guide','--json'])).canClose,true);
   assert.ok(JSON.parse(run(bin,['lint','--root','demo/projects','--json'],1)).findings.length);
+  const project='demo/projects/2026-10-04-guide';
+  assert.ok(JSON.parse(run(bin,['plan','lint','--project',project,'--json'],1)).findings.some(f=>f.code==='plan:target:missing'));
+  assert.equal(JSON.parse(run(bin,['plan','status','--project',project,'--date','2026-10-04','--json'])).verdict,'no-deadline');
   writeFileSync(join(dir,'permitted-record.md'),'---\ncontext_version: "1"\nid: shared-note\nsummary: Explicitly permitted note\nread_when: Reading the note\nas_of: 2026-10-04\nkeep: share\naudience: readers\n---\n# Note\n\nAn approved synthetic record.\n');
   assert.equal(JSON.parse(run(bin,['export','--file','permitted-record.md','--to','share','--json'])).records.length,1);
-  run(process.execPath,['--input-type=module','-e',"import { createProjectEngine, validateContext } from '@supersuit/agentic-projects'; if (!createProjectEngine().resumability || typeof validateContext !== 'function') process.exit(1)"]);
+  run(process.execPath,['--input-type=module','-e',"import { createProjectEngine, validateContext, planStatus } from '@supersuit/agentic-projects'; if (!createProjectEngine().resumability || typeof validateContext !== 'function' || typeof planStatus !== 'function') process.exit(1)"]);
   console.log(`Installed ${pack.filename} outside source checkout; documented CLI/library commands pass; ${pack.files.length} payload files audited`);
 }finally{rmSync(dir,{recursive:true,force:true});}
