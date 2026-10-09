@@ -19,9 +19,26 @@ npx agentic-projects query --root demo/projects --kind project --where status=ac
 npx agentic-projects verify --file demo/projects/2026-10-04-guide/STATE.md \
   --date 2026-10-04 --by alex --source PROJECT.md --origin human --write
 npx agentic-projects close-check --root demo/projects --slug 2026-10-04-guide --json
+npx agentic-projects nest-plan --root demo/projects --json
 ```
 
 PROJECT.md holds purpose, ownership and deliverable; STATE.md holds phase, next action, progress and open questions. Folders are dated and existing projects are never overwritten. Parents must exist and remain open when children are created.
+
+## Subprojects
+
+A subproject lives inside its parent, in the parent's own `projects/` folder, which works exactly like a top-level root:
+
+```
+projects/
+  2026-10-04-guide/
+    PROJECT.md  STATE.md
+    projects/
+      2026-10-06-chapter-one/          # parent: 2026-10-04-guide
+      done/2026-10-05-outline/         # a closed child
+  done/
+```
+
+`scaffold --parent <slug>` creates the child there; slugs stay unique at every depth. Every reader finds projects at any depth, and only a project's `projects/` folder is descended into. The `parent:` header must agree with the folder the child sits in (lint error `projects:header:parent-location`); a child still beside its parent gets the warning `projects:header:parent-not-nested`. `nest-plan --root` (or `nestingPlan(root)`) lists where each such child belongs, parents first; it moves nothing, so the product moves the folders and rewrites links. A closed child moves into its parent's `done/`; closing the parent moves the whole folder, children included.
 
 `lint --root demo/projects --json` checks headers, state integrity and context. It returns 1 for findings, including undeclared repository identity. A local project with no remote remains honestly unknown; supply `--source-of-truth` when creating it if that identity exists.
 
@@ -67,6 +84,8 @@ Include every referenced local record using repeated `--file`; each must indepen
 Quoted values keep commas inside an inline list item or an allowed nested flow-map value. Double-quoted values decode JSON-style escaped quotes and backslashes, including a backslash immediately before the closing quote; an invalid escape stays literal. Single-quoted values retain backslashes literally. Nesting still requires explicit `nestedKeysFor` permission for that kind.
 
 Engine options include `frontmatter`, people resolution (`personExists`, `personPath`, `personHref`, `recordPath`, `recordName`, `workspaceLayout`), workspace paths, `deriveSourceOfTruth`, `continentOperators`, `localDay`, `lastRunAt` and `parseBooked`. Optional command formatters produce advice in the product's vocabulary. `scaffoldProject` accepts explicit `context` and `stateContext`; calls without them preserve legacy behavior.
+
+`openProjects({ includeSnoozed: true })` returns snoozed projects as full rows marked `snoozedUntil`, for a survey that must see every open project; by default they stay in the list's `.snoozed` only. Each row carries `dir`.
 
 `assertCanClose(parent, projects)` refuses unfinished descendants, including records in done folders. Pass the full set, including snoozed/done records, rather than a filtered open-project list. The product's write/move adapter calls it before closing. The library does not move or relink folders itself.
 
