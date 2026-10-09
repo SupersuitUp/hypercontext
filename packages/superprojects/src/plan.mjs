@@ -426,3 +426,30 @@ export function proposeBlocks(plan, { today, freeSlots = [], actor, scenario = n
   }
   return { proposals, unplaced };
 }
+
+export function renderPlanMd({ today, nextAction, deliverable, owner }) {
+  return `---
+plan_version: "1"
+baseline: ${today}
+---
+# Plan
+
+Drafted with the project. Work backwards from the deliverable: every step gets an actor, a duration that says where it came from, what it waits on, and every gate and milestone a provisional date.
+
+## Steps
+
+### s01 ${String(nextAction || 'The first step').replace(/\n/g, ' ')}
+- actor: ${owner || 'agent'}
+- kind: work
+- status: todo
+
+### m1 ${String(deliverable || 'The deliverable exists').replace(/\n/g, ' ')}
+- kind: milestone
+- after: s01
+
+## Scenarios
+
+## Revisions
+- ${today} baseline: drafted with the project.
+`;
+}
