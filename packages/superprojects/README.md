@@ -1,5 +1,7 @@
 # @supersuit/agentic-projects
 
+> **Renamed to [`@supersuit/superprojects`](https://www.npmjs.com/package/@supersuit/superprojects).** This name receives no further releases. Install `@supersuit/superprojects`; its API and commands are the same, and it also answers to the `agentic-projects` command for one release. The doctrine is at [superprojects.wiki](https://superprojects.wiki).
+
 Portable Markdown projects that another agent can resume: ownership, a concrete next action, a verified current picture, attributed evidence, and explicit permission to share. Extracted from Freedom's running project engine.
 
 Node 20+, ESM, MIT, no runtime dependencies. The library never launches a shell. Products supply people resolution, repository identity, calendar parsing and a clock.

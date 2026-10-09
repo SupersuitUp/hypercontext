@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2 (2026-10-09)
+
+The last release under this name. The package is now `@supersuit/superprojects`, with the same API and commands; this version only adds that notice to the README.
+
 ## 0.3.1 (2026-10-09)
 
 Plan lint reads both header shapes. `lintProject` took a project's kind and team only from the YAML block, so a project still on the legacy `**Label:**` header was read as finite with an empty team: an ongoing one warned `projects:plan:missing`, and a co-lead named only in the People list was treated as outside the team. Kind now comes from the same reader every other check uses, and the team includes the owner and every person whose People-list role produces work.
