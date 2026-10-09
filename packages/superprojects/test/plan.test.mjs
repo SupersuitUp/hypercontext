@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   parseDuration, parseTarget, parseWindow, parseActors, parseStatus, parseCapacity,
+  parsePlan,
 } from '../src/plan.mjs';
 
 const FIX = `---
@@ -85,4 +86,29 @@ test('actors: people by slug, the agent, and one outside name with its commas', 
   assert.deepEqual(parseActors("outside: Gary's parents, and brother"), [{ type: 'outside', name: "Gary's parents, and brother" }]);
   assert.deepEqual(parseActors('Bad Name'), [{ type: 'invalid', raw: 'Bad Name' }]);
   assert.deepEqual(parseActors(''), []);
+});
+test('a plan parses into header, steps, scenarios and revisions', () => {
+  const p = plan();
+  assert.deepEqual(p.problems, []);
+  assert.equal(p.header.capacity, 'alex 5h/week');
+  assert.deepEqual(p.steps.map((s) => s.id), ['s01', 's02', 's03', 's04', 'm1']);
+  const s02 = p.steps[1];
+  assert.equal(s02.title, 'Alex signs the letters');
+  assert.deepEqual(s02.after, ['s01']);
+  assert.equal(s02.effort.minutes, 180);
+  assert.deepEqual(p.steps[2].actors, [{ type: 'outside', name: 'USPS' }]);
+  assert.deepEqual(p.steps[0].status, { state: 'done', date: '2026-10-05' });
+  assert.equal(p.steps[4].kind, 'milestone');
+  assert.deepEqual(p.scenarios.map((s) => [s.name, s.working, s.overrides]), [
+    ['steady', true, { s04: '2026-10-20' }],
+    ['fast', false, { s04: '2026-10-14' }],
+  ]);
+  assert.deepEqual(p.revisions.map((r) => r.date), ['2026-10-05']);
+});
+test('bad ids, values and an unclosed header are problems with line numbers, never throws', () => {
+  const bad = parsePlan(edit('### s02 Alex', '### S2 Alex').replace('- status: todo', '- status: later'));
+  assert.ok(bad.problems.some((x) => /step id "S2"/.test(x.message)));
+  assert.ok(bad.problems.some((x) => /status "later"/.test(x.message) && x.line > 0));
+  assert.ok(parsePlan(edit('- target: 2026-10-20 (provisional)', '- target: someday')).problems.some((x) => /target "someday" does not parse/.test(x.message)));
+  assert.ok(parsePlan('---\nplan_version: "1"\n# Plan\n').problems.some((x) => /not closed/.test(x.message)));
 });
