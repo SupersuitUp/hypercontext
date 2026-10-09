@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   parseDuration, parseTarget, parseWindow, parseActors, parseStatus, parseCapacity,
-  parsePlan, lintPlan, isOutside, schedulePlan,
+  parsePlan, lintPlan, isOutside, schedulePlan, planStatus,
 } from '../src/plan.mjs';
 
 const FIX = `---
@@ -170,4 +170,39 @@ test('a scenario moves only the dates it names', () => {
 test('refuses a cycle and a bad date rather than guessing', () => {
   assert.throws(() => schedulePlan(plan(edit('- status: done 2026-10-05', '- after: s04\n- status: done 2026-10-05')), { today: '2026-10-06' }), /cycle/);
   assert.throws(() => schedulePlan(plan(), { today: '10/06' }), /YYYY-MM-DD/);
+});
+const status = (opts, text) => planStatus(plan(text), { today: '2026-10-06', team: ['alex'], ...opts });
+test('the four verdicts', () => {
+  const ok = status({});
+  assert.equal(ok.verdict, 'on-track');
+  assert.deepEqual(ok.against, { date: '2026-10-30', kind: 'provisional' });
+  assert.equal(ok.slackDays, 10);
+  assert.equal(ok.bufferDays, 3);
+  assert.equal(ok.driver, 's04', 'the decision date is what sets the finish');
+  assert.equal(status({ deadline: '2026-10-22' }).verdict, 'at-risk');
+  const late = status({ deadline: '2026-10-15' });
+  assert.equal(late.verdict, 'behind');
+  assert.equal(late.slackDays, -5);
+  assert.equal(status({}, edit('- target: 2026-10-30 (provisional)\n', '')).verdict, 'no-deadline');
+});
+test('an open critical step past its date is behind, and names itself', () => {
+  const dated = edit('- after: s01\n- status: todo', '- after: s01\n- target: 2026-10-07 (provisional)\n- status: todo');
+  const r = planStatus(plan(dated), { today: '2026-10-21', team: ['alex'] });
+  assert.equal(r.verdict, 'behind');
+  assert.equal(r.driver, 's02');
+});
+test('ready work by actor, slip against the baseline, and the defensible test', () => {
+  const r = status({});
+  assert.deepEqual(r.ready, { alex: ['s02'] });
+  assert.equal(r.slipDays, 0);
+  assert.equal(r.defensible.ok, true);
+  assert.equal(r.defensible.conditions.length, 7);
+  const loose = status({}, edit('3h (estimate, Alex, 2026-10-05)', '3h'));
+  assert.equal(loose.defensible.ok, false);
+  assert.deepEqual(loose.defensible.conditions.find((c) => !c.ok), { condition: 'every duration says where it came from', ok: false, steps: ['s02'] });
+});
+test('every scenario side by side on request', () => {
+  const r = status({ allScenarios: true });
+  assert.deepEqual(r.scenarios.map((s) => [s.name, s.working, s.verdict]), [['steady', true, 'on-track'], ['fast', false, 'on-track']]);
+  assert.match(r.line, /^on track: earliest finish 2026-10-20 against a provisional 2026-10-30/);
 });

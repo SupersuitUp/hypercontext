@@ -323,3 +323,74 @@ export function schedulePlan(plan, { today, scenario = null, capacity = null } =
   }
   return { steps: plan.steps.map((s) => rows.get(s.id)), final: final?.id ?? null, criticalPath, scenario: sc?.name ?? null };
 }
+
+const actorLabel = (a) => (a.type === 'person' ? a.slug : a.type === 'outside' ? `outside: ${a.name}` : a.type);
+
+export function planStatus(plan, opts = {}) {
+  const { today, deadline = null, team = null, owner = null } = opts;
+  const sched = schedulePlan(plan, opts);
+  const t0 = dayOf(today);
+  const by = new Map(plan.steps.map((s) => [s.id, s]));
+  const row = new Map(sched.steps.map((r) => [r.id, r]));
+  const final = sched.final ? row.get(sched.final) : null;
+  const against = deadline ? { date: deadline, kind: 'deadline' } : final?.target ? { date: final.target, kind: 'provisional' } : null;
+  const overdue = sched.steps.filter((r) => r.target && open(by.get(r.id)) && dayOf(r.target) < t0);
+  const overdueOnPath = overdue.filter((r) => sched.criticalPath.includes(r.id));
+  let verdict = 'no-deadline';
+  let slackDays = null;
+  let bufferDays = null;
+  if (against && final) {
+    const remaining = dayOf(against.date) - t0;
+    bufferDays = plan.header.buffer_days != null ? Number(plan.header.buffer_days) : opts.bufferDays ?? Math.max(3, Math.ceil(remaining * 0.1));
+    slackDays = dayOf(against.date) - final.earliestDay;
+    verdict = overdueOnPath.length || slackDays < 0 ? 'behind' : slackDays < bufferDays ? 'at-risk' : 'on-track';
+  }
+  const path = sched.criticalPath.filter((id) => id !== sched.final);
+  // The driver is what sets the finish: an overdue or late step on the critical path, else the
+  // last step on it whose own date binds (finish pushed out to its target), else the last step.
+  const binds = (id) => { const r = row.get(id); return r.target && r.finishDay === dayOf(r.target) && r.earliestDay < r.finishDay; };
+  const driver = overdueOnPath[0]?.id ?? path.find((id) => row.get(id).late) ?? [...path].reverse().find(binds) ?? path[path.length - 1] ?? null;
+  const slipDays = plan.header.baseline_finish && final ? final.finishDay - dayOf(plan.header.baseline_finish) : null;
+  const ready = {};
+  for (const s of plan.steps) {
+    if (!open(s) || s.kind === 'milestone') continue;
+    if (!s.after.every((d) => !by.has(d) || !open(by.get(d)))) continue;
+    for (const a of s.actors) (ready[actorLabel(a)] ||= []).push(s.id);
+  }
+  const caps = { ...parseCapacity(plan.header.capacity), ...(opts.capacity ?? {}) };
+  const planners = owner ? [owner] : Object.keys(caps);
+  const steps = (pred) => plan.steps.filter(pred).map((s) => s.id);
+  const conditions = [
+    ['every step names an actor', steps((s) => s.kind !== 'milestone' && !s.actors.length)],
+    ['every duration says where it came from', steps((s) => [s.effort, s.lead].some((d) => d && !d.source))],
+    ['every outside step has a window and a fallback', steps((s) => open(s) && s.kind !== 'wait' && isOutside(s, team) && (!s.window || !s.fallback))],
+    ['every gate has a named human', steps((s) => s.kind === 'gate' && (!s.actors.length || s.actors.some(isAgent)))],
+    ['every gate and milestone has a provisional date', steps((s) => open(s) && (s.kind === 'gate' || s.kind === 'milestone') && !row.get(s.id).target)],
+    ['nothing assumes more hours than were declared', planners.length ? steps((s) => open(s) && s.effort && s.actors.some((a) => a.type === 'person' && planners.includes(a.slug) && !caps[a.slug])) : steps((s) => open(s) && !!s.effort && s.actors.some((a) => a.type === 'person'))],
+    ['the finish keeps its buffer before the date it answers to', verdict === 'on-track' ? [] : [sched.final ?? 'plan']],
+  ].map(([condition, failing]) => ({ condition, ok: failing.length === 0, steps: failing }));
+  const line = verdict === 'no-deadline'
+    ? `no date to answer to; earliest finish ${final?.earliest ?? 'unknown'}`
+    : `${verdict.replace('-', ' ')}: earliest finish ${final.earliest} against ${against.kind === 'deadline' ? 'the deadline' : 'a provisional'} ${against.date}, ${slackDays} days of slack, ${bufferDays} needed${driver ? `; driver ${driver}` : ''}`;
+  const result = {
+    verdict,
+    line,
+    finish: final?.finish ?? null,
+    earliest: final?.earliest ?? null,
+    against,
+    slackDays,
+    bufferDays,
+    driver,
+    slipDays,
+    criticalPath: sched.criticalPath,
+    ready,
+    defensible: { ok: conditions.every((c) => c.ok), conditions },
+    scenario: sched.scenario,
+  };
+  if (opts.allScenarios)
+    result.scenarios = plan.scenarios.map((sc) => {
+      const r = planStatus(plan, { ...opts, scenario: sc.name, allScenarios: false });
+      return { name: sc.name, working: sc.working, verdict: r.verdict, earliest: r.earliest, against: r.against, slackDays: r.slackDays };
+    });
+  return result;
+}
