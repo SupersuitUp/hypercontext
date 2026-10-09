@@ -13,7 +13,7 @@ const cases=[
   ['frontmatter precedence','frontmatter/index.mjs','codec.test.mjs','const merged = { ...labels, ...(data ?? {}) };','const merged = { ...(data ?? {}), ...labels };'],
   ['one owner','engine.mjs','engine.test.mjs','if (owners.length !== 1)', 'if (false)'],
   ['no clobber','engine.mjs','engine.test.mjs','if (taken)', 'if (false)'],
-  ['nested discovery','engine.mjs','nesting.test.mjs','if (depth < MAX_NESTING) walk(', 'if (false) walk('],
+  ['nested discovery','engine.mjs','nesting.test.mjs','for (const nested of rootsOf(dir)) walk(nested, depth + 1);', '{ /* nested roots not walked */ }'],
   ['subproject inside parent','engine.mjs','nesting.test.mjs','dir = join(pd, NESTED_ROOT, folder);', '/* scaffolded beside the parent */'],
   ['parent location lint','engine.mjs','nesting.test.mjs','} else if (physical && parentSlug !== basename(physical)) {', '} else if (false) {'],
   ['nesting plan parents first','engine.mjs','nesting.test.mjs','moves.sort((a, b) => depth(a.to) - depth(b.to) || (a.to < b.to ? -1 : 1));', 'moves.sort((a, b) => depth(b.to) - depth(a.to));'],
@@ -25,6 +25,18 @@ const cases=[
   ['behind on negative slack','plan.mjs','plan.test.mjs','verdict = overdueOnPath.length || slackDays < 0 ?','verdict = overdueOnPath.length ?'],
   ['targets are not-before','plan.mjs','plan.test.mjs','Math.max(earliest, target ? dayOf(target) : earliest)','earliest'],
   ['weekly hours bind','plan.mjs','plan.test.mjs','const take = Math.min(caps[a.slug] - (used.get(key) ?? 0), left);','const take = left;'],
+  ['legacy record read-through','names.mjs','names.test.mjs','firstExisting(dir, [names.record, names.legacyRecord]);','firstExisting(dir, [names.record]);'],
+  ['new record preferred','names.mjs','names.test.mjs','firstExisting(dir, [names.record, names.legacyRecord]);','firstExisting(dir, [names.legacyRecord, names.record]);'],
+  ['legacy map read-through','names.mjs','names.test.mjs','firstExisting(dir, [names.map, names.legacyMap]);','firstExisting(dir, [names.map]);'],
+  ['symlinked root read once','names.mjs','names.test.mjs','if (!r || seen.has(r)) continue;','if (!r) continue;'],
+  ['legacy root by default','names.mjs','names.test.mjs','for (const name of [names.root, names.legacyRoot]) {','for (const name of [names.root]) {'],
+  ['both records is an error','engine.mjs','names.test.mjs','if (existsSync(join(dir, current)) && existsSync(join(dir, legacy)))','if (false)'],
+  ['scaffold writes the new record','engine.mjs','names.test.mjs','writeFileSync(join(dir, N.record), project);','writeFileSync(join(dir, N.legacyRecord), project);'],
+  ['nested subprojects match the kind','frontmatter/kinds.mjs','names.test.mjs','file: /(^|\\/)(super)?projects\\/(done\\/)?[^/]+\\/(SUPER)?PROJECT\\.md$/,','file: /(^|\\/)projects\\/(done\\/)?[^/]+\\/PROJECT\\.md$/,'],
+  ['migrate refuses a taken destination','migrate.mjs','migrate.test.mjs','} else if (lexists(join(to, name))) {','} else if (false) {'],
+  ['migrate is a dry run until applied','../bin/superprojects.mjs','migrate.test.mjs','if(a.apply&&!refused)applyMigration(plan);','if(!refused)applyMigration(plan);'],
+  ['migrate relinks broken links','migrate.mjs','migrate.test.mjs','if (resolve(newDir, decoded) === goal) return null;','return null;'],
+  ['migrate leaves code alone','migrate.mjs','migrate.test.mjs','const masked = line.replace(/(`+)[^`]*?\\1/g, (m) => " ".repeat(m.length));','const masked = line;'],
 ];
 let caught=0;
 for(const [name,source,suite,before,after] of cases){

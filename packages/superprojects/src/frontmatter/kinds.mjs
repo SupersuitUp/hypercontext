@@ -1,4 +1,4 @@
-// Project and state schema extracted from the running engine.
+// Superproject and state schema extracted from the running engine.
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_SCALAR = 400;
@@ -36,7 +36,9 @@ const contextKeys = () => ({
 
 export const KINDS = Object.freeze({
   project: {
-    file: /(^|\/)projects\/(done\/)?[^/]+\/PROJECT\.md$/,
+    // A record under `superprojects/` or the legacy `projects/`, top level or nested at any
+    // depth (`<slug>/superprojects/<child>/`, `done/` included), named either way.
+    file: /(^|\/)(super)?projects\/(done\/)?[^/]+\/(SUPER)?PROJECT\.md$/,
     keys: {
       ...contextKeys(),
       kind: { type: "word", values: ["finite", "ongoing"] },
@@ -80,7 +82,7 @@ export const KINDS = Object.freeze({
     },
   },
   state: {
-    file: /(^|\/)projects\/(done\/)?[^/]+\/STATE\.md$/,
+    file: /(^|\/)(super)?projects\/(done\/)?[^/]+\/STATE\.md$/,
     keys: {
       ...contextKeys(),
       phase: { type: "string" },

@@ -1,6 +1,9 @@
-// The superproject plan map: PLAN.md parsed, checked, scheduled, answered and turned into
-// proposed calendar blocks. Pure functions over text and dates; nothing here reads a calendar
-// or books anything, so a product supplies free time and does the booking after a yes.
+// The atomic action map (ATOMIC-ACTION-MAP.md; PLAN.md before 0.5.0): parsed, checked,
+// scheduled, answered and turned into proposed calendar blocks. An atomic action is one stretch
+// of work with no handoff inside it and at most four hours of human time; waits and milestones
+// are the joints between actions. Pure functions over text and dates; nothing here reads a
+// calendar or books anything, so a product supplies free time and does the booking after a yes.
+// Function names keep "plan" (parsePlan, lintPlan, ...) because they are the API.
 import { parseFlat } from './frontmatter/yaml.mjs';
 import { validDate } from './context.mjs';
 
@@ -165,7 +168,7 @@ const isAgent = (a) => a.type === 'agent';
 const isHuman = (a) => a.type === 'person' || a.type === 'outside';
 const open = (s) => s.status.state !== 'done' && s.status.state !== 'skipped';
 
-// Outside the team: named `outside:`, or a person the project's roles do not list.
+// Outside the team: named `outside:`, or a person the superproject's roles do not list.
 export function isOutside(step, team = null) {
   return step.actors.some((a) => a.type === 'outside' || (team && a.type === 'person' && !team.includes(a.slug)));
 }
@@ -223,7 +226,7 @@ export function lintPlan(plan, { team = null, kind = 'finite', maxHumanEffort = 
   const cycle = findCycle(plan.steps);
   if (cycle.length) add('error', 'plan:after:cycle', `steps wait on each other in a circle: ${[...cycle, cycle[0]].join(' -> ')}`);
   if (kind === 'finite' && !plan.steps.some((s) => s.kind === 'milestone'))
-    add('warn', 'plan:milestone:missing', 'a finite project plan ends in a milestone: the deliverable');
+    add('warn', 'plan:milestone:missing', "a finite superproject's atomic action map ends in a milestone: the deliverable");
   const working = plan.scenarios.filter((x) => x.working);
   if (plan.scenarios.length && working.length !== 1)
     add('warn', 'plan:scenario:working', `mark exactly one scenario working (found ${working.length})`);
@@ -438,14 +441,15 @@ export function proposeBlocks(plan, { today, freeSlots = [], actor, scenario = n
   return { proposals, unplaced };
 }
 
-export function renderPlanMd({ today, nextAction, deliverable, owner }) {
+/** The skeleton ATOMIC-ACTION-MAP.md a finite superproject is born with. */
+export function renderActionMapMd({ today, nextAction, deliverable, owner }) {
   return `---
 plan_version: "1"
 baseline: ${today}
 ---
-# Plan
+# Atomic action map
 
-Drafted with the project. Work backwards from the deliverable: every step gets an actor, a duration that says where it came from, what it waits on, and every gate and milestone a provisional date.
+Drafted with the superproject. Work backwards from the deliverable: every atomic action is one stretch of work with no handoff inside it and at most four hours of human time, with an actor, a duration that says where it came from and what it waits on. Waits and milestones are the joints between actions, and every gate and milestone gets a provisional date.
 
 ## Steps
 
@@ -461,6 +465,9 @@ Drafted with the project. Work backwards from the deliverable: every step gets a
 ## Scenarios
 
 ## Revisions
-- ${today} baseline: drafted with the project.
+- ${today} baseline: drafted with the superproject.
 `;
 }
+
+/** The name this had before 0.5.0; the same function. */
+export const renderPlanMd = renderActionMapMd;

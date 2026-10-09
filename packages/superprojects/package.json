@@ -1,11 +1,10 @@
 {
   "name": "@supersuit/superprojects",
-  "version": "0.4.1",
-  "description": "Superprojects: portable Markdown projects an agent can carry, with a plan map, an on-track answer, verified context and sharing checks",
+  "version": "0.5.0",
+  "description": "Superprojects: portable Markdown projects an agent can carry, with an atomic action map, an on-track answer, verified context and sharing checks",
   "type": "module",
   "bin": {
-    "superprojects": "bin/superprojects.mjs",
-    "agentic-projects": "bin/superprojects.mjs"
+    "superprojects": "bin/superprojects.mjs"
   },
   "exports": {
     ".": "./src/index.mjs",

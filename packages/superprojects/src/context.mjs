@@ -162,7 +162,7 @@ export function assertCanClose(parent, projects) {
     const relationship=child.parent ?? child.metadata?.parent;
     if (relationship !== undefined && relationship !== null && !nonempty(relationship)) throw new Error('Invalid parent relationship; closing requires readable scalar parent fields');
     const status=child.status ?? child.metadata?.status;
-    if (status !== undefined && !['active','done','parked','paused'].includes(status)) throw new Error('Invalid project status; closing requires a valid complete project set');
+    if (status !== undefined && !['active','done','parked','paused'].includes(status)) throw new Error('Invalid superproject status; closing requires a valid complete superproject set');
   }
   const seen = new Set([id]), queue = [id], active = [];
   while (queue.length) {

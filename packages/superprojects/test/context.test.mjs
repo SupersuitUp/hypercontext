@@ -104,7 +104,7 @@ test('parent closure refuses active descendants including done-folder children',
   assert.throws(()=>assertCanClose(parent,[{slug:'child',parent:'parent',status:'done'},{slug:'grandchild',parent:'child',status:'active'}]),/grandchild/);
   assert.equal(assertCanClose(parent,[{slug:'child',parent:'parent',status:'done'}]),true);
   assert.throws(()=>assertCanClose(parent,[{slug:'child',parent:['parent'],status:'active'}]),/Invalid parent/);
-  assert.throws(()=>assertCanClose(parent,[{slug:'child',parent:'parent',status:['done']}]),/Invalid project status/);
+  assert.throws(()=>assertCanClose(parent,[{slug:'child',parent:'parent',status:['done']}]),/Invalid superproject status/);
 });
 test('configuration refuses secrets recursively', () => {
   assert.throws(()=>assertSafeConfig({adapter:{apiKey:'literal'}}),/configuration/);

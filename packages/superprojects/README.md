@@ -2,51 +2,68 @@
 
 *Formerly `@supersuit/agentic-projects`, which gets no further releases. The doctrine is at [superprojects.wiki](https://superprojects.wiki).*
 
-Portable Markdown projects that another agent can resume: ownership, a concrete next action, a verified current picture, attributed evidence, and explicit permission to share. Extracted from Freedom's running project engine.
+Portable Markdown superprojects that another agent can resume: ownership, a concrete next action, a verified current picture, attributed evidence, an atomic action map with an on-track answer, and explicit permission to share. Extracted from Freedom's running project engine.
 
 Node 20+, ESM, MIT, no runtime dependencies. The library never launches a shell. Products supply people resolution, repository identity, calendar parsing and a clock.
 
-## Start a project
+## A superproject is a folder
+
+```
+superprojects/
+  2026-10-04-guide/
+    SUPERPROJECT.md         what it is, who owns it, what it delivers
+    STATE.md                where it stands: phase, next action, open threads
+    ATOMIC-ACTION-MAP.md    how it gets done (finite superprojects only)
+  done/                     closed superprojects
+```
+
+**SUPERPROJECT.md** holds purpose, ownership and deliverable. **STATE.md** holds phase, next action, progress and open questions. A finite superproject also gets **ATOMIC-ACTION-MAP.md**, its atomic action map (below). Folders are dated and existing superprojects are never overwritten. Parents must exist and remain open when children are created.
+
+**The names before 0.5.0 still read.** A folder is a superproject if it holds SUPERPROJECT.md or PROJECT.md; a map is ATOMIC-ACTION-MAP.md or PLAN.md; a root is `superprojects/` or `projects/`. Every reader takes both, and only the new names are ever written. A folder holding both record files is a lint error (`projects:record:both`), and so is one holding both map files (`projects:plan:both`); readers use the new file until a person merges them. `superprojects migrate` (below) converts a tree when you are ready.
+
+## Start a superproject
 
 ```sh
 npm install @supersuit/superprojects
 npx superprojects --help
-npx superprojects scaffold --root demo/projects --slug guide --name Guide \
+npx superprojects scaffold --root demo/superprojects --slug guide --name Guide \
   --owner alex --goal 'Deliver a reviewed guide' --date 2026-10-04 \
   --summary 'Guide prepared for review' --read-when 'Resuming the guide' \
   --keep home --audience self --actor alex --next-action 'Alex reviews the guide'
-npx superprojects list --root demo/projects --json
-npx superprojects read --file demo/projects/2026-10-04-guide/STATE.md --json
-npx superprojects query --root demo/projects --kind project --where status=active --json
-npx superprojects verify --file demo/projects/2026-10-04-guide/STATE.md \
-  --date 2026-10-04 --by alex --source PROJECT.md --origin human --write
-npx superprojects close-check --root demo/projects --slug 2026-10-04-guide --json
-npx superprojects nest-plan --root demo/projects --json
+npx superprojects list --root demo/superprojects --json
+npx superprojects read --file demo/superprojects/2026-10-04-guide/STATE.md --json
+npx superprojects query --root demo/superprojects --kind project --where status=active --json
+npx superprojects verify --file demo/superprojects/2026-10-04-guide/STATE.md \
+  --date 2026-10-04 --by alex --source SUPERPROJECT.md --origin human --write
+npx superprojects close-check --root demo/superprojects --slug 2026-10-04-guide --json
+npx superprojects nest-plan --root demo/superprojects --json
 ```
 
-PROJECT.md holds purpose, ownership and deliverable; STATE.md holds phase, next action, progress and open questions; a finite project also gets PLAN.md, the plan map (below). Folders are dated and existing projects are never overwritten. Parents must exist and remain open when children are created.
+`--root` is read exactly as given. A library caller that names no root gets `superprojects/` under the working directory, plus a sibling legacy `projects/` when there is one; a `projects/` that is only a link to `superprojects/` is read once.
 
 ## Subprojects
 
-A subproject lives inside its parent, in the parent's own `projects/` folder, which works exactly like a top-level root:
+A subproject lives inside its parent, in the parent's own `superprojects/` folder, which works exactly like a top-level root:
 
 ```
-projects/
+superprojects/
   2026-10-04-guide/
-    PROJECT.md  STATE.md
-    projects/
+    SUPERPROJECT.md  STATE.md  ATOMIC-ACTION-MAP.md
+    superprojects/
       2026-10-06-chapter-one/          # parent: 2026-10-04-guide
       done/2026-10-05-outline/         # a closed child
   done/
 ```
 
-`scaffold --parent <slug>` creates the child there; slugs stay unique at every depth. Every reader finds projects at any depth, and only a project's `projects/` folder is descended into. The `parent:` header must agree with the folder the child sits in (lint error `projects:header:parent-location`); a child still beside its parent gets the warning `projects:header:parent-not-nested`. `nest-plan --root` (or `nestingPlan(root)`) lists where each such child belongs, parents first; it moves nothing, so the product moves the folders and rewrites links. A closed child moves into its parent's `done/`; closing the parent moves the whole folder, children included.
+`scaffold --parent <slug>` creates the child there, linking the record file its parent actually has; slugs stay unique at every depth. Every reader finds superprojects at any depth, and only a superproject's `superprojects/` (or legacy `projects/`) folder is descended into. The `parent:` header must agree with the folder the child sits in (lint error `projects:header:parent-location`); a child still beside its parent gets the warning `projects:header:parent-not-nested`. `nest-plan --root` (or `nestingPlan(root)`) lists where each such child belongs, parents first; it moves nothing, so the product moves the folders and rewrites links. A closed child moves into its parent's `done/`; closing the parent moves the whole folder, children included.
 
-`lint --root demo/projects --json` checks headers, state integrity, context and plans. It returns 1 for findings, including undeclared repository identity. A local project with no remote remains honestly unknown; supply `--source-of-truth` when creating it if that identity exists.
+`lint --root demo/superprojects --json` checks headers, state integrity, context and atomic action maps. It returns 1 for findings, including undeclared repository identity. A local superproject with no remote remains honestly unknown; supply `--source-of-truth` when creating it if that identity exists. Check ids keep their `projects:` prefix, so filters written for earlier versions still hold.
 
-## The plan map
+## The atomic action map
 
-PROJECT.md says what a project is and STATE.md says where it stands. PLAN.md says how it gets done: every step between now and the deliverable, who does each one, how long it takes and what it waits on. `scaffold` writes a skeleton for every finite project, with the next action as step `s01` and the deliverable as milestone `m1`; `--no-plan` opts out, and an ongoing project gets none because its cadence is its plan. Lint warns `projects:plan:missing` for a finite project without one, and reports every plan finding as the project's own.
+SUPERPROJECT.md says what a superproject is and STATE.md says where it stands. ATOMIC-ACTION-MAP.md says how it gets done: every step between now and the deliverable, who does each one, how long it takes and what it waits on. An **atomic action** is one stretch of work with no handoff between actors inside it and at most four hours of human time (lint warns `plan:human:too-long` past that). Waits and milestones stay on the map as the joints between actions.
+
+`scaffold` writes a skeleton for every finite superproject, with the next action as step `s01` and the deliverable as milestone `m1`; `--no-map` (or its earlier name `--no-plan`) opts out, and an ongoing superproject gets none because its cadence is its plan. Lint warns `projects:plan:missing` for a finite superproject without one, and reports every map finding as the superproject's own.
 
 ```markdown
 ---
@@ -55,7 +72,7 @@ baseline: 2026-10-05
 baseline_finish: 2026-10-30
 capacity: "alex 5h/week"
 ---
-# Plan
+# Atomic action map
 
 ## Steps
 
@@ -120,18 +137,18 @@ The four step kinds:
 - **gate**: a decision only a named human can make. A gate given to the agent is a lint error.
 - **milestone**: a named point with no duration of its own. The deliverable is the last one.
 
-In the header, `capacity` declares each person's weekly hours, and human effort is placed only inside them (weeks start on Monday). `buffer_days` overrides the default buffer, 10% of the days remaining and never less than three. `baseline` and `baseline_finish` keep the first version so that slip has an answer. The deadline is not repeated here; it comes from PROJECT.md.
+In the header, `capacity` declares each person's weekly hours, and human effort is placed only inside them (weeks start on Monday). `buffer_days` overrides the default buffer, 10% of the days remaining and never less than three. `baseline` and `baseline_finish` keep the first version so that slip has an answer. The deadline is not repeated here; it comes from SUPERPROJECT.md.
 
 `## Scenarios` lays out the ways the big dates could go. Each line names its scenario and only the targets it moves (`s04 -> 2026-10-14`); exactly one starts with `working:`, and the status uses it. `## Revisions` holds one dated line per change: what arrived and what it moved.
 
-`planStatus` computes the verdict from the critical path. It answers to PROJECT.md's deadline when there is one, otherwise to the final milestone's provisional date, and every answer names its driver, the step that sets the finish:
+`planStatus` computes the verdict from the critical path. It answers to SUPERPROJECT.md's deadline when there is one, otherwise to the final milestone's provisional date, and every answer names its driver, the step that sets the finish:
 
 - **on track**: the earliest finish beats that date with the buffer intact.
 - **at risk**: still before the date, with less slack than the buffer, or a step that cannot start until after its window has closed. That step becomes the driver, the line ends `; s08 cannot start until after its window closes on <date>, so its fallback applies`, and `missedWindows` lists every such step.
 - **behind**: past the date, or a step on the critical path is open past its own target.
 - **no deadline**: there is no date to answer to, and it says so.
 
-Before saying a plan holds up, it runs the defensible test, and each failed condition names its steps:
+Before saying a map holds up, it runs the defensible test, and each failed condition names its steps:
 
 1. every step names an actor;
 2. every duration says where it came from;
@@ -142,17 +159,28 @@ Before saying a plan holds up, it runs the defensible test, and each failed cond
 7. the finish keeps its buffer before the date it answers to.
 
 ```sh
-npx superprojects plan lint --project demo/projects/2026-10-04-guide --json
-npx superprojects plan status --project demo/projects/2026-10-04-guide --date 2026-10-06
-npx superprojects plan schedule --project demo/projects/2026-10-04-guide --scenario fast
-npx superprojects plan blocks --project demo/projects/2026-10-04-guide --actor alex --free free.json
+npx superprojects map lint --project demo/superprojects/2026-10-04-guide --json
+npx superprojects map status --project demo/superprojects/2026-10-04-guide --date 2026-10-06
+npx superprojects map schedule --project demo/superprojects/2026-10-04-guide --scenario fast
+npx superprojects map blocks --project demo/superprojects/2026-10-04-guide --actor alex --free free.json
 ```
 
-`plan lint` exits 1 on any finding. `plan status` prints one line, such as `on track: earliest finish 2026-10-20 against a provisional 2026-10-30, 10 days of slack, 3 needed; driver s04`; it takes `--deadline`, `--scenario` and `--all-scenarios`, returns the whole answer with `--json`, and exits 1 when behind. `plan schedule` prints each step's projected start and finish and the critical path. `plan blocks` reads `--free` as a JSON array of `{"start","end"}` ISO times and fits the actor's next open steps into them. `--date` defaults to today.
+`map lint` exits 1 on any finding. `map status` prints one line, such as `on track: earliest finish 2026-10-20 against a provisional 2026-10-30, 10 days of slack, 3 needed; driver s04`; it takes `--deadline`, `--scenario` and `--all-scenarios`, returns the whole answer with `--json`, and exits 1 when behind. `map schedule` prints each step's projected start and finish and the critical path. `map blocks` reads `--free` as a JSON array of `{"start","end"}` ISO times and fits the actor's next open steps into them. `--date` defaults to today. Each reads ATOMIC-ACTION-MAP.md, or PLAN.md in a folder not yet migrated. `plan` is the same command under its earlier name and answers identically.
 
 **The library proposes blocks and never books them.** Nothing here reads a calendar: the product supplies free time, asks the person, books after a yes, and writes `booked:` back onto the step.
 
-The same functions are exported for products: `parsePlan`, `lintPlan`, `schedulePlan`, `planStatus`, `proposeBlocks`, `renderPlanMd`, `findCycle`, `isOutside`, the value parsers (`parseDuration`, `parseTarget`, `parseWindow`, `parseActors`, `parseStatus`, `parseCapacity`), `STEP_KINDS` and `MAX_HUMAN_EFFORT_MINUTES`.
+The same functions are exported for products: `parsePlan`, `lintPlan`, `schedulePlan`, `planStatus`, `proposeBlocks`, `renderActionMapMd` (also exported under its earlier name `renderPlanMd`), `findCycle`, `isOutside`, the value parsers (`parseDuration`, `parseTarget`, `parseWindow`, `parseActors`, `parseStatus`, `parseCapacity`), `STEP_KINDS` and `MAX_HUMAN_EFFORT_MINUTES`. The function names keep "plan" because they are the API.
+
+## Moving a tree to the new names
+
+```sh
+npx superprojects migrate --root demo/projects            # dry run: prints every change
+npx superprojects migrate --root demo/projects --apply    # does it
+```
+
+A dry run is the default and changes nothing. With `--apply`, inside every superproject under the root (closed ones in `done/` and nested children included) PROJECT.md becomes SUPERPROJECT.md and PLAN.md becomes ATOMIC-ACTION-MAP.md. Every nested `projects/` folder becomes `superprojects/`, and when the root itself is called `projects/` its superprojects move to a sibling `superprojects/`. A `projects/` folder left empty is replaced by a relative link `projects -> superprojects`, so paths saved anywhere else keep resolving; one that still holds files that are not superprojects is kept and listed. Relative Markdown links in `.md` files under the root that would otherwise break are rewritten to the new names, anchors kept; links in code, URLs and links that still resolve are left alone, and files outside the root are not touched.
+
+It refuses, exits 2 and changes nothing when a superproject's destination already exists or a folder already holds both record or both map files. It uses plain file renames and never commits, so review the diff and commit it yourself. Running it again on a converted tree finds nothing to do. `planMigration(root)` and `applyMigration(plan)` are the same thing as library calls.
 
 ## The context contract
 
@@ -169,7 +197,7 @@ Evidence and relations are JSON strings in the flat YAML header. Evidence carrie
 ```js
 import { readContext, validateContext, contextGraph, exportContext } from '@supersuit/superprojects';
 
-const record = {path:'/workspace/projects/example/STATE.md', text:markdown};
+const record = {path:'/workspace/superprojects/example/STATE.md', text:markdown};
 const context = readContext(record.text);
 const findings = validateContext(record.text, {
   file:record.path, asOf:'2026-10-04',
@@ -191,11 +219,13 @@ Include every referenced local record using repeated `--file`; each must indepen
 
 ## Product adapters
 
-`createProjectEngine(options)` supplies header parsing/roles, rendering/scaffold, lint/backfill, root enumeration, project/state query, open-project/cadence and resumability algorithms. `createFrontmatter({KINDS, validate, nestedKeysFor, personExists, beforeWrite})` shares the codec with a product's other document kinds. `parseFlat`/`stringifyFlat` expose the codec directly.
+`createProjectEngine(options)` supplies header parsing/roles, rendering/scaffold, lint/backfill, root enumeration, superproject/state query, open-superproject/cadence and resumability algorithms. Code identifiers keep their earlier names (`createProjectEngine`, `openProjects`, the `project` and `state` kinds, `--kind project|state`); the words a person reads are the new ones. `createFrontmatter({KINDS, validate, nestedKeysFor, personExists, beforeWrite})` shares the codec with a product's other document kinds. `parseFlat`/`stringifyFlat` expose the codec directly.
 
 Quoted values keep commas inside an inline list item or an allowed nested flow-map value. Double-quoted values decode JSON-style escaped quotes and backslashes, including a backslash immediately before the closing quote; an invalid escape stays literal. Single-quoted values retain backslashes literally. Nesting still requires explicit `nestedKeysFor` permission for that kind.
 
-Engine options include `frontmatter`, people resolution (`personExists`, `personPath`, `personHref`, `recordPath`, `recordName`, `workspaceLayout`), workspace paths, `deriveSourceOfTruth`, `continentOperators`, `localDay`, `lastRunAt` and `parseBooked`. Optional command formatters produce advice in the product's vocabulary. `scaffoldProject` accepts explicit `context` and `stateContext`; calls without them preserve legacy behavior.
+Engine options include `frontmatter`, people resolution (`personExists`, `personPath`, `personHref`, `recordPath`, `recordName`, `workspaceLayout`), workspace paths, `deriveSourceOfTruth`, `continentOperators`, `localDay`, `lastRunAt`, `parseBooked` and `names`. Optional command formatters produce advice in the product's vocabulary. `scaffoldProject` accepts explicit `context` and `stateContext`; calls without them preserve legacy behavior.
+
+Every file and folder name comes from one exported object, `NAMES`: `record` SUPERPROJECT.md, `legacyRecord` PROJECT.md, `state` STATE.md, `map` ATOMIC-ACTION-MAP.md, `legacyMap` PLAN.md, `root` superprojects, `legacyRoot` projects, `done` done. The engine option `names` overrides any of them, and the engine exposes the result as `engine.NAMES`, with `NESTED_ROOT` and `LEGACY_NESTED_ROOT`. `recordFileOf(dir)` and `mapFileOf(dir)` return the new file when it exists, else the legacy one, else null; `rootsOf(base)` returns the roots under a folder, new first, read once when one links the other. `allowedRootFiles` defaults to all five file names. The frontmatter kinds match records by path, under either folder name at any depth; a product with other names supplies its own `KINDS`.
 
 `openProjects({ includeSnoozed: true })` returns snoozed projects as full rows marked `snoozedUntil`, for a survey that must see every open project; by default they stay in the list's `.snoozed` only. Each row carries `dir`.
 
@@ -213,6 +243,6 @@ npm run mutation-check
 npm run install-proof
 ```
 
-Exit codes: 0 success, 1 findings/refusal, 2 usage error. `--json` works on each command. Tests use synthetic records. Mutation checks deliberately break sharing, parent closure, date updates, extracted baseline invariants and the plan map's gate refusal, behind verdict, not-before targets and weekly hours in disposable copies.
+Exit codes: 0 success, 1 findings/refusal, 2 usage error or a refused migrate. `--json` works on each command. Tests use synthetic records. Mutation checks deliberately break sharing, parent closure, date updates, extracted baseline invariants, the atomic action map's gate refusal, behind verdict, not-before targets and weekly hours, the read-through of the old names, and migrate's refusals, dry run and link rewriting, in disposable copies.
 
 Releases are v-prefixed tag pushes through `.github/workflows/publish.yml` and npm OIDC. The first release bootstraps the package with web approval, then configures its trusted publisher. No registry token is stored in this repository.

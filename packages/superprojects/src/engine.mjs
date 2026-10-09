@@ -28,10 +28,21 @@ import {
 } from "./context.mjs";
 import { ROLE_KEYS } from "./frontmatter/kinds.mjs";
 import { HANDLE_RE, validNickname, NICKNAME_MAX } from "./handle.mjs";
-import { parsePlan, lintPlan, renderPlanMd } from "./plan.mjs";
+import { parsePlan, lintPlan, renderActionMapMd } from "./plan.mjs";
+import {
+  namesOf,
+  recordFileOf as recordFileIn,
+  mapFileOf as mapFileIn,
+  rootsOf as rootsIn,
+} from "./names.mjs";
 /** Configure product dependencies once; core algorithms never launch a shell. */
 export function createProjectEngine(options = {}) {
   assertSafeConfig(options);
+  // Every file and folder name below comes from here; `options.names` overrides any of them.
+  const N = namesOf(options.names);
+  const recordFileOf = (dir) => recordFileIn(dir, N);
+  const mapFileOf = (dir) => mapFileIn(dir, N);
+  const rootsOf = (base) => rootsIn(base, N);
   const CONTEXT_KEYS = new Set([
     "context_version",
     "id",
@@ -49,7 +60,7 @@ export function createProjectEngine(options = {}) {
     for (const key of Object.keys(context ?? {}))
       if (!CONTEXT_KEYS.has(key))
         throw new Error(
-          `scaffold: context cannot override project field ${key}`,
+          `scaffold: context cannot override superproject field ${key}`,
         );
     return context ?? {};
   }
@@ -94,7 +105,7 @@ export function createProjectEngine(options = {}) {
   const peopleDirFor =
     options.peopleDirFor ??
     ((dir) => {
-      // A subproject sits two levels deeper per generation (`<parent>/projects/<child>`), so
+      // A subproject sits two levels deeper per generation (`<parent>/superprojects/<child>`), so
       // the people folder is found by climbing rather than by a fixed list of depths.
       for (let up = 2; up <= 2 + 2 * MAX_NESTING + 1; up++) {
         const rel = Array(up).fill("..").join("/") + "/people";
@@ -135,7 +146,13 @@ export function createProjectEngine(options = {}) {
   const bookedInstant = (raw) =>
     raw ? (options.parseBooked?.(raw) ?? null) : null;
   const PROJECT_ROOT_FILES = Object.freeze([
-    ...(options.allowedRootFiles ?? ["PROJECT.md", "STATE.md", "PLAN.md"]),
+    ...(options.allowedRootFiles ?? [
+      N.record,
+      N.legacyRecord,
+      N.state,
+      N.map,
+      N.legacyMap,
+    ]),
   ]);
 
   const ROLES = Object.freeze({
@@ -144,7 +161,7 @@ export function createProjectEngine(options = {}) {
     operator: "produces work on it from their own workspace",
     contributor: "produces work on it without a workspace of their own",
     visible: "sees everything, drives nothing",
-    subject: "the project is about them",
+    subject: "the superproject is about them",
   });
   const ROLE_NAMES = Object.freeze(Object.keys(ROLES));
 
@@ -175,10 +192,37 @@ export function createProjectEngine(options = {}) {
       return false;
     }
   };
-  // A subproject lives in its parent's `projects/` folder; nesting deeper than this is refused
-  // by discovery rather than walked forever through a symlink loop.
-  const NESTED_ROOT = "projects";
+  // A subproject lives in its parent's `superprojects/` folder (a legacy `projects/` folder is
+  // read too); nesting deeper than this is refused by discovery rather than walked forever
+  // through a symlink loop.
+  const NESTED_ROOT = N.root;
+  const LEGACY_NESTED_ROOT = N.legacyRoot;
   const MAX_NESTING = 8;
+  /** A folder is a superproject if it holds either record file (or, for discovery, a STATE.md). */
+  const isProjectDir = (dir, { stateOnly = true } = {}) =>
+    !!recordFileOf(dir) || (stateOnly && existsSync(join(dir, N.state)));
+  /** The roots to search for a slug: this one, plus its sibling of the other name. */
+  const lookupRootsOf = (root) =>
+    [N.root, N.legacyRoot].includes(basename(root))
+      ? [...new Set([root, ...rootsOf(dirname(root))])]
+      : [root];
+  /** A slug's folder under `root` or its sibling root, live first; for parent and slug lookups. */
+  const findAnyProjectDir = (root, slug) => {
+    for (const r of lookupRootsOf(root)) {
+      const hit = findProjectDir(r, slug);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  /** The roots a workspace reads when the caller names none: superprojects/, then projects/. */
+  const defaultPaths = (base = process.cwd()) => {
+    const roots = rootsOf(base);
+    return {
+      root: base,
+      projects: join(base, N.root),
+      projectsRoots: roots.length ? roots : [join(base, N.root)],
+    };
+  };
 
   const WARN = "warn",
     ERROR = "error",
@@ -405,7 +449,7 @@ export function createProjectEngine(options = {}) {
         .filter(Boolean);
     const projectFile =
       projectDir && workspaceRootFor(projectDir)
-        ? join(projectDir, "PROJECT.md")
+        ? (recordFileOf(projectDir) ?? join(projectDir, N.record))
         : null;
     const knownPaths = new Map(
       projectFile
@@ -446,12 +490,25 @@ export function createProjectEngine(options = {}) {
   }
 
   function lintProject({ dir, text = null, workspace = null } = {}) {
-    const file = join(dir, "PROJECT.md");
+    const file = recordFileOf(dir) ?? join(dir, N.record);
     const src = text ?? (existsSync(file) ? readFileSync(file, "utf8") : "");
     const slug = dir.split("/").filter(Boolean).pop();
     const out = [];
     const add = (level, check, line, fix = null) =>
       out.push({ level, check, slug, line, fix });
+    // Both names at once means two records that can disagree; the new one is read, and the
+    // other is a merge a person has to do, because no rule can say which lines still hold.
+    for (const [check, current, legacy, what] of [
+      ["projects:record:both", N.record, N.legacyRecord, "record"],
+      ["projects:plan:both", N.map, N.legacyMap, "atomic action map"],
+    ])
+      if (existsSync(join(dir, current)) && existsSync(join(dir, legacy)))
+        add(
+          ERROR,
+          check,
+          `${slug} holds both ${current} and ${legacy}; ${current} is the ${what} every reader uses, and ${legacy} is ignored.`,
+          `Merge anything ${join(dir, legacy)} still says into ${join(dir, current)}, then delete ${legacy}.`,
+        );
     const backfillCmd =
       options.backfillCommand?.(dir) ??
       `Update the missing header values in ${file}.`;
@@ -474,7 +531,7 @@ export function createProjectEngine(options = {}) {
         WARN,
         "projects:header:source-of-truth",
         `${slug} declares no **Source of truth:**${derived ? ` (this record's repository remote is ${derived})` : ""}. ` +
-          `Without it a second operator cannot tell which repo holds the project's truth.`,
+          `Without it a second operator cannot tell which repo holds the superproject's truth.`,
         derived
           ? backfillCmd
           : `Add **Source of truth:** org/repo to ${file}. No remote could be derived.`,
@@ -537,7 +594,7 @@ export function createProjectEngine(options = {}) {
         add(
           ERROR,
           "projects:header:owner-link",
-          `${slug} links its owner to ${h.owner.link}, which does not exist beside the project.`,
+          `${slug} links its owner to ${h.owner.link}, which does not exist beside the superproject.`,
           `Create that person file or fix the link in ${file}.`,
         );
       }
@@ -602,7 +659,7 @@ export function createProjectEngine(options = {}) {
         add(
           ERROR,
           "projects:header:person-link",
-          `${slug}: ${p.name} links to ${p.link}, which does not exist beside the project.`,
+          `${slug}: ${p.name} links to ${p.link}, which does not exist beside the superproject.`,
           `Create that person file or fix the link.`,
         );
       }
@@ -678,14 +735,14 @@ export function createProjectEngine(options = {}) {
           ERROR,
           "projects:header:parent-self",
           `${slug} names itself as its parent.`,
-          `Remove parent from ${file}, or set it to the project this one serves.`,
+          `Remove parent from ${file}, or set it to the superproject this one serves.`,
         );
-      } else if (!findProjectDir(root, parentSlug)) {
+      } else if (!findAnyProjectDir(root, parentSlug)) {
         add(
           WARN,
           "projects:header:parent-missing",
-          `${slug} says it is a subproject of ${parentSlug}, and no project folder has that name (live or done).`,
-          `Set parent in ${file} to an existing project's folder name, or remove it.`,
+          `${slug} says it is a subproject of ${parentSlug}, and no superproject folder has that name (live or done).`,
+          `Set parent in ${file} to an existing superproject's folder name, or remove it.`,
         );
       } else {
         if (!physical)
@@ -705,39 +762,39 @@ export function createProjectEngine(options = {}) {
                 ERROR,
                 "projects:header:parent-cycle",
                 `${slug}'s parent chain comes back to itself: ${[...chain, cur].join(" -> ")}.`,
-                `Break the cycle: one of these projects is not a subproject of the next.`,
+                `Break the cycle: one of these superprojects is not a subproject of the next.`,
               );
             break;
           }
           chain.push(cur);
-          const d = findProjectDir(root, cur);
+          const d = findAnyProjectDir(root, cur);
           if (!d) break;
           try {
             cur =
-              split(readFileSync(join(d, "PROJECT.md"), "utf8")).data?.parent ??
-              null;
+              split(readFileSync(recordFileOf(d), "utf8")).data?.parent ?? null;
           } catch {
             cur = null;
           }
         }
       }
     }
-    // The plan map: a finite project should have one, and when it does, its findings are the
-    // project's findings. The team is everyone with a role that produces work on it.
+    // The atomic action map: a finite superproject should have one, and when it does, its
+    // findings are the superproject's findings. The team is everyone with a role that produces
+    // work on it. The check id keeps its old name (`projects:plan:missing`) so filters hold.
     // Both header shapes: `facts` reads the YAML block and the legacy **Label:** lines alike,
     // and the People list carries roles a label-shaped header has no block for.
     const d = facts(src) ?? {};
     const kindOf =
       String(d.kind || "finite").toLowerCase() === "ongoing" ? "ongoing" : "finite";
-    const planFile = join(dir, "PLAN.md");
-    if (kindOf === "finite" && !existsSync(planFile)) {
+    const planFile = mapFileOf(dir);
+    if (kindOf === "finite" && !planFile) {
       add(
         WARN,
         "projects:plan:missing",
-        `${slug} has no PLAN.md`,
-        "Draft one backwards from the deliverable.",
+        `${slug} has no ${N.map}`,
+        "Draft its atomic action map backwards from the deliverable.",
       );
-    } else if (existsSync(planFile)) {
+    } else if (planFile) {
       const producing = new Set(["owner", "co-lead", "operator", "contributor"]);
       const owner = ownerRef(src);
       const team = [
@@ -767,18 +824,18 @@ export function createProjectEngine(options = {}) {
   }
 
   /**
-   * Every project folder under a projects root, at any depth.
+   * Every superproject folder under a root, at any depth.
    *
    * A root holds `<slug>/` folders and a `done/` folder of closed ones. A subproject lives
-   * INSIDE its parent, under the parent's own `projects/` folder, which is a projects root in
-   * every respect: it has live children and a `done/` of its own. Only that folder name is
-   * descended into, so a stray PROJECT.md in a project's documents or anywhere else is never
-   * counted as a project.
+   * INSIDE its parent, under the parent's own `superprojects/` folder (or a legacy `projects/`
+   * one), which is a root in every respect: it has live children and a `done/` of its own. Only
+   * those folder names are descended into, so a stray record file in a superproject's documents
+   * or anywhere else is never counted. A legacy folder that symlinks the new one is walked once.
    */
   function projectFolders(root, { stateOnly = true } = {}) {
     const out = [];
     const walk = (r, depth) => {
-      for (const base of [r, join(r, "done")]) {
+      for (const base of [r, join(r, N.done)]) {
         if (!existsSync(base)) continue;
         let names;
         try {
@@ -788,15 +845,13 @@ export function createProjectEngine(options = {}) {
         }
         for (const name of names) {
           if (name.startsWith(".") || name === "node_modules") continue;
-          if (base === r && name === "done") continue;
+          if (base === r && name === N.done) continue;
           const dir = join(base, name);
           if (!isDir(dir)) continue;
-          const isProject =
-            existsSync(join(dir, "PROJECT.md")) ||
-            (stateOnly && existsSync(join(dir, "STATE.md")));
-          if (!isProject) continue;
+          if (!isProjectDir(dir, { stateOnly })) continue;
           out.push(dir);
-          if (depth < MAX_NESTING) walk(join(dir, NESTED_ROOT), depth + 1);
+          if (depth < MAX_NESTING)
+            for (const nested of rootsOf(dir)) walk(nested, depth + 1);
         }
       }
     };
@@ -812,25 +867,23 @@ export function createProjectEngine(options = {}) {
     return hits.find((d) => !inDone(d)) ?? hits[0] ?? null;
   }
 
-  /** True when the folder sits in a `done/` folder, its own or an ancestor project's. */
+  /** True when the folder sits in a `done/` folder, its own or an ancestor superproject's. */
   const inDone = (dir) => {
     for (let d = dir; d; d = enclosingProjectDir(d))
-      if (basename(dirname(d)) === "done") return true;
+      if (basename(dirname(d)) === N.done) return true;
     return false;
   };
 
-  /** The projects root that directly holds `dir` (its `done/` folder is part of the root). */
+  /** The root that directly holds `dir` (its `done/` folder is part of the root). */
   const projectsRootOf = (dir) =>
-    basename(dirname(dir)) === "done" ? dirname(dirname(dir)) : dirname(dir);
+    basename(dirname(dir)) === N.done ? dirname(dirname(dir)) : dirname(dir);
 
-  /** The project whose folder holds `dir` as a subproject, or null for a top-level project. */
+  /** The superproject whose folder holds `dir` as a subproject, or null for a top-level one. */
   function enclosingProjectDir(dir) {
     const r = projectsRootOf(dir);
-    if (basename(r) !== NESTED_ROOT) return null;
+    if (basename(r) !== NESTED_ROOT && basename(r) !== LEGACY_NESTED_ROOT) return null;
     const up = dirname(r);
-    return existsSync(join(up, "PROJECT.md")) || existsSync(join(up, "STATE.md"))
-      ? up
-      : null;
+    return isProjectDir(up) ? up : null;
   }
 
   /** The outermost projects root above `dir`: the one a workspace declares. */
@@ -846,7 +899,8 @@ export function createProjectEngine(options = {}) {
 
   /**
    * Where each subproject that sits BESIDE its parent should live instead: inside it, at
-   * `<parent>/projects/<child>/` (or `<parent>/projects/done/<child>/` for a closed child).
+   * `<parent>/superprojects/<child>/` (or `<parent>/superprojects/done/<child>/` for a closed
+   * child).
    * Computes; moves nothing. Each move is `{slug, parent, from, to}`, ordered so a parent that
    * itself moves comes before its children, and `to` is the FINAL location. A child already
    * inside its parent is carried by the parent's move and gets no move of its own. Anything
@@ -865,7 +919,7 @@ export function createProjectEngine(options = {}) {
     for (const d of dirs) {
       let data = null;
       try {
-        data = split(readFileSync(join(d, "PROJECT.md"), "utf8")).data;
+        data = split(readFileSync(recordFileOf(d), "utf8")).data;
       } catch {
         data = null;
       }
@@ -899,7 +953,7 @@ export function createProjectEngine(options = {}) {
       }
       const pds = bySlug.get(p) ?? [];
       if (!pds.length) {
-        refuse(d, `its parent ${p} names no project folder`);
+        refuse(d, `its parent ${p} names no superproject folder`);
         continue;
       }
       if (pds.length > 1) {
@@ -938,7 +992,7 @@ export function createProjectEngine(options = {}) {
         out =
           physical === pd
             ? join(finalOf(pd), relative(pd, d))
-            : join(finalOf(pd), NESTED_ROOT, ...(inDone(d) ? ["done"] : []), basename(d));
+            : join(finalOf(pd), NESTED_ROOT, ...(inDone(d) ? [N.done] : []), basename(d));
       }
       finals.set(d, out);
       return out;
@@ -964,7 +1018,7 @@ export function createProjectEngine(options = {}) {
   }
 
   function backfillProject({ dir, write: doWrite = false } = {}) {
-    const file = join(dir, "PROJECT.md");
+    const file = recordFileOf(dir) ?? join(dir, N.record);
     const before = readFileSync(file, "utf8");
     let h;
     try {
@@ -1177,7 +1231,7 @@ export function createProjectEngine(options = {}) {
       "",
       ...(parent
         ? [
-            `A subproject of [${parentName || parent}](${parentHref || `../../PROJECT.md`}).`,
+            `A subproject of [${parentName || parent}](${parentHref || `../../${N.record}`}).`,
             "",
           ]
         : []),
@@ -1270,10 +1324,7 @@ export function createProjectEngine(options = {}) {
 
   /** Project/state context plus explicitly linked Markdown records; never an export bundle. */
   function contextRecords({
-    paths: P = options.paths ?? {
-      root: process.cwd(),
-      projects: joinPath(process.cwd(), "projects"),
-    },
+    paths: P = options.paths ?? defaultPaths(),
     prospective = [],
   } = {}) {
     const files = [...filesOf("project", P), ...filesOf("state", P)];
@@ -1324,42 +1375,44 @@ export function createProjectEngine(options = {}) {
       throw new Error("scaffold: root, slug and today are required");
     const folder = /^\d{4}-\d{2}-\d{2}-/.test(slug) ? slug : `${today}-${slug}`;
     let dir = join(root, folder);
-    // A slug names one project wherever it sits, so a subproject cannot reuse a name taken
-    // anywhere else under the root (and the reverse).
-    const taken = existsSync(dir) ? dir : findProjectDir(root, folder);
+    // A slug names one superproject wherever it sits, so a subproject cannot reuse a name taken
+    // anywhere else under the root or its sibling of the other name (and the reverse).
+    const taken = existsSync(dir) ? dir : findAnyProjectDir(root, folder);
     if (taken)
       throw new Error(`scaffold: ${taken} already exists; update it instead`);
     let parentName = null;
     let parentHref = null;
     if (spec.parent) {
-      const pd = findProjectDir(root, spec.parent);
+      const pd = findAnyProjectDir(root, spec.parent);
       if (!pd)
         throw new Error(
-          `scaffold: parent "${spec.parent}" names no project under ${root}`,
+          `scaffold: parent "${spec.parent}" names no superproject under ${root}`,
         );
-      const ptext = readFileSync(join(pd, "PROJECT.md"), "utf8");
+      const parentFile = recordFileOf(pd) ?? join(pd, N.record);
+      const ptext = existsSync(parentFile) ? readFileSync(parentFile, "utf8") : "";
       const pstatus = String(
         split(ptext).data?.status || "active",
       ).toLowerCase();
-      if (basename(dirname(pd)) === "done" || /^done\b/.test(pstatus))
+      if (basename(dirname(pd)) === N.done || /^done\b/.test(pstatus))
         throw new Error(
-          `scaffold: parent "${spec.parent}" is done; a closed project takes no new subprojects`,
+          `scaffold: parent "${spec.parent}" is done; a closed superproject takes no new subprojects`,
         );
       parentName = (ptext.match(/^#\s+(.+)$/m) || [])[1]?.trim() || spec.parent;
       if (inDone(pd))
         throw new Error(
-          `scaffold: parent "${spec.parent}" is done; a closed project takes no new subprojects`,
+          `scaffold: parent "${spec.parent}" is done; a closed superproject takes no new subprojects`,
         );
-      // The subproject lives INSIDE its parent, in the parent's own projects root.
+      // The subproject lives INSIDE its parent, in the parent's own superprojects root, and
+      // links the record file the parent actually has.
       dir = join(pd, NESTED_ROOT, folder);
       if (existsSync(dir))
         throw new Error(`scaffold: ${dir} already exists; update it instead`);
-      parentHref = relative(dir, join(pd, "PROJECT.md"));
+      parentHref = relative(dir, parentFile);
     }
     const sourceOfTruth = spec.sourceOfTruth ?? deriveSourceOfTruth(root);
     const bareNames = spec.bareNames ?? continentOperators(root);
     const peopleDirAbs = spec.peopleDirAbs ?? peopleDirAbsFor(root);
-    const projectFile = workspaceRootFor(root) ? join(dir, "PROJECT.md") : null;
+    const projectFile = workspaceRootFor(root) ? join(dir, N.record) : null;
     const project = renderProjectMd({
       peopleDir: relative(dir, resolve(root, "..", "people")),
       ...spec,
@@ -1378,7 +1431,8 @@ export function createProjectEngine(options = {}) {
       cadence: spec.cadence,
       context: spec.stateContext,
     });
-    // Every finite project is born with a plan map; an ongoing one runs on its cadence instead.
+    // Every finite superproject is born with an atomic action map; an ongoing one runs on its
+    // cadence instead.
     const ownerSlug =
       typeof spec.owner === "string"
         ? slugFor(spec.owner)
@@ -1386,7 +1440,7 @@ export function createProjectEngine(options = {}) {
           (spec.owner?.name ? slugFor(spec.owner.name) : null));
     const planMd =
       (spec.kind ?? "finite") === "finite" && spec.plan !== false
-        ? renderPlanMd({
+        ? renderActionMapMd({
             today,
             nextAction: spec.nextAction,
             deliverable: spec.deliverable,
@@ -1397,8 +1451,8 @@ export function createProjectEngine(options = {}) {
       const records = contextRecords({
         paths: options.paths ?? { root, projects: root },
         prospective: [
-          { path: join(dir, "PROJECT.md"), text: project },
-          { path: join(dir, "STATE.md"), text: state },
+          { path: join(dir, N.record), text: project },
+          { path: join(dir, N.state), text: state },
         ],
       });
       const errors = contextGraph(records).findings.filter(
@@ -1408,9 +1462,9 @@ export function createProjectEngine(options = {}) {
         throw new Error(`scaffold: ${errors.map((f) => f.message).join("; ")}`);
     }
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, "PROJECT.md"), project);
-    writeFileSync(join(dir, "STATE.md"), state);
-    if (planMd) writeFileSync(join(dir, "PLAN.md"), planMd);
+    writeFileSync(join(dir, N.record), project);
+    writeFileSync(join(dir, N.state), state);
+    if (planMd) writeFileSync(join(dir, N.map), planMd);
     return {
       dir,
       folder,
@@ -1419,27 +1473,26 @@ export function createProjectEngine(options = {}) {
       multiplayer: parseHeader(project, { projectDir: dir }).multiplayer,
     };
   }
-  /** Every project folder under every declared root, subprojects and done/ included. */
+  /** Every superproject folder under every declared root, subprojects and done/ included. */
   function projectDirsOf(P) {
     const declared = (P.projectsRoots ?? [P.projects]).filter(Boolean);
     return [...new Set(declared.flatMap((r) => projectFolders(r)))];
   }
 
-  function projectFilesOf(filename, P) {
+  /** One file per folder: the record (new name preferred) or the state file. */
+  function projectFilesOf(fileIn, P) {
     const files = [];
     for (const dir of projectDirsOf(P)) {
-      const f = joinPath(dir, filename);
-      if (existsSync(f)) files.push(f);
+      const f = fileIn(dir);
+      if (f && existsSync(f)) files.push(f);
     }
     return [...new Set(files)];
   }
 
   function filesOf(kind, P) {
-    if (kind === "project" || kind === "state")
-      return projectFilesOf(
-        kind === "project" ? "PROJECT.md" : "STATE.md",
-        P,
-      ).sort();
+    if (kind === "project") return projectFilesOf(recordFileOf, P).sort();
+    if (kind === "state")
+      return projectFilesOf((dir) => joinPath(dir, N.state), P).sort();
     throw new Error(`no walker for kind "${kind}"`);
   }
   const matches = (data, where) =>
@@ -1454,10 +1507,7 @@ export function createProjectEngine(options = {}) {
     {
       workspace = options.paths?.root ?? process.cwd(),
       where = {},
-      paths: P = options.paths ?? {
-        root: workspace,
-        projects: joinPath(workspace, "projects"),
-      },
+      paths: P = options.paths ?? defaultPaths(workspace),
     } = {},
   ) {
     if (!KINDS[kind])
@@ -1513,10 +1563,7 @@ export function createProjectEngine(options = {}) {
   };
 
   function openProjects({
-    paths = options.paths ?? {
-      root: process.cwd(),
-      projects: joinPath(process.cwd(), "projects"),
-    },
+    paths = options.paths ?? defaultPaths(),
     now = new Date(),
     // A survey of EVERY open project (a weekly prune) wants snoozed ones as full rows, marked
     // with `snoozedUntil`; every other caller keeps them off the list and in `.snoozed`.
@@ -1575,12 +1622,12 @@ export function createProjectEngine(options = {}) {
           project = "";
         }
       }
-      if (!project && !existsSync(join(dir, "STATE.md"))) continue;
+      if (!project && !existsSync(join(dir, N.state))) continue;
       const P = projectRow ? projectRow.data : {};
 
       let S, state;
       try {
-        const stateFile = join(dir, "STATE.md");
+        const stateFile = join(dir, N.state);
         const r = existsSync(stateFile)
           ? read(stateFile, { kind: "state" })
           : { data: {}, body: "" };
@@ -1780,13 +1827,13 @@ export function createProjectEngine(options = {}) {
     const problems = [];
     const body = String(text || "");
 
-    if (!body.trim()) return ["STATE.md is empty"];
+    if (!body.trim()) return [`${N.state} is empty`];
     let S;
     try {
       S = readText(body, "state").data;
     } catch (e) {
       if (e instanceof FrontmatterSyntaxError)
-        return [`STATE.md's frontmatter does not parse: ${e.message}`];
+        return [`${N.state}'s frontmatter does not parse: ${e.message}`];
       throw e;
     }
     let kind = "finite";
@@ -1819,7 +1866,7 @@ export function createProjectEngine(options = {}) {
     const next = section(body, "Next action");
     if (next !== null && !next) {
       problems.push(
-        '"## Next action" is empty; a project with no next action is stalled, not saved',
+        '"## Next action" is empty; a superproject with no next action is stalled, not saved',
       );
     }
     if (next) {
@@ -1852,12 +1899,12 @@ export function createProjectEngine(options = {}) {
       );
     } else if (changedToday && changedOn && dateOf(lastWorked) !== changedOn) {
       problems.push(
-        `**Last worked:** says ${lastWorked} but the project changed on ${changedOn}`,
+        `**Last worked:** says ${lastWorked} but the superproject changed on ${changedOn}`,
       );
     }
 
     if (!phase) {
-      problems.push("no **Phase:** line saying where the project stands");
+      problems.push("no **Phase:** line saying where the superproject stands");
     }
 
     return problems;
@@ -1866,7 +1913,12 @@ export function createProjectEngine(options = {}) {
   return {
     ERROR,
     OK,
+    NAMES: N,
     PROJECT_ROOT_FILES,
+    recordFileOf,
+    mapFileOf,
+    rootsOf,
+    defaultPaths,
     ROLES,
     ROLE_NAMES,
     OPERATOR_ROLES,
@@ -1891,6 +1943,7 @@ export function createProjectEngine(options = {}) {
     projectDirsOf,
     nestingPlan,
     NESTED_ROOT,
+    LEGACY_NESTED_ROOT,
     lintRoot,
     peopleDirFor,
     backfillProject,
