@@ -31,7 +31,7 @@ capacity: "alex 5h/week"
 ### s03 Letters in transit
 - actor: outside: USPS
 - kind: wait
-- lead: 5d (estimate)
+- lead: 5d (estimate, Alex, 2026-10-05)
 - after: s02
 
 ### s04 Decide on wave two
@@ -126,6 +126,10 @@ test('an agent can never pass a gate, and broken dependencies are errors', () =>
 test('warnings: unsourced durations, oversized human steps, undated decisions, loose outside asks', () => {
   assert.ok(codes(edit('3h (estimate, Alex, 2026-10-05)', '3h')).includes('plan:duration:no-source'));
   assert.ok(codes(edit('3h (estimate, Alex, 2026-10-05)', '5h (estimate)')).includes('plan:human:too-long'));
+  assert.ok(codes(edit('3h (estimate, Alex, 2026-10-05)', '3h (estimate)')).includes('plan:duration:thin-source'), 'an estimate says whose and when');
+  assert.ok(codes(edit('3h (estimate, Alex, 2026-10-05)', '3h (estimate, Alex)')).includes('plan:duration:thin-source'));
+  assert.ok(codes(edit('20m (measured, run 3)', '20m (measured)')).includes('plan:duration:thin-source'), 'a measurement names its run');
+  assert.ok(!codes(FIX).includes('plan:duration:thin-source'));
   assert.ok(codes(edit('- target: 2026-10-20 (provisional)\n', '')).includes('plan:target:missing'));
   const ask = edit('### m1', '### s05 Printer returns proofs\n- actor: outside: Printer\n- kind: work\n- lead: 2d (estimate)\n\n### m1');
   assert.ok(codes(ask).includes('plan:outside:no-window'));
@@ -190,6 +194,48 @@ test('an open critical step past its date is behind, and names itself', () => {
   const r = planStatus(plan(dated), { today: '2026-10-21', team: ['alex'] });
   assert.equal(r.verdict, 'behind');
   assert.equal(r.driver, 's02');
+});
+test('a request that cannot start until its window has closed is never on track, and names itself', () => {
+  const move = plan(`---
+plan_version: "1"
+---
+# Plan
+
+## Steps
+
+### s01 Buyer signs at closing
+- actor: buyer
+- effort: 2h (estimate, buyer, 2026-05-04)
+- target: 2026-06-26 (provisional)
+
+### s02 Movers carry everything
+- actor: outside: movers
+- after: s01
+- window: 2026-06-27..2026-06-27
+- fallback: a second company holds the same day
+
+### m1 Moved in
+- kind: milestone
+- after: s02
+- target: 2026-06-28 (provisional)
+
+## Scenarios
+- working: on time. s01 -> 2026-06-26
+- slip: closing moves two weeks. s01 -> 2026-07-10, m1 -> 2026-07-12
+`);
+  const opts = { today: '2026-05-04', deadline: '2026-07-31', team: ['buyer'] };
+  const fine = planStatus(move, opts);
+  assert.equal(fine.verdict, 'on-track');
+  assert.deepEqual(fine.missedWindows, []);
+  const row = schedulePlan(move, { today: '2026-05-04', scenario: 'slip' }).steps.find((r) => r.id === 's02');
+  assert.equal(row.missedWindow, true, 'the movers come on the 27th, and closing is now the 10th');
+  const slip = planStatus(move, { ...opts, scenario: 'slip' });
+  assert.equal(slip.verdict, 'at-risk', 'slack alone says on track; the booking is gone');
+  assert.equal(slip.driver, 's02');
+  assert.deepEqual(slip.missedWindows, ['s02']);
+  assert.match(slip.line, /; s02 cannot start until after its window closes on 2026-06-27, so its fallback applies$/);
+  const quiet = planStatus(move, { ...opts, today: '2026-06-30' });
+  assert.deepEqual(quiet.missedWindows, ['s02'], 'a window that closed with no answer is missed too');
 });
 test('ready work by actor, slip against the baseline, and the defensible test', () => {
   const r = status({});

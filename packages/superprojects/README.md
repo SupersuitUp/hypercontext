@@ -76,7 +76,7 @@ capacity: "alex 5h/week"
 ### s03 Letters in transit
 - actor: outside: USPS
 - kind: wait
-- lead: 5d (estimate)
+- lead: 5d (estimate, founder, 2026-03-02)
 - after: s02
 
 ### s04 Decide on wave two
@@ -102,7 +102,7 @@ Each step is a `### <id> <title>` heading under `## Steps` (the id is a lowercas
 
 - `actor`: `agent`, one or more person slugs (`alex, sam`), or `outside: <name>` for anyone off the team.
 - `kind`: `work` (the default), `wait`, `gate` or `milestone`.
-- `effort`: how long the doing takes the actor (`45m`, `3h`, `2d`, `1w`), then where the number came from: `(estimate, <who>, <date>)` or `(measured, <run>)`.
+- `effort`: how long the doing takes the actor (`45m`, `3h`, `2d`, `1w`), then where the number came from: `(estimate, <who>, <date>)` or `(measured, <run>)`. Lint warns `plan:duration:thin-source` on an estimate missing whose or when, or a measurement that names no run.
 - `lead`: how long until the step is done, waits included, in the same form.
 - `after`: the step ids it waits on, comma separated.
 - `target`: a not-before date, `2026-10-20 (provisional)`.
@@ -127,7 +127,7 @@ In the header, `capacity` declares each person's weekly hours, and human effort 
 `planStatus` computes the verdict from the critical path. It answers to PROJECT.md's deadline when there is one, otherwise to the final milestone's provisional date, and every answer names its driver, the step that sets the finish:
 
 - **on track**: the earliest finish beats that date with the buffer intact.
-- **at risk**: still before the date, with less slack than the buffer.
+- **at risk**: still before the date, with less slack than the buffer, or a step that cannot start until after its window has closed. That step becomes the driver, the line ends `; s08 cannot start until after its window closes on <date>, so its fallback applies`, and `missedWindows` lists every such step.
 - **behind**: past the date, or a step on the critical path is open past its own target.
 - **no deadline**: there is no date to answer to, and it says so.
 

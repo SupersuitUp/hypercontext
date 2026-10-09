@@ -207,6 +207,10 @@ export function lintPlan(plan, { team = null, kind = 'finite', maxHumanEffort = 
     if (s.kind === 'gate' && s.actors.some(isAgent)) add('error', 'plan:gate:agent', `${s.id} is a gate, and an agent can never pass a gate`, s);
     for (const [key, d] of [['effort', s.effort], ['lead', s.lead]])
       if (d && !d.source) add('warn', 'plan:duration:no-source', `${s.id}: ${key} ${d.text} says neither estimate nor measured`, s);
+      else if (d && d.source.type === 'estimate' && (!d.source.by || !d.source.date))
+        add('warn', 'plan:duration:thin-source', `${s.id}: ${key} ${d.text} is an estimate that does not say whose and when: (estimate, <who>, <YYYY-MM-DD>)`, s);
+      else if (d && d.source.type === 'measured' && !d.source.by)
+        add('warn', 'plan:duration:thin-source', `${s.id}: ${key} ${d.text} is a measurement that does not name its run: (measured, <run>)`, s);
     if (open(s) && s.kind !== 'wait' && isOutside(s, team)) {
       if (!s.window) add('warn', 'plan:outside:no-window', `${s.id} is asked of someone outside the team and has no window`, s);
       if (!s.fallback) add('warn', 'plan:outside:no-fallback', `${s.id} is asked of someone outside the team and has no fallback`, s);
@@ -306,6 +310,10 @@ export function schedulePlan(plan, { today, scenario = null, capacity = null } =
       finish: isoOf(finishDay),
       target,
       late: !!target && open(s) && earliest > dayOf(target),
+      // A request counts on its window. When the work before it ends after the window has
+      // closed, or the window closed with no answer, the outside party is not waiting: the
+      // fallback is what happens, and nothing about the slack says so.
+      missedWindow: !!s.window && open(s) && ready > dayOf(s.window.end),
       earliestDay: earliest,
       finishDay,
     });
@@ -336,6 +344,7 @@ export function planStatus(plan, opts = {}) {
   const against = deadline ? { date: deadline, kind: 'deadline' } : final?.target ? { date: final.target, kind: 'provisional' } : null;
   const overdue = sched.steps.filter((r) => r.target && open(by.get(r.id)) && dayOf(r.target) < t0);
   const overdueOnPath = overdue.filter((r) => sched.criticalPath.includes(r.id));
+  const missed = sched.steps.filter((r) => r.missedWindow);
   let verdict = 'no-deadline';
   let slackDays = null;
   let bufferDays = null;
@@ -343,13 +352,13 @@ export function planStatus(plan, opts = {}) {
     const remaining = dayOf(against.date) - t0;
     bufferDays = plan.header.buffer_days != null ? Number(plan.header.buffer_days) : opts.bufferDays ?? Math.max(3, Math.ceil(remaining * 0.1));
     slackDays = dayOf(against.date) - final.earliestDay;
-    verdict = overdueOnPath.length || slackDays < 0 ? 'behind' : slackDays < bufferDays ? 'at-risk' : 'on-track';
+    verdict = overdueOnPath.length || slackDays < 0 ? 'behind' : slackDays < bufferDays || missed.length ? 'at-risk' : 'on-track';
   }
   const path = sched.criticalPath.filter((id) => id !== sched.final);
   // The driver is what sets the finish: an overdue or late step on the critical path, else the
   // last step on it whose own date binds (finish pushed out to its target), else the last step.
   const binds = (id) => { const r = row.get(id); return r.target && r.finishDay === dayOf(r.target) && r.earliestDay < r.finishDay; };
-  const driver = overdueOnPath[0]?.id ?? path.find((id) => row.get(id).late) ?? [...path].reverse().find(binds) ?? path[path.length - 1] ?? null;
+  const driver = overdueOnPath[0]?.id ?? path.find((id) => row.get(id).missedWindow) ?? path.find((id) => row.get(id).late) ?? [...path].reverse().find(binds) ?? path[path.length - 1] ?? null;
   const slipDays = plan.header.baseline_finish && final ? final.finishDay - dayOf(plan.header.baseline_finish) : null;
   const ready = {};
   for (const s of plan.steps) {
@@ -369,9 +378,10 @@ export function planStatus(plan, opts = {}) {
     ['nothing assumes more hours than were declared', planners.length ? steps((s) => open(s) && s.effort && s.actors.some((a) => a.type === 'person' && planners.includes(a.slug) && !caps[a.slug])) : steps((s) => open(s) && !!s.effort && s.actors.some((a) => a.type === 'person'))],
     ['the finish keeps its buffer before the date it answers to', verdict === 'on-track' ? [] : [sched.final ?? 'plan']],
   ].map(([condition, failing]) => ({ condition, ok: failing.length === 0, steps: failing }));
-  const line = verdict === 'no-deadline'
+  const missedNote = missed.map((r) => `; ${r.id} cannot start until after its window closes on ${by.get(r.id).window.end}, so its fallback applies`).join('');
+  const line = (verdict === 'no-deadline'
     ? `no date to answer to; earliest finish ${final?.earliest ?? 'unknown'}`
-    : `${verdict.replace('-', ' ')}: earliest finish ${final.earliest} against ${against.kind === 'deadline' ? 'the deadline' : 'a provisional'} ${against.date}, ${slackDays} days of slack, ${bufferDays} needed${driver ? `; driver ${driver}` : ''}`;
+    : `${verdict.replace('-', ' ')}: earliest finish ${final.earliest} against ${against.kind === 'deadline' ? 'the deadline' : 'a provisional'} ${against.date}, ${slackDays} days of slack, ${bufferDays} needed${driver ? `; driver ${driver}` : ''}`) + missedNote;
   const result = {
     verdict,
     line,
@@ -382,6 +392,7 @@ export function planStatus(plan, opts = {}) {
     bufferDays,
     driver,
     slipDays,
+    missedWindows: missed.map((r) => r.id),
     criticalPath: sched.criticalPath,
     ready,
     defensible: { ok: conditions.every((c) => c.ok), conditions },

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1 (2026-10-09)
+
+- `plan status` notices a missed window. When the steps before a request finish after its window has closed, or the window closed with no answer, the verdict is never on track: the step becomes the driver, the line says its fallback applies, and `missedWindows` lists it. Before this, a closing that slipped past the movers' booked day still read on track.
+- `plan lint` warns `plan:duration:thin-source` when an estimate does not say whose it is and when it was made, or a measurement names no run.
+
 ## 0.4.0 (2026-10-09)
 
 Renamed from `@supersuit/agentic-projects` to `@supersuit/superprojects`, with the command `superprojects`. The API is unchanged, and the `agentic-projects` command still works for this release. The repository moved to SupersuitUp/superprojects.
