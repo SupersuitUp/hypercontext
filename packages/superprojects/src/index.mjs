@@ -4,3 +4,4 @@ export { parseFlat, stringifyFlat } from './frontmatter/yaml.mjs';
 export { KINDS, ROLE_KEYS, PROJECT_STATUS, validate, nestedKeysFor } from './frontmatter/kinds.mjs';
 export * from './handle.mjs';
 export * from './context.mjs';
+export * from './plan.mjs';

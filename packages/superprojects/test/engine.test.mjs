@@ -89,7 +89,7 @@ test("scaffold validates before creating and never clobbers existing state", (t)
     ...spec,
   });
   assert.equal(r.folder, "2026-10-04-example");
-  assert.deepEqual(readdirSync(r.dir).sort(), ["PROJECT.md", "STATE.md"]);
+  assert.deepEqual(readdirSync(r.dir).sort(), ["PLAN.md", "PROJECT.md", "STATE.md"]);
   const before = readFileSync(join(r.dir, "STATE.md"), "utf8");
   assert.throws(
     () =>
@@ -380,4 +380,26 @@ test("context scaffold refuses duplicate identities and missing relationship tar
     /missing target/,
   );
   assert.equal(existsSync(join(root, "2026-10-04-missing")), false);
+});
+test("finite projects are born with a plan; ongoing ones and --no-plan are not", (t) => {
+  const E = factory(), root = fixture(t);
+  const r = E.scaffoldProject({ root, slug: "planned", today: "2026-10-04", ...spec });
+  assert.equal(r.plan, true);
+  const text = readFileSync(join(r.dir, "PLAN.md"), "utf8");
+  assert.match(text, /### s01 Read the release proof/);
+  assert.match(text, /### m1 An installable package\n- kind: milestone\n- after: s01/);
+  assert.deepEqual(E.lintProject({ dir: r.dir }).filter((f) => f.check.startsWith("plan:") && f.level === "error"), []);
+  const bare = E.scaffoldProject({ root, slug: "bare", today: "2026-10-04", ...spec, plan: false });
+  assert.equal(existsSync(join(bare.dir, "PLAN.md")), false);
+  assert.ok(E.lintProject({ dir: bare.dir }).some((f) => f.check === "projects:plan:missing" && f.level === "warn"));
+  const ongoing = E.scaffoldProject({ root, slug: "weekly", today: "2026-10-04", ...spec, kind: "ongoing", cadence: "weekly" });
+  assert.equal(existsSync(join(ongoing.dir, "PLAN.md")), false);
+  assert.ok(!E.lintProject({ dir: ongoing.dir }).some((f) => f.check === "projects:plan:missing"));
+});
+test("plan errors surface in project lint", (t) => {
+  const E = factory(), root = fixture(t);
+  const r = E.scaffoldProject({ root, slug: "gated", today: "2026-10-04", ...spec });
+  const file = join(r.dir, "PLAN.md");
+  writeFileSync(file, readFileSync(file, "utf8").replace("- kind: milestone", "- kind: gate\n- actor: agent"));
+  assert.ok(E.lintProject({ dir: r.dir }).some((f) => f.check === "plan:gate:agent" && f.level === "error"));
 });

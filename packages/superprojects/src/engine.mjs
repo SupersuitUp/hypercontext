@@ -28,6 +28,7 @@ import {
 } from "./context.mjs";
 import { ROLE_KEYS } from "./frontmatter/kinds.mjs";
 import { HANDLE_RE, validNickname, NICKNAME_MAX } from "./handle.mjs";
+import { parsePlan, lintPlan, renderPlanMd } from "./plan.mjs";
 /** Configure product dependencies once; core algorithms never launch a shell. */
 export function createProjectEngine(options = {}) {
   assertSafeConfig(options);
@@ -134,7 +135,7 @@ export function createProjectEngine(options = {}) {
   const bookedInstant = (raw) =>
     raw ? (options.parseBooked?.(raw) ?? null) : null;
   const PROJECT_ROOT_FILES = Object.freeze([
-    ...(options.allowedRootFiles ?? ["PROJECT.md", "STATE.md"]),
+    ...(options.allowedRootFiles ?? ["PROJECT.md", "STATE.md", "PLAN.md"]),
   ]);
 
   const ROLES = Object.freeze({
@@ -720,6 +721,33 @@ export function createProjectEngine(options = {}) {
           }
         }
       }
+    }
+    // The plan map: a finite project should have one, and when it does, its findings are the
+    // project's findings. The team is everyone with a role that produces work on it.
+    const kindOf = String(split(src).data?.kind ?? "finite");
+    const planFile = join(dir, "PLAN.md");
+    if (kindOf === "finite" && !existsSync(planFile)) {
+      add(
+        WARN,
+        "projects:plan:missing",
+        `${slug} has no PLAN.md`,
+        "Draft one backwards from the deliverable.",
+      );
+    } else if (existsSync(planFile)) {
+      const d = split(src).data ?? {};
+      const team = [
+        d.owner,
+        ...[].concat(d.co_leads ?? [], d.operators ?? [], d.contributors ?? []),
+      ].filter(Boolean);
+      for (const f of lintPlan(parsePlan(readFileSync(planFile, "utf8")), {
+        team,
+        kind: kindOf,
+      }))
+        add(
+          f.level === "error" ? ERROR : WARN,
+          f.code,
+          `${f.step ? `${f.step}: ` : ""}${f.message}`,
+        );
     }
     return out;
   }
@@ -1336,6 +1364,21 @@ export function createProjectEngine(options = {}) {
       cadence: spec.cadence,
       context: spec.stateContext,
     });
+    // Every finite project is born with a plan map; an ongoing one runs on its cadence instead.
+    const ownerSlug =
+      typeof spec.owner === "string"
+        ? slugFor(spec.owner)
+        : (spec.owner?.slug ??
+          (spec.owner?.name ? slugFor(spec.owner.name) : null));
+    const planMd =
+      (spec.kind ?? "finite") === "finite" && spec.plan !== false
+        ? renderPlanMd({
+            today,
+            nextAction: spec.nextAction,
+            deliverable: spec.deliverable,
+            owner: ownerSlug,
+          })
+        : null;
     if (spec.context || spec.stateContext) {
       const records = contextRecords({
         paths: options.paths ?? { root, projects: root },
@@ -1353,10 +1396,12 @@ export function createProjectEngine(options = {}) {
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "PROJECT.md"), project);
     writeFileSync(join(dir, "STATE.md"), state);
+    if (planMd) writeFileSync(join(dir, "PLAN.md"), planMd);
     return {
       dir,
       folder,
       sourceOfTruth,
+      plan: !!planMd,
       multiplayer: parseHeader(project, { projectDir: dir }).multiplayer,
     };
   }
