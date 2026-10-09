@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,readFileSync,writeFileSync,rmSync} from 'node:fs';
+import {mkdtempSync,readFileSync,writeFileSync,rmSync,existsSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {spawnSync} from 'node:child_process';
@@ -54,4 +54,25 @@ test('subprojects scaffold inside their parent, close-check sees them, nest-plan
     assert.deepEqual(plan.moves,[]);
     assert.match(cli('nest-plan','--root',root).stdout,/already sits inside/);
   } finally {rmSync(dir,{recursive:true,force:true});}
+});
+test('plan commands read a scaffolded project', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'project-plan-cli-')), root = join(dir, 'projects');
+  try {
+    const made = cli('scaffold','--root',root,'--slug','guide','--name','Guide','--owner','alex','--goal','Deliver a reviewed guide','--date','2026-10-04','--summary','Guide ready for review','--read-when','Resuming the guide','--keep','home','--audience','self','--actor','alex','--next-action','Alex reviews the guide','--json');
+    assert.equal(made.status, 0, made.stderr);
+    const project = join(root, '2026-10-04-guide');
+    const lint = cli('plan','lint','--project',project,'--json');
+    assert.equal(lint.status, 1, 'the skeleton has an undated milestone');
+    assert.ok(JSON.parse(lint.stdout).findings.some((f) => f.code === 'plan:target:missing'));
+    const st = JSON.parse(cli('plan','status','--project',project,'--date','2026-10-04','--json').stdout);
+    assert.equal(st.verdict, 'no-deadline');
+    const free = join(dir, 'free.json');
+    writeFileSync(free, JSON.stringify([{ start: '2026-10-05T14:00:00Z', end: '2026-10-05T16:00:00Z' }]));
+    const blocks = JSON.parse(cli('plan','blocks','--project',project,'--date','2026-10-04','--actor','alex','--free',free,'--json').stdout);
+    assert.ok(Array.isArray(blocks.proposals));
+    assert.equal(cli('plan','nope','--project',project).status, 2);
+    const bare = cli('scaffold','--root',root,'--slug','bare','--name','Bare','--owner','alex','--goal','A goal','--date','2026-10-04','--summary','s','--read-when','r','--keep','home','--audience','self','--actor','alex','--next-action','n','--no-plan');
+    assert.equal(bare.status, 0, bare.stderr);
+    assert.equal(existsSync(join(root, '2026-10-04-bare', 'PLAN.md')), false);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
