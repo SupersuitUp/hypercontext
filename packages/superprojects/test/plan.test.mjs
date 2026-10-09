@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   parseDuration, parseTarget, parseWindow, parseActors, parseStatus, parseCapacity,
-  parsePlan, lintPlan, isOutside,
+  parsePlan, lintPlan, isOutside, schedulePlan,
 } from '../src/plan.mjs';
 
 const FIX = `---
@@ -141,4 +141,33 @@ test('a team member is not outside; anyone off the roles is', () => {
   const p = parsePlan(edit('- actor: alex\n- kind: work', '- actor: sam\n- kind: work'));
   assert.equal(isOutsideOf(p, 's02', ['alex']), true);
   assert.equal(isOutsideOf(p, 's02', ['alex', 'sam']), false);
+});
+const rows = (s) => Object.fromEntries(s.steps.map((r) => [r.id, r]));
+test('effort inside weekly hours, waits by lead, targets as not-before', () => {
+  const s = schedulePlan(plan(), { today: '2026-10-06' });
+  const r = rows(s);
+  assert.equal(r.s02.finish, '2026-10-06', '3h fits in a 5h week on the day it is ready');
+  assert.equal(r.s03.finish, '2026-10-11', 'five days in transit');
+  assert.equal(r.s04.earliest, '2026-10-11');
+  assert.equal(r.s04.finish, '2026-10-20', 'a decision is not made before its date');
+  assert.equal(r.m1.earliest, '2026-10-20');
+  assert.equal(r.m1.finish, '2026-10-30');
+  assert.equal(s.final, 'm1');
+  assert.deepEqual(s.criticalPath, ['s01', 's02', 's03', 's04', 'm1']);
+  assert.equal(s.scenario, 'steady');
+});
+test('a full week pushes the work to next Monday', () => {
+  const r = rows(schedulePlan(plan(), { today: '2026-10-06', capacity: { alex: 120 } }));
+  assert.equal(r.s02.finish, '2026-10-12');
+  assert.equal(r.s03.finish, '2026-10-17');
+});
+test('a scenario moves only the dates it names', () => {
+  const r = rows(schedulePlan(plan(), { today: '2026-10-06', scenario: 'fast' }));
+  assert.equal(r.s04.finish, '2026-10-14');
+  assert.equal(r.m1.finish, '2026-10-30');
+  assert.throws(() => schedulePlan(plan(), { today: '2026-10-06', scenario: 'nope' }), /no scenario named nope/);
+});
+test('refuses a cycle and a bad date rather than guessing', () => {
+  assert.throws(() => schedulePlan(plan(edit('- status: done 2026-10-05', '- after: s04\n- status: done 2026-10-05')), { today: '2026-10-06' }), /cycle/);
+  assert.throws(() => schedulePlan(plan(), { today: '10/06' }), /YYYY-MM-DD/);
 });

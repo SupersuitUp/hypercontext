@@ -14,6 +14,9 @@ const DATE_RE = /\d{4}-\d{2}-\d{2}/;
 
 export const dayOf = (iso) => Date.parse(`${iso}T00:00:00Z`) / DAY_MS;
 export const isoOf = (day) => new Date(day * DAY_MS).toISOString().slice(0, 10);
+// Weeks start on Monday. Day 0 (1970-01-01) was a Thursday, hence the 3.
+const weekOf = (day) => Math.floor((day + 3) / 7);
+const mondayOf = (week) => week * 7 - 3;
 
 // "45m (estimate, Gary, 2026-10-05)" -> { minutes: 45, text: "45m", source: {...} }
 export function parseDuration(raw) {
@@ -224,4 +227,99 @@ export function lintPlan(plan, { team = null, kind = 'finite', maxHumanEffort = 
     for (const id of Object.keys(sc.overrides))
       if (!ids.has(id)) add('warn', 'plan:scenario:unknown-step', `scenario ${sc.name} moves ${id}, which is not a step`);
   return out;
+}
+
+function pickScenario(plan, name) {
+  if (name) {
+    const sc = plan.scenarios.find((x) => x.name === name);
+    if (!sc) throw new Error(`no scenario named ${name}`);
+    return sc;
+  }
+  return plan.scenarios.find((x) => x.working) ?? null;
+}
+
+// Every remaining step placed on the calendar: agent work by effort, human work only inside each
+// person's declared weekly hours, waits and outside steps by lead time or the end of their window,
+// and every target treated as "not before". Days are whole UTC days.
+export function schedulePlan(plan, { today, scenario = null, capacity = null } = {}) {
+  if (!validDate(today)) throw new Error('schedulePlan: today must be a YYYY-MM-DD date');
+  if (findCycle(plan.steps).length) throw new Error('schedulePlan: the plan has a dependency cycle');
+  const t0 = dayOf(today);
+  const sc = pickScenario(plan, scenario);
+  const caps = { ...parseCapacity(plan.header.capacity), ...(capacity ?? {}) };
+  for (const [slug, minutes] of Object.entries(caps))
+    if (!(minutes > 0)) throw new Error(`schedulePlan: ${slug} has no hours to give`);
+  const by = new Map(plan.steps.map((s) => [s.id, s]));
+  const targetOf = (s) => sc?.overrides[s.id] ?? s.target?.date ?? null;
+  const used = new Map();
+  const place = (s, from) => {
+    const capped = s.actors.filter((a) => a.type === 'person' && caps[a.slug]);
+    if (!capped.length) return from + (s.actors.every(isAgent) ? Math.floor(s.effort.minutes / 1440) : 0);
+    let finish = from;
+    for (const a of capped) {
+      // Weekly budget: a step lands on the first day its actor's week still has the hours,
+      // so a 3h call happens on one day rather than being smeared across five.
+      let left = s.effort.minutes;
+      let week = weekOf(from);
+      let day = from;
+      for (;;) {
+        const key = `${a.slug}:${week}`;
+        const take = Math.min(caps[a.slug] - (used.get(key) ?? 0), left);
+        if (take > 0) { used.set(key, (used.get(key) ?? 0) + take); left -= take; }
+        if (left <= 0) break;
+        week++;
+        day = mondayOf(week);
+      }
+      finish = Math.max(finish, day);
+    }
+    return finish;
+  };
+  // Dependency order, earliest target first among equals, so dated work claims hours first.
+  const order = [];
+  const seen = new Set();
+  const sorted = [...plan.steps].sort((a, b) => (targetOf(a) ?? '9999') < (targetOf(b) ?? '9999') ? -1 : (targetOf(a) ?? '9999') > (targetOf(b) ?? '9999') ? 1 : 0);
+  const visit = (s) => {
+    if (seen.has(s.id)) return;
+    seen.add(s.id);
+    for (const d of s.after) if (by.has(d)) visit(by.get(d));
+    order.push(s);
+  };
+  sorted.forEach(visit);
+  const rows = new Map();
+  for (const s of order) {
+    const deps = s.after.filter((d) => by.has(d)).map((d) => rows.get(d));
+    const ready = Math.max(t0, ...deps.map((r) => r.finishDay));
+    let earliest;
+    if (s.status.state === 'done') earliest = s.status.date ? dayOf(s.status.date) : t0;
+    else if (s.status.state === 'skipped' || s.kind === 'milestone' || s.kind === 'gate') earliest = ready;
+    else {
+      earliest = s.effort ? place(s, ready) : ready;
+      if (s.lead) earliest += Math.ceil(s.lead.minutes / 1440);
+      else if (!s.effort && s.window) earliest = Math.max(earliest, dayOf(s.window.end));
+    }
+    const target = targetOf(s);
+    const finishDay = s.status.state === 'done' ? earliest : Math.max(earliest, target ? dayOf(target) : earliest);
+    rows.set(s.id, {
+      id: s.id,
+      start: isoOf(ready),
+      earliest: isoOf(earliest),
+      finish: isoOf(finishDay),
+      target,
+      late: !!target && open(s) && earliest > dayOf(target),
+      earliestDay: earliest,
+      finishDay,
+    });
+  }
+  const dependents = new Set(plan.steps.flatMap((s) => s.after));
+  const ends = plan.steps.filter((s) => !dependents.has(s.id));
+  const rank = (s) => [s.kind === 'milestone' ? 1 : 0, rows.get(s.id).finishDay];
+  const final = ends.sort((a, b) => rank(b)[0] - rank(a)[0] || rank(b)[1] - rank(a)[1])[0] ?? null;
+  const criticalPath = [];
+  for (let cur = final; cur; ) {
+    criticalPath.unshift(cur.id);
+    const deps = cur.after.filter((d) => by.has(d)).map((d) => rows.get(d));
+    const next = deps.sort((a, b) => b.finishDay - a.finishDay || (a.id < b.id ? -1 : 1))[0];
+    cur = next ? by.get(next.id) : null;
+  }
+  return { steps: plan.steps.map((s) => rows.get(s.id)), final: final?.id ?? null, criticalPath, scenario: sc?.name ?? null };
 }
