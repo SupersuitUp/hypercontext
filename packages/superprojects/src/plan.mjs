@@ -394,3 +394,35 @@ export function planStatus(plan, opts = {}) {
     });
   return result;
 }
+
+// Fit one person's next steps into free time the product read off their calendar. Proposals
+// only: the product books after the person says yes and writes `booked:` back onto the step.
+export function proposeBlocks(plan, { today, freeSlots = [], actor, scenario = null, capacity = null, limit = 5 } = {}) {
+  if (!actor) throw new Error('proposeBlocks: actor is required');
+  const sched = schedulePlan(plan, { today, scenario, capacity });
+  const row = new Map(sched.steps.map((r) => [r.id, r]));
+  const mine = plan.steps
+    .filter((s) => s.effort && (s.status.state === 'todo' || s.status.state === 'doing') && !s.booked && s.actors.some((a) => a.type === 'person' && a.slug === actor))
+    .sort((a, b) => row.get(a.id).start.localeCompare(row.get(b.id).start) || a.id.localeCompare(b.id));
+  const slots = freeSlots
+    .map((x) => ({ start: Date.parse(x.start), end: Date.parse(x.end) }))
+    .filter((x) => x.end > x.start)
+    .sort((a, b) => a.start - b.start);
+  const horizon = slots.length ? Math.max(...slots.map((x) => x.end)) : -Infinity;
+  const proposals = [];
+  const unplaced = [];
+  for (const s of mine) {
+    if (proposals.length >= limit) break;
+    if (dayOf(row.get(s.id).start) * DAY_MS >= horizon) continue;
+    const need = s.effort.minutes * 60000;
+    const notBefore = dayOf(row.get(s.id).start) * DAY_MS;
+    const slot = slots.find((x) => Math.max(x.start, notBefore) + need <= x.end);
+    if (!slot) { unplaced.push({ step: s.id, title: s.title, minutes: s.effort.minutes, why: 'no free time long enough' }); continue; }
+    const start = Math.max(slot.start, notBefore);
+    proposals.push({ step: s.id, title: s.title, start: new Date(start).toISOString(), end: new Date(start + need).toISOString(), minutes: s.effort.minutes, doneWhen: s.doneWhen, skill: s.skill });
+    if (start > slot.start) { slots.push({ start: start + need, end: slot.end }); slot.end = start; }
+    else slot.start = start + need;
+    slots.sort((a, b) => a.start - b.start);
+  }
+  return { proposals, unplaced };
+}

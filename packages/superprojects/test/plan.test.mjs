@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   parseDuration, parseTarget, parseWindow, parseActors, parseStatus, parseCapacity,
-  parsePlan, lintPlan, isOutside, schedulePlan, planStatus,
+  parsePlan, lintPlan, isOutside, schedulePlan, planStatus, proposeBlocks,
 } from '../src/plan.mjs';
 
 const FIX = `---
@@ -205,4 +205,19 @@ test('every scenario side by side on request', () => {
   const r = status({ allScenarios: true });
   assert.deepEqual(r.scenarios.map((s) => [s.name, s.working, s.verdict]), [['steady', true, 'on-track'], ['fast', false, 'on-track']]);
   assert.match(r.line, /^on track: earliest finish 2026-10-20 against a provisional 2026-10-30/);
+});
+test('fits the next human steps into free time, never before they can start', () => {
+  const free = [
+    { start: '2026-10-06T14:00:00Z', end: '2026-10-06T16:00:00Z' },
+    { start: '2026-10-07T14:00:00Z', end: '2026-10-07T18:00:00Z' },
+  ];
+  const r = proposeBlocks(plan(), { today: '2026-10-06', freeSlots: free, actor: 'alex' });
+  assert.deepEqual(r.proposals.map((p) => [p.step, p.start, p.end]), [['s02', '2026-10-07T14:00:00.000Z', '2026-10-07T17:00:00.000Z']]);
+  assert.deepEqual(r.unplaced, []);
+});
+test('booked steps are skipped, tight calendars report what did not fit, actor is required', () => {
+  assert.deepEqual(proposeBlocks(plan(edit('- status: todo', '- booked: 2026-10-07T14:00\n- status: todo')), { today: '2026-10-06', freeSlots: [{ start: '2026-10-07T14:00:00Z', end: '2026-10-07T18:00:00Z' }], actor: 'alex' }).proposals, []);
+  const tight = proposeBlocks(plan(), { today: '2026-10-06', freeSlots: [{ start: '2026-10-06T14:00:00Z', end: '2026-10-06T15:00:00Z' }], actor: 'alex' });
+  assert.deepEqual(tight.unplaced.map((u) => u.step), ['s02']);
+  assert.throws(() => proposeBlocks(plan(), { today: '2026-10-06' }), /actor is required/);
 });
