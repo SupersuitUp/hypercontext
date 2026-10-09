@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   parseDuration, parseTarget, parseWindow, parseActors, parseStatus, parseCapacity,
-  parsePlan,
+  parsePlan, lintPlan, isOutside,
 } from '../src/plan.mjs';
 
 const FIX = `---
@@ -111,4 +111,34 @@ test('bad ids, values and an unclosed header are problems with line numbers, nev
   assert.ok(bad.problems.some((x) => /status "later"/.test(x.message) && x.line > 0));
   assert.ok(parsePlan(edit('- target: 2026-10-20 (provisional)', '- target: someday')).problems.some((x) => /target "someday" does not parse/.test(x.message)));
   assert.ok(parsePlan('---\nplan_version: "1"\n# Plan\n').problems.some((x) => /not closed/.test(x.message)));
+});
+const codes = (text, opts) => lintPlan(parsePlan(text), opts).map((f) => f.code);
+test('the fixture is clean', () => {
+  assert.deepEqual(lintPlan(plan(), { team: ['alex'] }), []);
+});
+test('an agent can never pass a gate, and broken dependencies are errors', () => {
+  assert.ok(codes(edit('- actor: alex\n- kind: gate', '- actor: agent\n- kind: gate')).includes('plan:gate:agent'));
+  assert.ok(codes(edit('- after: s03', '- after: s09')).includes('plan:after:unknown'));
+  assert.ok(codes(edit('- status: done 2026-10-05', '- after: s04\n- status: done 2026-10-05')).includes('plan:after:cycle'));
+  assert.ok(codes(edit('- actor: alex\n- kind: work', '- kind: work')).includes('plan:step:no-actor'));
+  assert.ok(codes(edit('### s04 Decide', '### s01 Decide')).includes('plan:step:duplicate-id'));
+});
+test('warnings: unsourced durations, oversized human steps, undated decisions, loose outside asks', () => {
+  assert.ok(codes(edit('3h (estimate, Alex, 2026-10-05)', '3h')).includes('plan:duration:no-source'));
+  assert.ok(codes(edit('3h (estimate, Alex, 2026-10-05)', '5h (estimate)')).includes('plan:human:too-long'));
+  assert.ok(codes(edit('- target: 2026-10-20 (provisional)\n', '')).includes('plan:target:missing'));
+  const ask = edit('### m1', '### s05 Printer returns proofs\n- actor: outside: Printer\n- kind: work\n- lead: 2d (estimate)\n\n### m1');
+  assert.ok(codes(ask).includes('plan:outside:no-window'));
+  assert.ok(codes(ask).includes('plan:outside:no-fallback'));
+  assert.ok(!codes(FIX).includes('plan:outside:no-window'), 'a wait is exempt');
+  assert.ok(codes(edit('- kind: milestone', '- kind: gate\n- actor: alex')).includes('plan:milestone:missing'));
+  assert.ok(!codes(edit('- kind: milestone', '- kind: gate\n- actor: alex'), { kind: 'ongoing' }).includes('plan:milestone:missing'));
+  assert.ok(codes(edit('- fast:', '- working: fast.')).includes('plan:scenario:working'));
+  assert.ok(codes(edit('s04 -> 2026-10-14', 's09 -> 2026-10-14')).includes('plan:scenario:unknown-step'));
+});
+const isOutsideOf = (p, id, team) => isOutside(p.steps.find((s) => s.id === id), team);
+test('a team member is not outside; anyone off the roles is', () => {
+  const p = parsePlan(edit('- actor: alex\n- kind: work', '- actor: sam\n- kind: work'));
+  assert.equal(isOutsideOf(p, 's02', ['alex']), true);
+  assert.equal(isOutsideOf(p, 's02', ['alex', 'sam']), false);
 });

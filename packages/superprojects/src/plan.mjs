@@ -6,6 +6,8 @@ import { validDate } from './context.mjs';
 
 const UNIT = { m: 1, h: 60, d: 1440, w: 10080 };
 const DAY_MS = 86400000;
+export const STEP_KINDS = Object.freeze(['work', 'wait', 'gate', 'milestone']);
+export const MAX_HUMAN_EFFORT_MINUTES = 240;
 const ID_RE = /^[a-z][a-z0-9]*$/;
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 const DATE_RE = /\d{4}-\d{2}-\d{2}/;
@@ -154,4 +156,72 @@ export function parsePlan(text) {
   }
   const steps = raw.map((s) => normalizeStep(s, problems));
   return { header, steps, scenarios, revisions, problems };
+}
+
+const isAgent = (a) => a.type === 'agent';
+const isHuman = (a) => a.type === 'person' || a.type === 'outside';
+const open = (s) => s.status.state !== 'done' && s.status.state !== 'skipped';
+
+// Outside the team: named `outside:`, or a person the project's roles do not list.
+export function isOutside(step, team = null) {
+  return step.actors.some((a) => a.type === 'outside' || (team && a.type === 'person' && !team.includes(a.slug)));
+}
+
+export function findCycle(steps) {
+  const by = new Map(steps.map((s) => [s.id, s]));
+  const color = new Map();
+  let cycle = null;
+  const visit = (id, stack) => {
+    color.set(id, 1);
+    stack.push(id);
+    for (const d of by.get(id)?.after ?? []) {
+      if (cycle) return;
+      if (!by.has(d)) continue;
+      if (color.get(d) === 1) { cycle = stack.slice(stack.indexOf(d)); return; }
+      if (!color.get(d)) visit(d, stack);
+    }
+    stack.pop();
+    color.set(id, 2);
+  };
+  for (const s of steps) if (!cycle && !color.get(s.id)) visit(s.id, []);
+  return cycle ?? [];
+}
+
+export function lintPlan(plan, { team = null, kind = 'finite', maxHumanEffort = MAX_HUMAN_EFFORT_MINUTES } = {}) {
+  const out = [];
+  const add = (level, code, message, step = null) => out.push({ level, code, message, step: step?.id ?? null, line: step?.line ?? null });
+  for (const p of plan.problems) out.push({ level: 'error', code: 'plan:parse', message: p.message, step: null, line: p.line });
+  const ids = new Map();
+  for (const s of plan.steps) {
+    if (ids.has(s.id)) add('error', 'plan:step:duplicate-id', `${s.id} is used by two steps`, s);
+    ids.set(s.id, s);
+  }
+  for (const s of plan.steps) {
+    if (!STEP_KINDS.includes(s.kind)) add('error', 'plan:step:kind', `${s.id}: kind "${s.kind}" is not work, wait, gate or milestone`, s);
+    if (s.kind !== 'milestone' && !s.actors.length) add('error', 'plan:step:no-actor', `${s.id} names no actor`, s);
+    for (const a of s.actors) if (a.type === 'invalid') add('error', 'plan:step:actor', `${s.id}: actor "${a.raw}" is not agent, a person slug or outside: <name>`, s);
+    for (const d of s.after) if (!ids.has(d)) add('error', 'plan:after:unknown', `${s.id} waits on ${d}, which is not a step`, s);
+    if (s.kind === 'gate' && s.actors.some(isAgent)) add('error', 'plan:gate:agent', `${s.id} is a gate, and an agent can never pass a gate`, s);
+    for (const [key, d] of [['effort', s.effort], ['lead', s.lead]])
+      if (d && !d.source) add('warn', 'plan:duration:no-source', `${s.id}: ${key} ${d.text} says neither estimate nor measured`, s);
+    if (open(s) && s.kind !== 'wait' && isOutside(s, team)) {
+      if (!s.window) add('warn', 'plan:outside:no-window', `${s.id} is asked of someone outside the team and has no window`, s);
+      if (!s.fallback) add('warn', 'plan:outside:no-fallback', `${s.id} is asked of someone outside the team and has no fallback`, s);
+    }
+    if (s.effort && s.effort.minutes > maxHumanEffort && s.actors.some(isHuman))
+      add('warn', 'plan:human:too-long', `${s.id}: ${s.effort.text} of human effort; split anything over ${maxHumanEffort / 60}h`, s);
+    if (open(s) && (s.kind === 'gate' || s.kind === 'milestone') && !s.target)
+      add('warn', 'plan:target:missing', `${s.id} is a ${s.kind} with no provisional date`, s);
+  }
+  const cycle = findCycle(plan.steps);
+  if (cycle.length) add('error', 'plan:after:cycle', `steps wait on each other in a circle: ${[...cycle, cycle[0]].join(' -> ')}`);
+  if (kind === 'finite' && !plan.steps.some((s) => s.kind === 'milestone'))
+    add('warn', 'plan:milestone:missing', 'a finite project plan ends in a milestone: the deliverable');
+  const working = plan.scenarios.filter((x) => x.working);
+  if (plan.scenarios.length && working.length !== 1)
+    add('warn', 'plan:scenario:working', `mark exactly one scenario working (found ${working.length})`);
+  for (const sc of plan.scenarios)
+    for (const id of Object.keys(sc.overrides))
+      if (!ids.has(id)) add('warn', 'plan:scenario:unknown-step', `scenario ${sc.name} moves ${id}, which is not a step`);
+  return out;
 }
