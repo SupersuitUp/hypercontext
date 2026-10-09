@@ -21,7 +21,7 @@ try{
   }
   writeFileSync(join(dir,'package.json'),JSON.stringify({private:true,type:'module'}));
   run('npm',['install','--ignore-scripts','--no-audit','--no-fund',join(dir,pack.filename)]);
-  const bin=join(dir,'node_modules','.bin','agentic-projects');
+  const bin=join(dir,'node_modules','.bin','superprojects');
   assert.match(run(bin,['--help']),/scaffold/);
   run(bin,['scaffold','--root','demo/projects','--slug','guide','--name','Guide','--owner','alex','--goal','Deliver a reviewed guide','--date','2026-10-04','--summary','Guide prepared for review','--read-when','Resuming the guide','--keep','home','--audience','self','--actor','alex','--next-action','Alex reviews the guide']);
   assert.equal(JSON.parse(run(bin,['list','--root','demo/projects','--json'])).projects.length,1);
@@ -36,6 +36,6 @@ try{
   assert.equal(JSON.parse(run(bin,['plan','status','--project',project,'--date','2026-10-04','--json'])).verdict,'no-deadline');
   writeFileSync(join(dir,'permitted-record.md'),'---\ncontext_version: "1"\nid: shared-note\nsummary: Explicitly permitted note\nread_when: Reading the note\nas_of: 2026-10-04\nkeep: share\naudience: readers\n---\n# Note\n\nAn approved synthetic record.\n');
   assert.equal(JSON.parse(run(bin,['export','--file','permitted-record.md','--to','share','--json'])).records.length,1);
-  run(process.execPath,['--input-type=module','-e',"import { createProjectEngine, validateContext, planStatus } from '@supersuit/agentic-projects'; if (!createProjectEngine().resumability || typeof validateContext !== 'function' || typeof planStatus !== 'function') process.exit(1)"]);
+  run(process.execPath,['--input-type=module','-e',"import { createProjectEngine, validateContext, planStatus } from '@supersuit/superprojects'; if (!createProjectEngine().resumability || typeof validateContext !== 'function' || typeof planStatus !== 'function') process.exit(1)"]);
   console.log(`Installed ${pack.filename} outside source checkout; documented CLI/library commands pass; ${pack.files.length} payload files audited`);
 }finally{rmSync(dir,{recursive:true,force:true});}

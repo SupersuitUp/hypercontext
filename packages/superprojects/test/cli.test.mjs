@@ -5,7 +5,7 @@ import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-const bin=fileURLToPath(new URL('../bin/agentic-projects.mjs',import.meta.url));
+const bin=fileURLToPath(new URL('../bin/superprojects.mjs',import.meta.url));
 const cli=(...args)=>spawnSync(process.execPath,[bin,...args],{encoding:'utf8'});
 test('CLI help and usage exits',()=>{
   assert.match(cli('--help').stdout,/scaffold.*list/s);

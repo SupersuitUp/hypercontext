@@ -1,10 +1,11 @@
 {
-  "name": "@supersuit/agentic-projects",
-  "version": "0.3.2",
-  "description": "Portable Markdown project management with verified context, evidence and sharing checks",
+  "name": "@supersuit/superprojects",
+  "version": "0.4.0",
+  "description": "Superprojects: portable Markdown projects an agent can carry, with a plan map, an on-track answer, verified context and sharing checks",
   "type": "module",
   "bin": {
-    "agentic-projects": "bin/agentic-projects.mjs"
+    "superprojects": "bin/superprojects.mjs",
+    "agentic-projects": "bin/superprojects.mjs"
   },
   "exports": {
     ".": "./src/index.mjs",
@@ -31,7 +32,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SupersuitUp/agentic-projects.git"
+    "url": "git+https://github.com/SupersuitUp/superprojects.git"
   },
   "dependencies": {}
 }

@@ -1,4 +1,4 @@
-# Publish @supersuit/agentic-projects to npm through OIDC trusted publishing.
+# Publish @supersuit/superprojects to npm through OIDC trusted publishing.
 #
 # WHY THIS EXISTS. Publishing by hand needed a one-time password in a browser on every
 # release, which put a human round trip in front of every fix reaching the wikis that
@@ -49,9 +49,9 @@ jobs:
     # npm checks the environment claim inside the OIDC token, so a record that NAMES an
     # environment the job does not declare fails as ENEEDAUTH, with nothing said about
     # environments. This package's record names none: it is created with
-    #     npm trust github @supersuit/agentic-projects --file publish.yml \
-    #       --repo SupersuitUp/agentic-projects --allow-publish --allow-stage-publish
-    # and `npm trust list @supersuit/agentic-projects` shows no environment, so any value here
+    #     npm trust github @supersuit/superprojects --file publish.yml \
+    #       --repo SupersuitUp/superprojects --allow-publish --allow-stage-publish
+    # and `npm trust list @supersuit/superprojects` shows no environment, so any value here
     # passes. `blank` is kept to match docusaurus-preset-wiki, whose record also names none
     # and which has published every release through this exact shape. If a record is ever
     # given an environment, this line must change to match it in the same sitting.
@@ -131,7 +131,7 @@ jobs:
       - name: Refuse a version already on npm
         run: |
           PKG="$(node -p "require('./package.json').version")"
-          if npm view "@supersuit/agentic-projects@$PKG" version >/dev/null 2>&1; then
+          if npm view "@supersuit/superprojects@$PKG" version >/dev/null 2>&1; then
             echo "$PKG is already published. Bump the version."
             exit 1
           fi

@@ -464,7 +464,7 @@ export function createProjectEngine(options = {}) {
         ERROR,
         "projects:header:frontmatter",
         `${slug}: the frontmatter block will not parse (${e.message}). Nothing in the header can be read until it does.`,
-        `Fix the block at the top of ${file}; ${options.validateCommand?.(file) ?? `agentic-projects lint --root "${projectsRootOf(dir)}"`} names the line.`,
+        `Fix the block at the top of ${file}; ${options.validateCommand?.(file) ?? `superprojects lint --root "${projectsRootOf(dir)}"`} names the line.`,
       );
       return out;
     }

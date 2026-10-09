@@ -17,7 +17,7 @@ const cases=[
   ['subproject inside parent','engine.mjs','nesting.test.mjs','dir = join(pd, NESTED_ROOT, folder);', '/* scaffolded beside the parent */'],
   ['parent location lint','engine.mjs','nesting.test.mjs','} else if (physical && parentSlug !== basename(physical)) {', '} else if (false) {'],
   ['nesting plan parents first','engine.mjs','nesting.test.mjs','moves.sort((a, b) => depth(a.to) - depth(b.to) || (a.to < b.to ? -1 : 1));', 'moves.sort((a, b) => depth(b.to) - depth(a.to));'],
-  ['lint graph','../bin/agentic-projects.mjs','cli.test.mjs','findings.push(...contextGraph(records).findings);','/* graph check deliberately removed */'],
+  ['lint graph','../bin/superprojects.mjs','cli.test.mjs','findings.push(...contextGraph(records).findings);','/* graph check deliberately removed */'],
   ['reference definitions','context.mjs','context.test.mjs','links.push(...[...body.matchAll(/\\]:[ \\t\\r\\n]*(?:<([^>]+)>|([^ \\t\\r\\n]+))/g)].map(m=>m[1]||m[2]));','/* reference definition check deliberately removed */'],
   ['ambiguous destinations','context.mjs','context.test.mjs',"throw new Error('Unsupported Markdown destination syntax; use a plain or percent-encoded path');","{}"],
   ['plan lint reads both header shapes','engine.mjs','engine.test.mjs','const d = facts(src) ?? {};','const d = split(src).data ?? {};'],

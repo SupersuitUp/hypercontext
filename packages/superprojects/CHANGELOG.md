@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0 (2026-10-09)
+
+Renamed from `@supersuit/agentic-projects` to `@supersuit/superprojects`, with the command `superprojects`. The API is unchanged, and the `agentic-projects` command still works for this release. The repository moved to SupersuitUp/superprojects.
+
 ## 0.3.2 (2026-10-09)
 
 The last release under this name. The package is now `@supersuit/superprojects`, with the same API and commands; this version only adds that notice to the README.

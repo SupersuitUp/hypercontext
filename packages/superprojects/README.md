@@ -1,6 +1,6 @@
-# @supersuit/agentic-projects
+# @supersuit/superprojects
 
-> **Renamed to [`@supersuit/superprojects`](https://www.npmjs.com/package/@supersuit/superprojects).** This name receives no further releases. Install `@supersuit/superprojects`; its API and commands are the same, and it also answers to the `agentic-projects` command for one release. The doctrine is at [superprojects.wiki](https://superprojects.wiki).
+*Formerly `@supersuit/agentic-projects`, which gets no further releases. The doctrine is at [superprojects.wiki](https://superprojects.wiki).*
 
 Portable Markdown projects that another agent can resume: ownership, a concrete next action, a verified current picture, attributed evidence, and explicit permission to share. Extracted from Freedom's running project engine.
 
@@ -9,19 +9,19 @@ Node 20+, ESM, MIT, no runtime dependencies. The library never launches a shell.
 ## Start a project
 
 ```sh
-npm install @supersuit/agentic-projects
-npx agentic-projects --help
-npx agentic-projects scaffold --root demo/projects --slug guide --name Guide \
+npm install @supersuit/superprojects
+npx superprojects --help
+npx superprojects scaffold --root demo/projects --slug guide --name Guide \
   --owner alex --goal 'Deliver a reviewed guide' --date 2026-10-04 \
   --summary 'Guide prepared for review' --read-when 'Resuming the guide' \
   --keep home --audience self --actor alex --next-action 'Alex reviews the guide'
-npx agentic-projects list --root demo/projects --json
-npx agentic-projects read --file demo/projects/2026-10-04-guide/STATE.md --json
-npx agentic-projects query --root demo/projects --kind project --where status=active --json
-npx agentic-projects verify --file demo/projects/2026-10-04-guide/STATE.md \
+npx superprojects list --root demo/projects --json
+npx superprojects read --file demo/projects/2026-10-04-guide/STATE.md --json
+npx superprojects query --root demo/projects --kind project --where status=active --json
+npx superprojects verify --file demo/projects/2026-10-04-guide/STATE.md \
   --date 2026-10-04 --by alex --source PROJECT.md --origin human --write
-npx agentic-projects close-check --root demo/projects --slug 2026-10-04-guide --json
-npx agentic-projects nest-plan --root demo/projects --json
+npx superprojects close-check --root demo/projects --slug 2026-10-04-guide --json
+npx superprojects nest-plan --root demo/projects --json
 ```
 
 PROJECT.md holds purpose, ownership and deliverable; STATE.md holds phase, next action, progress and open questions; a finite project also gets PLAN.md, the plan map (below). Folders are dated and existing projects are never overwritten. Parents must exist and remain open when children are created.
@@ -142,10 +142,10 @@ Before saying a plan holds up, it runs the defensible test, and each failed cond
 7. the finish keeps its buffer before the date it answers to.
 
 ```sh
-npx agentic-projects plan lint --project demo/projects/2026-10-04-guide --json
-npx agentic-projects plan status --project demo/projects/2026-10-04-guide --date 2026-10-06
-npx agentic-projects plan schedule --project demo/projects/2026-10-04-guide --scenario fast
-npx agentic-projects plan blocks --project demo/projects/2026-10-04-guide --actor alex --free free.json
+npx superprojects plan lint --project demo/projects/2026-10-04-guide --json
+npx superprojects plan status --project demo/projects/2026-10-04-guide --date 2026-10-06
+npx superprojects plan schedule --project demo/projects/2026-10-04-guide --scenario fast
+npx superprojects plan blocks --project demo/projects/2026-10-04-guide --actor alex --free free.json
 ```
 
 `plan lint` exits 1 on any finding. `plan status` prints one line, such as `on track: earliest finish 2026-10-20 against a provisional 2026-10-30, 10 days of slack, 3 needed; driver s04`; it takes `--deadline`, `--scenario` and `--all-scenarios`, returns the whole answer with `--json`, and exits 1 when behind. `plan schedule` prints each step's projected start and finish and the critical path. `plan blocks` reads `--free` as a JSON array of `{"start","end"}` ISO times and fits the actor's next open steps into them. `--date` defaults to today.
@@ -167,7 +167,7 @@ Context v1 requires `context_version: "1"`, stable `id`, short `summary`, `read_
 Evidence and relations are JSON strings in the flat YAML header. Evidence carries `type` (decision, reversal, constraint or claim), `date`, `by`, `origin` (human, agent or capture), `source`, and optionally `rev` or `snapshot`. The body holds the current picture and dated prose; the linked raw capture stays intact. Identity relationships carry `{ "type": "depends-on", "target": "other-record-id" }`. Backlinks are derived.
 
 ```js
-import { readContext, validateContext, contextGraph, exportContext } from '@supersuit/agentic-projects';
+import { readContext, validateContext, contextGraph, exportContext } from '@supersuit/superprojects';
 
 const record = {path:'/workspace/projects/example/STATE.md', text:markdown};
 const context = readContext(record.text);
@@ -184,7 +184,7 @@ Changes to pinned sources request rechecks; they do not automatically overturn c
 ## Sharing checks
 
 ```sh
-npx agentic-projects export --file path/to/permitted-record.md --to share --json
+npx superprojects export --file path/to/permitted-record.md --to share --json
 ```
 
 Include every referenced local record using repeated `--file`; each must independently permit the destination. Unknown permission, missing relationships, private evidence and local Markdown links outside that bundle refuse export. Reference definitions are checked in quotes and lists, including escaped and multiline labels; unused definitions and code examples are conservatively checked too. Markdown destinations containing literal parentheses, backslash escapes, HTML entities, control characters or non-ASCII whitespace refuse export; use plain or percent-encoded destinations. HTTP(S) references, including bare URLs and autolinks, require `--allow-external`. Protocol-relative URLs (`//host/path`) are unsupported; spell out HTTP(S). Raw HTML is unsupported and refuses export; use Markdown references. Export returns text and never sends it. These checks enforce declared policy and references; they do not authenticate readers or infer whether prose contains private information.

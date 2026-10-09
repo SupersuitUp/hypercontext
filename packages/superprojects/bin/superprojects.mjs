@@ -3,7 +3,8 @@ import {readFileSync,writeFileSync,existsSync} from 'node:fs';
 import {join,resolve,dirname,basename} from 'node:path';
 import {createProjectEngine,readContext,validateContext,contextGraph,verifyContext,exportContext,assertCanClose,assertSafeConfig,validDate,parsePlan,lintPlan,planStatus,schedulePlan,proposeBlocks} from '../src/index.mjs';
 
-const HELP=`agentic-projects <command> [options]
+const HELP=`superprojects <command> [options]
+(also installed as agentic-projects, the former name, for one release)
 
 scaffold     Create a dated project and state; requires explicit context
 list         Read open projects, including malformed-record findings
