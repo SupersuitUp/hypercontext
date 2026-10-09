@@ -403,3 +403,21 @@ test("plan errors surface in project lint", (t) => {
   writeFileSync(file, readFileSync(file, "utf8").replace("- kind: milestone", "- kind: gate\n- actor: agent"));
   assert.ok(E.lintProject({ dir: r.dir }).some((f) => f.check === "plan:gate:agent" && f.level === "error"));
 });
+
+test("plan lint reads label-shaped headers: an ongoing project needs no plan, a co-lead is on the team", (t) => {
+  const E = factory(),
+    root = fixture(t);
+  const ongoing = join(root, "2026-10-01-weekly");
+  mkdirSync(ongoing, { recursive: true });
+  writeFileSync(join(ongoing, "PROJECT.md"), "# Weekly review\n\n**Kind:** ongoing\n**Owner:** [Alex Example](../../people/alex-example.md)\n**Cadence:** weekly\n");
+  writeFileSync(join(ongoing, "STATE.md"), "# State\n\n**Last worked:** 2026-10-01\n\n## Next action\n\nReview.\n");
+  assert.ok(!E.lintProject({ dir: ongoing }).some((f) => f.check === "projects:plan:missing"));
+  const letters = join(root, "2026-10-01-letters");
+  mkdirSync(letters, { recursive: true });
+  writeFileSync(join(letters, "PROJECT.md"), "# Letters\n\n**Kind:** finite\n**Owner:** [Alex Example](../../people/alex-example.md)\n\n## People\n\n- [Alex Example](../../people/alex-example.md) — owner: decides\n- [Sam Lee](../../people/sam-lee.md) — co-lead: drives the mailing\n");
+  writeFileSync(join(letters, "STATE.md"), "# State\n\n**Last worked:** 2026-10-01\n\n## Next action\n\nSam mails.\n");
+  writeFileSync(join(letters, "PLAN.md"), "---\nplan_version: \"1\"\nbaseline: 2026-10-01\n---\n# Plan\n\n## Steps\n\n### s01 Sam mails the letters\n- actor: sam-lee\n- kind: work\n- effort: 1h (estimate)\n\n### m1 Letters out\n- kind: milestone\n- after: s01\n- target: 2026-10-20 (provisional)\n");
+  const codes = E.lintProject({ dir: letters }).map((f) => f.check);
+  assert.ok(!codes.includes("plan:outside:no-window"), "a co-lead named in the People list is on the team");
+  assert.ok(!codes.includes("projects:plan:missing"));
+});

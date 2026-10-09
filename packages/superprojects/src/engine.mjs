@@ -724,7 +724,11 @@ export function createProjectEngine(options = {}) {
     }
     // The plan map: a finite project should have one, and when it does, its findings are the
     // project's findings. The team is everyone with a role that produces work on it.
-    const kindOf = String(split(src).data?.kind ?? "finite");
+    // Both header shapes: `facts` reads the YAML block and the legacy **Label:** lines alike,
+    // and the People list carries roles a label-shaped header has no block for.
+    const d = facts(src) ?? {};
+    const kindOf =
+      String(d.kind || "finite").toLowerCase() === "ongoing" ? "ongoing" : "finite";
     const planFile = join(dir, "PLAN.md");
     if (kindOf === "finite" && !existsSync(planFile)) {
       add(
@@ -734,11 +738,21 @@ export function createProjectEngine(options = {}) {
         "Draft one backwards from the deliverable.",
       );
     } else if (existsSync(planFile)) {
-      const d = split(src).data ?? {};
+      const producing = new Set(["owner", "co-lead", "operator", "contributor"]);
+      const owner = ownerRef(src);
       const team = [
-        d.owner,
-        ...[].concat(d.co_leads ?? [], d.operators ?? [], d.contributors ?? []),
-      ].filter(Boolean);
+        ...new Set(
+          [
+            owner ? owner.slug ?? slugFor(owner.name) : d.owner,
+            ...[].concat(d.co_leads ?? [], d.operators ?? [], d.contributors ?? []),
+            ...parsePeople(src)
+              .filter((p) => producing.has(p.role))
+              .map((p) => p.slug ?? slugFor(p.name)),
+          ]
+            .filter(Boolean)
+            .map(String),
+        ),
+      ];
       for (const f of lintPlan(parsePlan(readFileSync(planFile, "utf8")), {
         team,
         kind: kindOf,

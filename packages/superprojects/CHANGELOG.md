@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1 (2026-10-09)
+
+Plan lint reads both header shapes. `lintProject` took a project's kind and team only from the YAML block, so a project still on the legacy `**Label:**` header was read as finite with an empty team: an ongoing one warned `projects:plan:missing`, and a co-lead named only in the People list was treated as outside the team. Kind now comes from the same reader every other check uses, and the team includes the owner and every person whose People-list role produces work.
+
 ## 0.3.0 (2026-10-09)
 
 The superproject plan map. PLAN.md is a third file at the project root, beside PROJECT.md and STATE.md, and says how the project gets done: every step to the deliverable with its actor (`agent`, person slugs, or `outside: <name>`), kind (work, wait, gate, milestone), effort and lead time that each say where the number came from, dependencies, provisional not-before targets, windows and fallbacks for outside asks, the skill that runs it, and its status. A header declares weekly hours per person, the baseline and an optional buffer; `## Scenarios` move named targets with one marked working, and `## Revisions` keep one dated line per change.

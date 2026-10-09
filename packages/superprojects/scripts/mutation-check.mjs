@@ -20,6 +20,7 @@ const cases=[
   ['lint graph','../bin/agentic-projects.mjs','cli.test.mjs','findings.push(...contextGraph(records).findings);','/* graph check deliberately removed */'],
   ['reference definitions','context.mjs','context.test.mjs','links.push(...[...body.matchAll(/\\]:[ \\t\\r\\n]*(?:<([^>]+)>|([^ \\t\\r\\n]+))/g)].map(m=>m[1]||m[2]));','/* reference definition check deliberately removed */'],
   ['ambiguous destinations','context.mjs','context.test.mjs',"throw new Error('Unsupported Markdown destination syntax; use a plain or percent-encoded path');","{}"],
+  ['plan lint reads both header shapes','engine.mjs','engine.test.mjs','const d = facts(src) ?? {};','const d = split(src).data ?? {};'],
   ['gate refuses the agent','plan.mjs','plan.test.mjs',"if (s.kind === 'gate' && s.actors.some(isAgent))","if (false)"],
   ['behind on negative slack','plan.mjs','plan.test.mjs','verdict = overdueOnPath.length || slackDays < 0 ?','verdict = overdueOnPath.length ?'],
   ['targets are not-before','plan.mjs','plan.test.mjs','Math.max(earliest, target ? dayOf(target) : earliest)','earliest'],
