@@ -92,6 +92,7 @@ export function createProjectEngine(options = {}) {
     validate,
     read,
     KINDS,
+    kindOf: fmKindOf,
   } = options.frontmatter ?? defaultFrontmatter;
   const deriveSourceOfTruth = options.deriveSourceOfTruth ?? (() => null);
   const continentOperators = options.continentOperators ?? (() => []);
@@ -261,11 +262,19 @@ export function createProjectEngine(options = {}) {
     return ALIASES[w] || null;
   }
 
+  // The operator's own record is self/self.md (user/USER.md before that), at any depth of ../.
+  // Its filename is not a person slug: read as one, every owner linked to it became `self`,
+  // which no people record answers to. Such a link carries no slug, so callers fall back to
+  // slugFor(name), the same path a bare name takes.
+  const OWN_RECORD = /(?:^|\/)(?:self\/self|user\/user)\.md$/i;
+
   function personRef(s) {
     const t = strip(s);
     const m = t.match(/^\[([^\]]+)\]\(([^)]+)\)/);
     if (m) {
       const link = m[2].trim();
+      if (OWN_RECORD.test(link.replace(/[#?].*$/, "")))
+        return { name: m[1].trim(), slug: null, link };
       const folder = (link.match(/([^/]+)\/friend\.md$/) || [])[1];
       const slug =
         (folder && folder !== "people" && folder !== ".." && folder !== "."
@@ -1051,7 +1060,9 @@ export function createProjectEngine(options = {}) {
       const owners = h.people.filter((p) => p.role === "owner");
       if (owners.length === 1) {
         patch.owner = owners[0].slug || slugFor(owners[0].name);
-        changes.push(`Owner: ${owners[0].name}`);
+        // The value that will be written, never the display name: a dry run that printed the
+        // name read as correct while the write put a different slug in the block.
+        changes.push(`Owner: ${patch.owner}`);
       } else
         unresolved.push(
           `Owner: People tags ${owners.length} owners; needs a person to decide`,
@@ -1064,6 +1075,26 @@ export function createProjectEngine(options = {}) {
     const text = Object.keys(patch).length
       ? joinFm({ ...(data ?? {}), ...patch }, body)
       : before;
+
+    // A dry run asks the writer's own question first, so it reports the refusal the write
+    // would hit instead of a change that will not happen.
+    const kind = Object.keys(patch).length ? fmKindOf?.(file) : null;
+    const refusals = kind
+      ? validate(kind, { ...(data ?? {}), ...patch }, { exists })
+      : [];
+    if (!doWrite && refusals.length)
+      return {
+        dir,
+        changes: [],
+        unresolved: [
+          ...unresolved,
+          `frontmatter: would refuse to write (${refusals
+            .map((r) => `${r.key}=${JSON.stringify(r.value)} (${r.why})`)
+            .join("; ")})`,
+        ],
+        written: false,
+        text: before,
+      };
 
     if (doWrite && text !== before) {
       try {
@@ -1764,6 +1795,37 @@ export function createProjectEngine(options = {}) {
   const ROTTING_DATES =
     /\b(today|yesterday|tomorrow|this morning|this afternoon|tonight|just now|earlier today)\b/i;
 
+  // Two uses of a rotting word are a name rather than a date, and are let through:
+  //   1. A path segment: any of the words directly after a slash (`/today`, `app/today`).
+  //   2. `Today` naming the Today app, which holds only for that word in exactly that
+  //      capitalisation, and only when either
+  //        a. an app noun follows it (`Today tile app`, `Today screen`, `Today tab`), or
+  //        b. it is capitalised in the middle of a sentence (`Reviews and Today`), where the
+  //           adverb would be lowercase.
+  // Everything else is still a date: lowercase `today` anywhere, `TODAY`, and a `Today` that
+  // opens the text, a line, or a sentence (after . ! ? : ;) with no app noun after it, because
+  // there the capital is only the sentence's and `Today I will`, `Today, ship` must be caught.
+  // An ambiguous opener such as `Today and Reviews wait` is therefore refused; name the app
+  // with its noun or in backticks. Returns the first word that rots, or null.
+  const APP_NOUN =
+    /^[ \t]+(?:tile[ \t]+app|tile|app|frapp|screen|page|tab|view|widget|card)s?\b/i;
+  const SENTENCE_OPEN = /(?:^|[.!?:;]["')\]*_]*)[ \t>*_#\-\d()\[\]]*$/;
+  function rottingDate(text) {
+    const src = String(text ?? "");
+    for (const m of src.matchAll(new RegExp(ROTTING_DATES.source, "gi"))) {
+      const word = m[0],
+        at = m.index;
+      if (src[at - 1] === "/") continue;
+      if (word === "Today") {
+        if (APP_NOUN.test(src.slice(at + word.length))) continue;
+        const line = src.slice(src.lastIndexOf("\n", at - 1) + 1, at);
+        if (!SENTENCE_OPEN.test(line)) continue;
+      }
+      return word;
+    }
+    return null;
+  }
+
   const EMPTY_NEXT_ACTIONS = [
     /^\s*(continue|carry on|keep going|pick (this|it) back up|resume)\b/i,
     /^\s*(where we left off|as discussed|per the above|see above|tbd|todo)\b/i,
@@ -1884,8 +1946,8 @@ export function createProjectEngine(options = {}) {
 
     const phase = S.phase || "";
     const acted = unquoted(`${phase}\n${next || ""}`);
-    if (ROTTING_DATES.test(acted)) {
-      const hit = acted.match(ROTTING_DATES)[0];
+    const hit = rottingDate(acted);
+    if (hit) {
       problems.push(
         `the phase or next action says "${hit}", which is wrong on every day but ` +
           `one; write the date`,
@@ -1960,6 +2022,7 @@ export function createProjectEngine(options = {}) {
     resumability,
     REQUIRED_SECTIONS,
     ROTTING_DATES,
+    rottingDate,
     EMPTY_NEXT_ACTIONS,
   };
 }
