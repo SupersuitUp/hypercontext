@@ -87,6 +87,7 @@ test("NAMES is one exported object, and the engine takes a names override", () =
     root: "superprojects",
     legacyRoot: "projects",
     done: "done",
+    sessions: "sessions.jsonl",
   });
   assert.equal(Object.isFrozen(pkg.NAMES), true);
   for (const fn of ["recordFileOf", "mapFileOf", "rootsOf", "planMigration", "applyMigration", "renderActionMapMd", "renderPlanMd"])

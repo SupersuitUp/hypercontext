@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {readFileSync,writeFileSync,existsSync} from 'node:fs';
 import {join,resolve,dirname,basename,relative} from 'node:path';
-import {createProjectEngine,readContext,validateContext,contextGraph,verifyContext,exportContext,assertCanClose,assertSafeConfig,validDate,parsePlan,lintPlan,planStatus,schedulePlan,proposeBlocks,NAMES,recordFileOf,mapFileOf,planMigration,applyMigration} from '../src/index.mjs';
+import {createProjectEngine,readContext,validateContext,contextGraph,verifyContext,exportContext,assertCanClose,assertSafeConfig,validDate,parsePlan,lintPlan,planStatus,schedulePlan,proposeBlocks,NAMES,recordFileOf,mapFileOf,planMigration,applyMigration,recordSession,sessionsOf,touchedSuperprojects,SESSIONS_FILE} from '../src/index.mjs';
 
 const HELP=`superprojects <command> [options]
 
@@ -28,6 +28,11 @@ migrate      Convert a tree to the new names (--root <dir>). A dry run unless --
              projects/ folder -> superprojects/ with a projects -> superprojects link left
              behind, and the Markdown links that would break rewritten. Refuses (exit 2,
              nothing changed) when a destination already exists. Never commits.
+session      Record that a session checkpointed a superproject (--project <dir> --id <session id>
+             [--landed <what landed>] [--harness <name>]). Appends one line to its
+             sessions.jsonl; a repeat with nothing new writes nothing.
+sessions     The sessions that worked on a superproject, latest first (--project <dir>)
+touched      Every superproject one session checkpointed (--workspace <dir> --id <session id>)
 
 Common: --root <superprojects-directory> --file <record> --json --help
 Scaffold: --slug --name --owner --goal --date YYYY-MM-DD --summary
@@ -43,7 +48,7 @@ Exits: 0 success, 1 findings/refusal, 2 invalid usage or a refused migrate.
 No command sends records.
 `;
 class Usage extends Error {}
-const VALUE_OPTIONS=new Set(['root','file','slug','name','owner','goal','date','summary','read-when','keep','audience','actor','next-action','kind','cadence','parent','deliverable','phase','repo','source-of-truth','dependency','by','source','origin','rev','snapshot','to','where','project','deadline','scenario','free']);
+const VALUE_OPTIONS=new Set(['root','file','slug','name','owner','goal','date','summary','read-when','keep','audience','actor','next-action','kind','cadence','parent','deliverable','phase','repo','source-of-truth','dependency','by','source','origin','rev','snapshot','to','where','project','deadline','scenario','free','id','landed','harness','workspace']);
 const FLAG_OPTIONS=new Set(['json','write','help','allow-external','all-scenarios','no-plan','no-map','apply']);
 const MAP_COMMANDS=new Set(['map','plan']);
 function parse(args){
@@ -69,7 +74,7 @@ const paths=a=>{requireKeys(a,['root']);const root=resolve(a.root);return {root:
 function main(args){
   const {command,values:a}=parse(args);
   if(a.help||!command){console.log(HELP);return 0;}
-  const allowed=['scaffold','list','read','lint','query','verify','export','close-check','nest-plan','map','plan','migrate'];
+  const allowed=['scaffold','list','read','lint','query','verify','export','close-check','nest-plan','map','plan','migrate','session','sessions','touched'];
   if(!allowed.includes(command))throw new Usage(`Unknown command: ${command}`);
   if(a.write&&command!=='verify')throw new Usage('--write is only supported by verify');
   if(a.apply&&command!=='migrate')throw new Usage('--apply is only supported by migrate');
@@ -118,6 +123,18 @@ function main(args){
     if(a.sub==='schedule'){emit(schedulePlan(plan,{today,scenario:a.scenario||null}),true);return 0;}
     if(a.sub==='blocks'){requireKeys(a,['actor','free']);emit(proposeBlocks(plan,{today,actor:a.actor,scenario:a.scenario||null,freeSlots:JSON.parse(readFileSync(a.free,'utf8'))}),true);return 0;}
     throw new Usage(`${command} needs one of: lint, status, schedule, blocks`);
+  }
+  if(command==='session'){
+    requireKeys(a,['project','id']);const r=recordSession(resolve(a.project),{id:a.id,landed:a.landed,harness:a.harness});
+    emit(a.json?r:(r.written?`Recorded ${a.id} in ${r.file}`:`${a.id} already recorded with nothing new; nothing written`),a.json);return 0;
+  }
+  if(command==='sessions'){
+    requireKeys(a,['project']);const sessions=sessionsOf(resolve(a.project));
+    emit(a.json?{sessions}:sessions.map(s=>`${s.last}  ${s.id}  ${s.checkpoints} checkpoint${s.checkpoints===1?'':'s'}${s.landed.length?`  ${s.landed.join('; ')}`:''}`).join('\n')||`No ${SESSIONS_FILE} entries.`,a.json);return 0;
+  }
+  if(command==='touched'){
+    requireKeys(a,['workspace','id']);const superprojects=touchedSuperprojects(resolve(a.workspace),a.id);
+    emit(a.json?{superprojects}:superprojects.map(p=>`${p.slug}  ${p.dir}`).join('\n')||'This session checkpointed no superproject.',a.json);return 0;
   }
   if(command==='migrate'){
     requireKeys(a,['root']);

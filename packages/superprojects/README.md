@@ -14,6 +14,7 @@ superprojects/
     SUPERPROJECT.md         what it is, who owns it, what it delivers
     STATE.md                where it stands: phase, next action, open threads
     ATOMIC-ACTION-MAP.md    how it gets done (finite superprojects only)
+    sessions.jsonl          which agent sessions worked on it, one line per checkpoint
   done/                     closed superprojects
 ```
 
@@ -170,6 +171,24 @@ npx superprojects map blocks --project demo/superprojects/2026-10-04-guide --act
 **The library proposes blocks and never books them.** Nothing here reads a calendar: the product supplies free time, asks the person, books after a yes, and writes `booked:` back onto the step.
 
 The same functions are exported for products: `parsePlan`, `lintPlan`, `schedulePlan`, `planStatus`, `proposeBlocks`, `renderActionMapMd` (also exported under its earlier name `renderPlanMd`), `findCycle`, `isOutside`, the value parsers (`parseDuration`, `parseTarget`, `parseWindow`, `parseActors`, `parseStatus`, `parseCapacity`), `STEP_KINDS` and `MAX_HUMAN_EFFORT_MINUTES`. The function names keep "plan" because they are the API.
+
+## Session provenance
+
+Every state change should trace back to the conversation that made it. A product records one line per checkpoint into the superproject's own `sessions.jsonl`: the session id the harness gave the conversation, when, and optionally what landed.
+
+```sh
+npx superprojects session  --project superprojects/2026-10-04-guide --id 7f3c... --landed "first draft"
+npx superprojects sessions --project superprojects/2026-10-04-guide        # who worked on it, latest first
+npx superprojects touched  --workspace . --id 7f3c...                     # every superproject one session moved
+```
+
+```jsonl
+{"id":"7f3c...","at":"2026-10-12T15:04:00.000Z","landed":"first draft"}
+```
+
+It is a separate append-only file so two sessions saving the same superproject never edit the same text, and STATE.md, which a person reads, carries no ids. The trail travels with the folder when the superproject is shared or moved. It records which session and when; the reasoning stays in the conversation, and the id is how you get back to it (for Claude Code, `claude --resume <id>`).
+
+A repeat checkpoint by the same session with nothing new writes nothing. `recordSession` refuses a folder with no record file and anything that could not be a session id; a damaged line is skipped and reported by `readSessions`, never fatal. Library calls: `recordSession`, `readSessions`, `sessionsOf`, `touchedBy`, `touchedSuperprojects`, `sessionsFileOf`, `SESSIONS_FILE`.
 
 ## Moving a tree to the new names
 

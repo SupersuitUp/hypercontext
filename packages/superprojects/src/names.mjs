@@ -17,6 +17,7 @@ export const NAMES = Object.freeze({
   root: "superprojects",
   legacyRoot: "projects",
   done: "done",
+  sessions: "sessions.jsonl",
 });
 
 /** NAMES with a product's overrides applied; every name it does not set keeps the default. */

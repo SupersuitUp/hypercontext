@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0 (2026-10-12)
+
+Session provenance. A superproject can now say which agent sessions worked on it: every checkpoint appends one line to `sessions.jsonl` in the superproject folder with the session id, the time and optionally what landed. That answers, from the superproject itself, which conversation produced a state change and which superprojects one session moved, where a product used to infer both from file modification times.
+
+- New module `src/sessions.mjs`, exported from the package root: `recordSession(dir, { id, at, landed, harness })`, `readSessions`, `sessionsOf` (one row per session, latest first), `touchedBy`, `touchedSuperprojects(workspace, id)` (both roots, `done/` and nested children), `sessionsFileOf` and `SESSIONS_FILE`.
+- `recordSession` refuses a folder with no SUPERPROJECT.md or PROJECT.md and an id that is not a plain token of at most 128 characters, and writes nothing when the same session's last line already says the same thing. A damaged line is skipped and its line number reported.
+- CLI: `superprojects session --project <dir> --id <id> [--landed] [--harness]`, `superprojects sessions --project <dir>`, `superprojects touched --workspace <dir> --id <id>`.
+- `NAMES.sessions` is `sessions.jsonl`, overridable like every other name.
+
 ## 0.5.0 (2026-10-09)
 
 Projects are now superprojects, and the plan map is now the atomic action map. New superprojects are written under the new names: the record is SUPERPROJECT.md (was PROJECT.md), the map is ATOMIC-ACTION-MAP.md (was PLAN.md), and the folder is `superprojects/` (was `projects/`), at the top and for subprojects inside their parent. STATE.md keeps its name. An atomic action is one stretch of work with no handoff inside it and at most four hours of human time; waits and milestones stay on the map as the joints between actions.
