@@ -548,3 +548,25 @@ test("the Today app and a /today path are names, and a relative today is still r
   assert.equal(E.rottingDate("the Today tile app, served at /today"), null);
   assert.equal(E.rottingDate("- Today we ship"), "Today");
 });
+
+// `section()` ended its lookahead with `\z`, which JavaScript reads as a literal z. A section was
+// cut at its first z, so the save gate judged only the words before it, and a last section with
+// no z in it and no heading after it read as missing.
+test("the save gate reads a whole section, past a letter z and up to the end of the file", () => {
+  const E = factory();
+  const state = (next) => `# State\n\n## Phase\n\nBuilding\n\n## Next action\n\n${next}\n`;
+  // Sanity: the same relative date is refused when no z comes before it.
+  assert.ok(
+    E.resumability(state("Ship the page tomorrow"), { today: "2026-10-04" }).some((p) => /tomorrow/i.test(p)),
+    "the gate refuses a relative date at all",
+  );
+  assert.ok(
+    E.resumability(state("Organize the files, then ship the page tomorrow"), { today: "2026-10-04" })
+      .some((p) => /tomorrow/i.test(p)),
+    "a relative date after a z is still read",
+  );
+  assert.ok(
+    !E.resumability(state("Read the release proof"), { today: "2026-10-04" }).some((p) => /next action/i.test(p)),
+    "a last section with no z in it and nothing after it is found",
+  );
+});

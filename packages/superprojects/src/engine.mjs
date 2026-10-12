@@ -1835,7 +1835,7 @@ export function createProjectEngine(options = {}) {
 
   const section = (text, name) => {
     const m = String(text).match(
-      new RegExp(`^##\\s+${name}\\s*$([\\s\\S]*?)(?=^##\\s|\\z)`, "im"),
+      new RegExp(`^##\\s+${name}\\s*$([\\s\\S]*?)(?=^##\\s|(?![\\s\\S]))`, "im"),
     );
     return m ? m[1].trim() : null;
   };

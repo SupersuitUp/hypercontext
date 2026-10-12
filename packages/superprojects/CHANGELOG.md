@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.1 (2026-10-12)
+
+Three fixes to the owner backfill and the save gate.
+
+- **Owner backfill no longer writes `owner: self`.** A People line that links the owner to the operator's own record (`self/self.md`, or the older `user/USER.md`) used to yield the slug `self`, which a strict people lookup refuses, so the superproject was left with no owner. The slug now comes from the link's text. Found by an operator who traced the cause.
+- **A backfill dry run says what the write will do.** The change line prints the owner value that will be written rather than the display name, and a dry run reports `frontmatter: would refuse to write (...)` with the same reasons the write would give. If you match on the change line, `Owner: Gary Sheng` is now `Owner: gary-sheng`.
+- **The save gate lets the Today app be named.** `/today` as a path segment, and `Today` capitalised as the app's name ("the Today tile app", "Reviews and Today"), are no longer refused as a relative date. A lowercase `today`, and a `Today` that opens a sentence, still are. New export `rottingDate(text)`.
+- **The save gate reads a whole section.** It used to stop reading a `## Next action` or `## Phase` section at its first letter z, and could not find a last section that had no z in it, so a relative date or an empty action after a z went unjudged.
+
 ## 0.6.0 (2026-10-12)
 
 Session provenance. A superproject can now say which agent sessions worked on it: every checkpoint appends one line to `sessions.jsonl` in the superproject folder with the session id, the time and optionally what landed. That answers, from the superproject itself, which conversation produced a state change and which superprojects one session moved, where a product used to infer both from file modification times.
