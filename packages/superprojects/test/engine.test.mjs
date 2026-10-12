@@ -421,3 +421,130 @@ test("plan lint reads label-shaped headers: an ongoing project needs no plan, a 
   assert.ok(!codes.includes("plan:outside:no-window"), "a co-lead named in the People list is on the team");
   assert.ok(!codes.includes("projects:plan:missing"));
 });
+const ownRecordFixture = (t, people = []) => {
+  const root = fixture(t);
+  const dir = join(root, "superprojects", "example");
+  mkdirSync(dir, { recursive: true });
+  mkdirSync(join(root, "self"));
+  mkdirSync(join(root, "people"));
+  writeFileSync(join(root, "self", "self.md"), "# Me\n");
+  for (const slug of people)
+    writeFileSync(join(root, "people", `${slug}.md`), `# ${slug}\n`);
+  const file = join(dir, "SUPERPROJECT.md");
+  writeFileSync(
+    file,
+    "---\ngoal: A goal\nsource_of_truth: local\n---\n# Example\n\n## People\n\n- [Example Owner](../../self/self.md) — owner\n",
+  );
+  // The strict lookup a product supplies: a slug exists only when people/ holds its file.
+  const E = mod.createProjectEngine({
+    personExists: () => (slug) =>
+      existsSync(join(root, "people", `${slug}.md`)),
+  });
+  return { root, dir, file, E };
+};
+test("a link to the operator's own record carries no slug, and other links keep theirs", () => {
+  const E = factory();
+  for (const link of [
+    "../../self/self.md",
+    "self/self.md",
+    "../../../../self/self.md",
+    "../../user/USER.md",
+    "../../self/self.md#top",
+  ]) {
+    const ref = E.personRef(`[example-owner](${link})`);
+    assert.equal(ref.name, "example-owner", link);
+    assert.equal(ref.slug, null, link);
+    assert.equal(ref.link, link, link);
+  }
+  // The filename and folder fallbacks still answer for a real people record, one named self included.
+  assert.equal(
+    E.personRef("[Example Owner](../../people/example-owner.md)").slug,
+    "example-owner",
+  );
+  assert.equal(
+    E.personRef("[Example Owner](../../people/example-owner/friend.md)").slug,
+    "example-owner",
+  );
+  assert.equal(E.personRef("[Self](../../people/self.md)").slug, "self");
+});
+test("backfill writes the owner slug its dry run names when the owner links to self/self.md", (t) => {
+  const { dir, file, E } = ownRecordFixture(t, ["example-owner"]);
+  const before = readFileSync(file, "utf8");
+  const dry = E.backfillProject({ dir });
+  assert.deepEqual(dry.changes, ["Owner: example-owner"]);
+  assert.deepEqual(dry.unresolved, []);
+  assert.equal(dry.written, false);
+  assert.equal(readFileSync(file, "utf8"), before, "a dry run writes nothing");
+  const wrote = E.backfillProject({ dir, write: true });
+  assert.deepEqual(wrote.changes, dry.changes);
+  assert.deepEqual(wrote.unresolved, []);
+  assert.equal(wrote.written, true);
+  const named = dry.changes[0].replace(/^Owner: /, "");
+  assert.equal(E.parseHeader(readFileSync(file, "utf8")).owner.slug, named);
+  assert.match(readFileSync(file, "utf8"), /^owner: example-owner$/m);
+});
+test("a backfill dry run reports the refusal the write would hit", (t) => {
+  const { dir, file, E } = ownRecordFixture(t); // people/ holds no record for the owner
+  const before = readFileSync(file, "utf8");
+  const dry = E.backfillProject({ dir });
+  const wrote = E.backfillProject({ dir, write: true });
+  assert.equal(wrote.written, false);
+  assert.equal(wrote.unresolved.length, 1);
+  assert.match(
+    wrote.unresolved[0],
+    /^frontmatter: refused to write \(owner="example-owner" /,
+  );
+  assert.deepEqual(dry.changes, []);
+  assert.deepEqual(
+    dry.unresolved,
+    wrote.unresolved.map((u) => u.replace("refused", "would refuse")),
+  );
+  assert.equal(readFileSync(file, "utf8"), before);
+});
+const stateSaying = (E, phase, nextAction = "Read the release proof") =>
+  E.resumability(E.renderStateMd({ today: "2026-10-04", phase, nextAction }), {
+    today: "2026-10-04",
+  });
+test("the Today app and a /today path are names, and a relative today is still refused", () => {
+  const E = factory();
+  const ROTS = /wrong on every day but one/;
+  const names = [
+    "waiting on phone approval of Reviews and Today",
+    "the Today tile app is in review",
+    "Today tile app is in review",
+    "Reviews, Today and Liberty are live",
+    "the Today screen loads in a second",
+    "the day screen is served at /today",
+    "open app.example.com/today on the phone",
+  ];
+  const dates = [
+    "ship it today",
+    "due today",
+    "Today I will ship it",
+    "Today, ship it",
+    "Shipped the fix. Today we verify it",
+    "TODAY we ship",
+    "Today and Reviews are waiting",
+    "the Today tile app ships today",
+    "Tomorrow tile app is in review",
+    "ship it tomorrow",
+  ];
+  for (const phase of names)
+    assert.deepEqual(stateSaying(E, phase), [], `a name: ${phase}`);
+  for (const next of names)
+    assert.deepEqual(stateSaying(E, "Release ready", next), [], `a name: ${next}`);
+  for (const phase of dates) {
+    const problems = stateSaying(E, phase);
+    assert.equal(problems.length, 1, `a date: ${phase}`);
+    assert.match(problems[0], ROTS, phase);
+  }
+  for (const next of dates) {
+    const problems = stateSaying(E, "Release ready", next);
+    assert.equal(problems.length, 1, `a date: ${next}`);
+    assert.match(problems[0], ROTS, next);
+  }
+  // The refusal quotes the word that rots, not the name beside it.
+  assert.match(stateSaying(E, "the Today tile app ships today")[0], /says "today"/);
+  assert.equal(E.rottingDate("the Today tile app, served at /today"), null);
+  assert.equal(E.rottingDate("- Today we ship"), "Today");
+});

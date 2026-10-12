@@ -39,6 +39,14 @@ const cases=[
   ['migrate refuses a taken destination','migrate.mjs','migrate.test.mjs','} else if (lexists(join(to, name))) {','} else if (false) {'],
   ['migrate is a dry run until applied','../bin/superprojects.mjs','migrate.test.mjs','if(a.apply&&!refused)applyMigration(plan);','if(!refused)applyMigration(plan);'],
   ['migrate relinks broken links','migrate.mjs','migrate.test.mjs','if (resolve(newDir, decoded) === goal) return null;','return null;'],
+  ['own record carries no slug','engine.mjs','engine.test.mjs','if (OWN_RECORD.test(link.replace(/[#?].*$/, "")))','if (false)'],
+  ['dry run names the written owner','engine.mjs','engine.test.mjs','changes.push(`Owner: ${patch.owner}`);','changes.push(`Owner: ${owners[0].name}`);'],
+  ['dry run reports the refusal','engine.mjs','engine.test.mjs','if (!doWrite && refusals.length)','if (false)'],
+  ['a path segment is not a date','engine.mjs','engine.test.mjs','if (src[at - 1] === "/") continue;','/* path segments not skipped */'],
+  ['Today before an app noun is a name','engine.mjs','engine.test.mjs','if (APP_NOUN.test(src.slice(at + word.length))) continue;','/* app noun not read */'],
+  ['Today mid-sentence is a name','engine.mjs','engine.test.mjs','if (!SENTENCE_OPEN.test(line)) continue;','/* mid-sentence not skipped */'],
+  ['Today opening a sentence is a date','engine.mjs','engine.test.mjs','if (!SENTENCE_OPEN.test(line)) continue;','continue;'],
+  ['lowercase today is always a date','engine.mjs','engine.test.mjs','if (word === "Today") {','if (/^today$/i.test(word)) {'],
   ['migrate leaves code alone','migrate.mjs','migrate.test.mjs','const masked = line.replace(/(`+)[^`]*?\\1/g, (m) => " ".repeat(m.length));','const masked = line;'],
 ];
 let caught=0;
