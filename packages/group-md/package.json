@@ -2,6 +2,14 @@
   "name": "@supersuit/group-md",
   "version": "0.1.0",
   "description": "A written standard for the record of a group of people and its chat threads, with a checker, a finder and a reconciler.",
+  "keywords": [
+    "group",
+    "chat",
+    "markdown",
+    "frontmatter",
+    "records",
+    "agents"
+  ],
   "type": "module",
   "bin": {
     "group-md": "bin/group-md.mjs"
@@ -13,17 +21,23 @@
   "files": [
     "bin/",
     "src/",
+    "docs/",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
   ],
   "scripts": {
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "mutation-check": "node scripts/mutation-check.mjs",
+    "install-proof": "node scripts/install-proof.mjs"
   },
   "engines": {
     "node": ">=20"
   },
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/SupersuitUp/group-md.git"

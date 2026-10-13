@@ -185,19 +185,17 @@ export function readHeader(text) {
 
 const RESERVED = /^(true|false|null|yes|no|on|off|~)$/i;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const numeric = (s) => /^[\d.+-]+$/.test(s) && !DATE.test(s);
 
-// A top-level scalar may carry spaces bare; anything YAML could read differently is quoted.
-const quoteTop = (s) => (s === '' || /[:#[\]{}"'|>&*!%@`,\\]/.test(s) || /^\s|\s$/.test(s) || /^[-?]/.test(s) && !DATE.test(s) || RESERVED.test(s) || numeric(s)) ? JSON.stringify(s) : s;
-// Inside a flow map only a single plain token goes bare.
-const quoteFlow = (s) => (/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(s) && !RESERVED.test(s) && !numeric(s)) ? s : JSON.stringify(s);
+// One rule everywhere: a date or a single plain token starting with a letter goes bare, and
+// anything else is quoted, so no value can be read back as something it is not.
+const quote = (s) => (DATE.test(s) || (/^[A-Za-z][A-Za-z0-9_-]*$/.test(s) && !RESERVED.test(s))) ? s : JSON.stringify(s);
 
 const isMap = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
 function flowValue(v) {
   if (Array.isArray(v)) return `[${v.map(flowValue).join(', ')}]`;
   if (isMap(v)) return flowMap(v);
-  return typeof v === 'string' ? quoteFlow(v) : String(v);
+  return typeof v === 'string' ? quote(v) : String(v);
 }
 
 function flowMap(obj) {
@@ -212,7 +210,7 @@ function renderKey(key, value) {
     return [`${key}: [${value.map((v) => JSON.stringify(String(v))).join(', ')}]`];
   }
   if (isMap(value)) return [`${key}: ${flowMap(value)}`];
-  return [`${key}: ${typeof value === 'string' ? quoteTop(value) : String(value)}`];
+  return [`${key}: ${typeof value === 'string' ? quote(value) : String(value)}`];
 }
 
 // What a value will read back as, so a patch that changes nothing can be recognized.

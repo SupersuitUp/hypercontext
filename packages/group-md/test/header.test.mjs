@@ -146,7 +146,7 @@ test('a shape the codec does not model is preserved untouched', () => {
 });
 
 test('values that would read back wrong are quoted', () => {
-  const out = writeHeader('', { a: 'true', b: '12', c: 'x, y', d: '', e: ' pad', f: '2026-10-13', g: 'plain words' });
-  assert.equal(out, '---\na: "true"\nb: "12"\nc: "x, y"\nd: ""\ne: " pad"\nf: 2026-10-13\ng: plain words\n---\n');
-  assert.deepEqual(readHeader(out).data, { a: 'true', b: '12', c: 'x, y', d: '', e: ' pad', f: '2026-10-13', g: 'plain words' });
+  const out = writeHeader('', { a: 'true', b: '12', c: 'x, y', d: '', e: ' pad', f: '2026-10-13', g: 'plain words', h: 'plain-token' });
+  assert.equal(out, '---\na: "true"\nb: "12"\nc: "x, y"\nd: ""\ne: " pad"\nf: 2026-10-13\ng: "plain words"\nh: plain-token\n---\n');
+  assert.deepEqual(readHeader(out).data, { a: 'true', b: '12', c: 'x, y', d: '', e: ' pad', f: '2026-10-13', g: 'plain words', h: 'plain-token' });
 });

@@ -85,7 +85,8 @@ export function find(phrase, records, { resolvePerson, self = [] } = {}) {
     if (partial.length) return decide(partial, 'contains');
   }
 
-  if (!allPeople) return none();
+  // No people named: nothing for membership to answer. A word that is nobody fails every record below.
+  if (!people.length) return none();
   const exact = [], supersets = [];
   for (const r of all) {
     const keys = memberKeys(r);
