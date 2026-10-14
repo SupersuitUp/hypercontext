@@ -107,12 +107,16 @@ What a reconcile does to a record that already exists:
 
 - A renamed thread gets its new name, and the old name is kept in `aliases`.
 - Someone who joined is added. Someone who left is removed. A handle whose person now has a file moves to `members`.
+- A member the thread no longer names is kept while the thread carries at least as many people you could not resolve as members it stopped naming: one of those handles may be them. The handle is recorded beside them and the update says `member-unconfirmed`. Once a descriptor resolves the handle, it either turns out to be them (the handle goes) or someone else (the member is removed).
 - `seen` and `last_contact` only move forward.
 - A record that points at its thread through a legacy key gains the thread's id when the names agree exactly. No second record is made.
+- A thread that would get a new record is held back instead when a legacy record in the same app names exactly its members and everyone in the thread is resolved: it may be that record's thread under a new name. Rooms that share their people are common, so this is never filled on its own. It is checked only after every thread in the list has had the chance to claim a record by name, so the order of the list does not matter.
 - A record with `tracked: false` is left alone.
 - Above twelve people (`--large-group N`), members with no person file are left off and `member_count` is kept.
 
-The reasons a thread is skipped: `not-spoken-in`, `archived`, `blocked-member`, `untracked`, `no-id`, `unknown-app`, `unknown-record`, `ambiguous-legacy` (two legacy records carry that name) and `legacy-candidate` (a legacy record resembles the thread and is not proven to be it; the candidates are listed, and `record` settles it).
+The reasons a thread is skipped: `not-spoken-in`, `archived`, `blocked-member`, `untracked`, `no-id`, `unknown-app`, `unknown-record`, `ambiguous-legacy` (two legacy records carry that name) and `legacy-candidate` (a legacy record resembles the thread, by a similar name or by holding exactly the same members, and is not proven to be it; the candidates are listed, and `record` settles it). Skips come back in the order the threads were given. A thread that is archived or that you never spoke in keeps that reason even when its members match a legacy record, since it would not have been recorded anyway. When several threads match one legacy record by members, all of them are held; attach the right one with `record` and the others get records of their own in the same run.
+
+The reasons on an update: `thread-id-filled`, `renamed`, `member-joined`, `member-left`, `member-unconfirmed`, `handle-promoted`, `member-count`, `seen` and `last-contact`.
 
 ## Finding a group
 

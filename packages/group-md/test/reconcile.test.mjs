@@ -94,6 +94,83 @@ test('two legacy records with the same name are ambiguous: skipped, never guesse
   assert.deepEqual(plan.skip[0].candidates, ['a', 'b']);
 });
 
+// A legacy record whose thread was renamed: the label no longer resembles the name, and the only
+// thing left to go on is that the same people are in it.
+const crew = (over = {}) => group('night-shift', {
+  name: 'Night Shift', threads: [{ app: 'imessage', id: '', name: 'NIGHT SHIFT (Dana, Theo)', seen: '' }],
+  members: ['dana-reyes', 'theo-park'], legacy: ['imessage_group'], ...over,
+});
+const renamed = (over = {}) => thread({ app: 'imessage', id: 'chat000111', name: '3 NIGHT SHIFT (Dana, Theo)', ...over });
+
+test('a renamed thread with exactly a legacy record\'s members is held, never twinned', () => {
+  const plan = reconcile([crew()], [renamed({ members: [theo, dana] })], opts);
+  assert.deepEqual(plan.create, [], 'no twin');
+  assert.deepEqual(plan.update, [], 'and never filled on membership alone');
+  assert.deepEqual(plan.skip, [{ thread: { app: 'imessage', id: 'chat000111', name: '3 NIGHT SHIFT (Dana, Theo)' }, why: 'legacy-candidate', candidates: ['night-shift'] }]);
+  // an unnamed thread is held the same way
+  assert.deepEqual(reconcile([crew()], [renamed({ name: '' })], opts).skip.map((s) => [s.why, s.candidates]), [['legacy-candidate', ['night-shift']]]);
+  // and the caller settles it with `record`, as for any other candidate
+  const settled = reconcile([crew()], [renamed({ record: 'night-shift' })], opts);
+  assert.deepEqual([settled.create, settled.skip], [[], []]);
+  assert.deepEqual(settled.update[0].patch.threads, [{ app: 'imessage', id: 'chat000111', name: '3 NIGHT SHIFT (Dana, Theo)', seen: '2026-10-12' }]);
+});
+
+test('same members is only a candidate when it is the same set, in the same app, with nobody unresolved', () => {
+  const made = (records, over) => {
+    const plan = reconcile(records, [renamed(over)], opts);
+    assert.deepEqual(plan.skip, []);
+    return plan.create.length;
+  };
+  assert.equal(made([crew()], { members: [dana, theo, nora] }), 1, 'one more person');
+  assert.equal(made([crew()], { members: [dana] }), 1, 'one fewer');
+  assert.equal(made([crew()], { members: [dana, theo, kit], member_count: 4 }), 1, 'a stranger who could be anyone');
+  assert.equal(made([crew()], { app: 'whatsapp', id: '120363000000000009@g.us' }), 1, 'another app');
+  assert.equal(made([crew({ members: [] })], { members: [] }), 1, 'a record that names nobody matches nothing');
+  assert.equal(made([crew({ threads: [{ app: 'imessage', id: 'chat000999', name: 'NIGHT SHIFT (Dana, Theo)', seen: '2026-10-01' }] })], {}), 1, 'the slot already has its thread');
+});
+
+test('a thread with the same members is not held against a slot another thread fills by name', () => {
+  // Two rooms, the same two people. The other room is listed first; the record's own thread second.
+  const other = thread({ app: 'imessage', id: 'chat000222', name: 'Brunch' });
+  const own = thread({ app: 'imessage', id: 'chat000111', name: 'Night Shift (Dana, Theo)' });
+  for (const threads of [[other, own], [own, other]]) {
+    const plan = reconcile([crew()], threads, opts);
+    assert.deepEqual(plan.skip, []);
+    assert.deepEqual(plan.create.map((r) => r.id), ['brunch']);
+    assert.deepEqual(plan.update.map((u) => [u.id, u.patch.threads[0].id]), [['night-shift', 'chat000111']]);
+  }
+  // the same holds when the caller is the one who fills the slot
+  const settled = reconcile([crew()], [other, renamed({ record: 'night-shift' })], opts);
+  assert.deepEqual([settled.skip, settled.create.map((r) => r.id)], [[], ['brunch']]);
+});
+
+test('two threads with a legacy record\'s members are both held, in the order they were given', () => {
+  const plan = reconcile([crew()], [
+    thread({ app: 'imessage', id: 'chat000222', name: 'Brunch' }),
+    thread({ app: 'imessage', id: 'chat000444', name: 'Read Only', from_me: 0 }),
+    renamed(),
+    thread({ app: 'imessage', id: 'chat000333', name: 'Old Room', archived: true }),
+    thread({ app: 'imessage', id: 'chat000555', name: 'Blocked Room', blocked: true }),
+    thread({ app: 'imessage', id: 'chat000666', name: 'Elsewhere', members: [nora], record: 'nobody' }),
+  ], opts);
+  assert.deepEqual([plan.create, plan.update], [[], []]);
+  assert.deepEqual(plan.skip.map((s) => [s.thread.id, s.why, s.candidates]), [
+    ['chat000222', 'legacy-candidate', ['night-shift']],
+    ['chat000444', 'not-spoken-in', undefined], // would never have been recorded: its own reason stands
+    ['chat000111', 'legacy-candidate', ['night-shift']],
+    ['chat000333', 'archived', undefined],
+    ['chat000555', 'blocked-member', undefined],
+    ['chat000666', 'unknown-record', undefined],
+  ]);
+});
+
+test('holding threads back does not change what the rest of a batch does', () => {
+  // the same new thread listed twice is still one record, and a later thread can still name it
+  const plan = reconcile([], [thread(), thread({ last_at: '2026-10-13' }), thread({ app: 'signal', id: 'sig-1', record: 'dana-freedom' })], opts);
+  assert.deepEqual(plan.skip, []);
+  assert.deepEqual(plan.create.map((r) => [r.id, r.threads.map((t) => `${t.app}:${t.seen}`)]), [['dana-freedom', ['whatsapp:2026-10-13', 'signal:2026-10-12']]]);
+});
+
 test('a thread the caller assigns to a record is attached to it', () => {
   const legacy = group('night-shift', {
     name: 'Night Shift', threads: [{ app: 'imessage', id: '', name: 'Night Shift (Dana, Theo, me)', seen: '' }],
@@ -138,12 +215,57 @@ test('a handle is promoted to a member when its slug arrives', () => {
 });
 
 test('members who left are removed and members who joined are added', () => {
-  const plan = reconcile([danaFreedom()], [thread({ members: [dana, nora, kit], member_count: 4 })], opts);
+  // Everyone in the thread is resolved, so the member it no longer names has left.
+  const plan = reconcile([danaFreedom()], [thread({ members: [dana, nora, { slug: 'kit-okafor' }], member_count: 4 })], opts);
   const { patch, why } = plan.update[0];
-  assert.deepEqual(patch.members, ['dana-reyes', 'nora-lindqvist']);
-  assert.deepEqual(patch.handles, [{ app: 'whatsapp', id: '555@lid', shown_as: 'Kit Okafor' }]);
+  assert.deepEqual(patch.members, ['dana-reyes', 'nora-lindqvist', 'kit-okafor']);
   assert.equal(patch.member_count, 4);
   assert.ok(why.includes('member-left') && why.includes('member-joined'));
+  // someone with no record joins as a handle
+  const joined = reconcile([danaFreedom()], [thread({ members: [dana, theo, kit], member_count: 4 })], opts).update[0];
+  assert.deepEqual(joined.patch.handles, [{ app: 'whatsapp', id: '555@lid', shown_as: 'Kit Okafor' }]);
+  assert.equal(joined.patch.members, undefined);
+  assert.deepEqual(joined.why, ['member-joined', 'member-count']);
+});
+
+// An app that hides who someone is (a privacy id, nothing shown) hands over a person the caller
+// could not resolve. That person may be the very member who seems to have left.
+const hidden = { id: '000000000000001@lid', shown_as: '' };
+
+test('a named member is not dropped while an unresolved handle could be them', () => {
+  const plan = reconcile([danaFreedom()], [thread({ members: [dana, hidden] })], opts);
+  const { patch, why } = plan.update[0];
+  assert.equal(patch.members, undefined, 'theo-park is kept');
+  assert.deepEqual(patch.handles, [{ app: 'whatsapp', id: '000000000000001@lid', shown_as: '' }], 'and the handle is still recorded');
+  assert.ok(why.includes('member-unconfirmed'));
+  assert.ok(!why.includes('member-left'));
+  // fewer strangers than missing members: none of them can be vouched for, so all are dropped
+  const two = reconcile([danaFreedom({ members: ['dana-reyes', 'theo-park', 'nora-lindqvist'] })], [thread({ members: [dana, hidden] })], opts).update[0];
+  assert.deepEqual(two.patch.members, ['dana-reyes']);
+  assert.ok(two.why.includes('member-left') && !two.why.includes('member-unconfirmed'));
+  // nobody unresolved and the member is absent: they left, as before
+  const gone = reconcile([danaFreedom()], [thread({ members: [dana], member_count: 2 })], opts).update[0];
+  assert.deepEqual(gone.patch.members, ['dana-reyes']);
+  assert.ok(gone.why.includes('member-left') && !gone.why.includes('member-unconfirmed'));
+});
+
+test('an unconfirmed member settles when the handle arrives with a slug', (t) => {
+  const { dir } = tmpGroups(t);
+  put(dir, 'dana-freedom', DANA_FREEDOM);
+  const unresolved = [thread({ members: [dana, hidden], last_at: '2026-10-13' })];
+  applyPlan(dir, reconcile(listRecords(dir), unresolved, opts));
+  assert.deepEqual(readRecord(dir, 'dana-freedom').members, ['dana-reyes', 'theo-park']);
+  assert.deepEqual(readRecord(dir, 'dana-freedom').handles, [{ app: 'whatsapp', id: '000000000000001@lid', shown_as: '' }]);
+  assert.deepEqual(reconcile(listRecords(dir), unresolved, opts).update, [], 'the same threads again change nothing');
+
+  // it was them: the handle goes, and they are listed once
+  const same = reconcile(listRecords(dir), [thread({ members: [dana, { ...hidden, slug: 'theo-park' }], last_at: '2026-10-13' })], opts).update[0];
+  assert.deepEqual(same.patch, { handles: null });
+  assert.deepEqual(same.why, ['handle-promoted']);
+  // it was someone else: that person joins, and the member who was only ever unconfirmed has left
+  const else_ = reconcile(listRecords(dir), [thread({ members: [dana, { ...hidden, slug: 'nora-lindqvist' }], last_at: '2026-10-13' })], opts).update[0];
+  assert.deepEqual(else_.patch, { members: ['dana-reyes', 'nora-lindqvist'], handles: null });
+  assert.deepEqual(else_.why, ['handle-promoted', 'member-left']);
 });
 
 test('a thread described without a member list leaves members alone', () => {

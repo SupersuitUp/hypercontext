@@ -55,7 +55,7 @@ handles:
   - {app: whatsapp, id: "111@lid", shown_as: "Kit Okafor"}
 ```
 
-`id` is a number, an email or a privacy id. When that person later gets a record and a thread descriptor carries their slug with the same `id`, a reconcile moves them from `handles` to `members`.
+`id` is a number, an email or a privacy id. When that person later gets a record and a thread descriptor carries their slug with the same `id`, a reconcile moves them from `handles` to `members`. Until then a handle may stand beside a member the thread stopped naming: a reconcile does not remove a member while an unresolved handle could be that person.
 
 A group of more than twelve people keeps `member_count` and the members who have records, and leaves the rest off. Its member list is then partial, and the finder never treats a partial list as an exact match.
 

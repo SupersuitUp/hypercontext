@@ -5,6 +5,10 @@
 // descriptors; what comes back says which records to create, which to update and which threads
 // were left alone and why.
 //
+// Two rules run through it. A record is never filled on a resemblance: a thread that only looks
+// like a legacy record's (a similar name, the same people) is held as `legacy-candidate` until the
+// caller says `record`. And a person with a record is never traded for an id nobody resolved.
+//
 // A thread descriptor:
 //   {app, id, name, members: [{slug?, id?, shown_as?}], member_count, last_at, from_me,
 //    archived, blocked, record?}
@@ -80,6 +84,19 @@ function legacyMatch(work, thread) {
   return { hit: null, candidates: [] };
 }
 
+// A thread no record claims and no name explains, checked against the legacy slots still open
+// once every thread in the batch has had its chance to fill one by name. A slot whose record
+// names exactly the people in this thread may be this thread under a new name. Several rooms
+// often hold the same people, so this is a candidate and never a fill.
+function sameMembers(work, originals, thread, t) {
+  const { slugs, strangers } = people(t, thread.app);
+  if (!slugs.length || strangers.length) return [];
+  const same = (members) => members.length === slugs.length && members.every((m) => slugs.includes(m));
+  return work
+    .filter((r) => originals.has(r.id) && r.threads.some((slot) => !slot.id && slot.app === thread.app) && same([...new Set(originals.get(r.id).members ?? [])]))
+    .map((r) => r.id);
+}
+
 // Bring one record up to date with one thread. Returns the reasons anything changed.
 function merge(rec, slot, thread, t, { today, largeGroup }) {
   const why = [];
@@ -100,7 +117,14 @@ function merge(rec, slot, thread, t, { today, largeGroup }) {
     const before = { members: [...rec.members], handles: rec.handles.map(handleKey) };
     if (rec.handles.some((h) => promoted.includes(handleKey(h)))) why.push('handle-promoted');
     rec.handles = rec.handles.filter((h) => !promoted.includes(handleKey(h)));
-    rec.members = [...rec.members.filter((m) => additive || slugs.includes(m)), ...slugs.filter((s) => !rec.members.includes(s))];
+    // A member the thread no longer names has left, unless the thread carries someone the caller
+    // could not resolve: that handle may be them, and a known person is never traded for an id.
+    // Kept only when every missing member could be accounted for; a later descriptor that resolves
+    // the handle settles it either way.
+    const missing = additive ? [] : rec.members.filter((m) => !slugs.includes(m));
+    const unconfirmed = missing.length && strangers.length >= missing.length ? missing : [];
+    if (unconfirmed.length) why.push('member-unconfirmed');
+    rec.members = [...rec.members.filter((m) => additive || slugs.includes(m) || unconfirmed.includes(m)), ...slugs.filter((s) => !rec.members.includes(s))];
     const wanted = large ? [] : strangers;
     const kept = rec.handles
       .filter((h) => (additive && h.app !== thread.app) || wanted.some((w) => handleKey(w) === handleKey(h)) || (additive && !large))
@@ -159,11 +183,17 @@ export function reconcile(records, threads, { today = localToday(), largeGroup =
   const taken = new Set(work.map((r) => r.id));
   const created = new Set();
   const reasons = new Map();
-  const skip = [];
+  const skipped = [];
 
-  for (const t of threads ?? []) {
+  // Two passes. The first settles every thread a record already explains. A thread that would
+  // make a record, or that names a record not on file, waits for the second, so that it is
+  // judged against what the whole batch left open and not against where it sat in the list.
+  const queue = (threads ?? []).map((t, at) => ({ t, at, final: false }));
+  for (let i = 0; i < queue.length; i++) {
+    const { t, at, final } = queue[i];
+    const wait = () => queue.push({ t, at, final: true });
     const thread = { app: str(t?.app), id: str(t?.id), name: str(t?.name) };
-    const leave = (why, extra = {}) => skip.push({ thread, why, ...extra });
+    const leave = (why, extra = {}) => skipped.push({ at, thread, why, ...extra });
     if (!thread.id) { leave('no-id'); continue; }
     if (!APPS.includes(thread.app)) { leave('unknown-app'); continue; }
     if (t.blocked) { leave('blocked-member'); continue; }
@@ -172,6 +202,7 @@ export function reconcile(records, threads, { today = localToday(), largeGroup =
     let slot = rec?.threads.find((x) => x.app === thread.app && x.id === thread.id) ?? null;
     if (!rec && str(t.record)) {
       rec = work.find((r) => r.id === t.record) ?? null;
+      if (!rec && !final) { wait(); continue; } // a thread earlier in the list may yet make it
       if (!rec) { leave('unknown-record'); continue; }
       const open = rec.threads.filter((x) => !x.id && x.app === thread.app);
       slot = open.length === 1 ? open[0] : null;
@@ -189,8 +220,11 @@ export function reconcile(records, threads, { today = localToday(), largeGroup =
       reasons.set(rec.id, [...new Set([...(reasons.get(rec.id) ?? []), ...why])]);
       continue;
     }
+    if (!final) { wait(); continue; }
     if (t.archived) { leave('archived'); continue; }
     if (!(t.from_me > 0)) { leave('not-spoken-in'); continue; }
+    const held = sameMembers(work, originals, thread, t);
+    if (held.length) { leave('legacy-candidate', { candidates: held }); continue; }
     const fresh = newRecord(thread, t, taken, options);
     work.push(fresh);
     created.add(fresh.id);
@@ -207,6 +241,7 @@ export function reconcile(records, threads, { today = localToday(), largeGroup =
     }
     if (Object.keys(patch).length) update.push({ id: rec.id, patch, why: reasons.get(rec.id) ?? [] });
   }
+  const skip = skipped.sort((a, b) => a.at - b.at).map(({ at, ...rest }) => rest); // as the caller listed them
   return { create: work.filter((r) => created.has(r.id)), update, skip };
 }
 

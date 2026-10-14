@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- **A renamed thread no longer twins its legacy record.** A thread that would get a new record is held as `legacy-candidate` when a legacy record in the same app names exactly its members and nobody in the thread is unresolved. Judged after every thread in the batch has had its chance to fill a record by name, so a second room with the same people is not held against a record whose own thread is in the list. `record` settles it, as before.
+- **A named member is no longer replaced by an unresolved handle.** While a thread carries at least as many unresolved people as members it stopped naming, those members are kept, the handles are recorded beside them, and the update carries the new reason `member-unconfirmed` instead of `member-left`. With nobody unresolved, a member who is absent is removed as before.
+- Skips are returned in the order the threads were given.
+
 ## 0.1.0
 
 First release.
