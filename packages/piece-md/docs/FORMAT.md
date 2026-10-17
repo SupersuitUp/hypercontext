@@ -24,6 +24,7 @@ A **piece** is anything made or captured in a life: a photo, a screenshot, a rec
 ---
 kind: piece
 context_version: "1"
+standard: "https://hypercontext.wiki/standards/piece"   # the standard this file upholds
 id: 2026-06-14-1812-nai-nai-at-the-lake      # equals the folder name
 type: photo                                   # see below
 summary: "Nai Nai at the lake, the evening before the reunion."
@@ -46,6 +47,7 @@ What it is, in plain words. For a written piece, the body is the writing itself.
 
 | Key | Rule |
 | --- | --- |
+| `standard` | always `https://hypercontext.wiki/standards/piece`, so an agent with no memory of this format can open the rules from the file itself. Missing or naming another standard is an error |
 | `type` | `photo`, `screenshot`, `recording`, `video`, `image` (media), or `document`, `note`, `deck`, `page` (written) |
 | `keep` | chosen, never inferred. A piece showing other people starts at the tightest scope until someone chooses |
 | `taken_from` | `device`, `filename`, `file-time`, `stated`, `inferred`, `unknown`. A camera timestamp is one answer of five, never the whole record |

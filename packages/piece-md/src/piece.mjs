@@ -18,6 +18,8 @@ export const MEDIA_EXTENSIONS = [
   'pdf',
 ];
 export const RECORD_FILE = 'piece.md';
+/** The page a piece.md names as the standard it upholds, so an agent with no memory can look it up. */
+export const STANDARD = 'https://hypercontext.wiki/standards/piece';
 
 /** YYYY-MM-DD-HHMM-slug, or superwrite's YYYY-MM-DD-HHMMSS-slug. */
 export const NAME = /^(\d{4}-\d{2}-\d{2})-(?:\d{4}|\d{6})-[a-z0-9][a-z0-9-]*$/;
@@ -43,6 +45,8 @@ export function checkPiece(data, { name, single = false, members = [], hasHeader
 
   if (!NAME.test(name)) add('name:pattern', `"${name}" is not YYYY-MM-DD-HHMM-slug`);
   if (data.kind !== 'piece') add('kind:missing', data.kind ? `kind is "${data.kind}", expected "piece"` : 'kind: piece is missing');
+  if (data.standard === undefined) add('standard:missing', `standard is missing: ${STANDARD}`);
+  else if (data.standard !== STANDARD) add('standard:value', `standard "${data.standard}" is not ${STANDARD}`);
   if (data.context_version !== '1') add(data.context_version ? 'context_version:value' : 'context_version:missing', 'context_version must be "1"');
   if (!text(data.id)) add('id:missing', 'id is missing');
   else if (data.id !== name) add('id:mismatch', `id "${data.id}" does not equal the name "${name}"`);

@@ -28,6 +28,7 @@ const put = (rel, text = 'x') => { mkdirSync(dirname(join(dir, rel)), { recursiv
 const LAKE = `---
 kind: piece
 context_version: "1"
+standard: "https://hypercontext.wiki/standards/piece"
 id: 2026-06-14-1812-nai-nai-at-the-lake
 type: photo
 summary: "Nai Nai at the lake, the evening before the reunion."
@@ -96,7 +97,7 @@ try {
   cli(['frobnicate'], 2);
 
   // 4. The library, imported by its package name.
-  const script = "import { lint, find, listPieces, checkPiece, toPiece, scan, readHeader, writeHeader, TYPES } from '@supersuit/piece-md'; const r = lint('documents'); if (r.pieces !== 2 || find('documents', { person: 'nai-nai' }).length !== 1 || listPieces('documents').length !== 2 || !TYPES.includes('photo') || [checkPiece, toPiece, scan, readHeader, writeHeader].some((f) => typeof f !== 'function')) process.exit(1);";
+  const script = "import { lint, find, listPieces, checkPiece, toPiece, scan, readHeader, writeHeader, pieceText, stampStandard, STANDARD, TYPES } from '@supersuit/piece-md'; const r = lint('documents'); if (readHeader(pieceText({ id: 'x' })).data.standard !== STANDARD || !stampStandard('').includes(STANDARD) || r.pieces !== 2 || find('documents', { person: 'nai-nai' }).length !== 1 || listPieces('documents').length !== 2 || !TYPES.includes('photo') || [checkPiece, toPiece, scan, readHeader, writeHeader].some((f) => typeof f !== 'function')) process.exit(1);";
   run(process.execPath, ['--input-type=module', '-e', script]);
 
   console.log(`Installed ${pack.filename} outside the source checkout; every documented command and the library import pass; ${pack.files.length} payload files audited`);

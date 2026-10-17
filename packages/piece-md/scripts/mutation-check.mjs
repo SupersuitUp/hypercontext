@@ -30,6 +30,11 @@ const cases = [
   ['media is always a folder', 'piece.mjs', 'lint.test.mjs', "if (media) add('single:media',", "if (false) add('single:media',"],
   ['a single file that gains a file is a folder', 'piece.mjs', 'lint.test.mjs', "else if (listed.size) add('single:outgrown',", "else if (false) add('single:outgrown',"],
   ['unlisted media in a piece warns', 'piece.mjs', 'lint.test.mjs', "if (unlisted.length) add('file:unlisted',", "if (false) add('file:unlisted',"],
+  ['a piece names its standard', 'piece.mjs', 'lint.test.mjs', "if (data.standard === undefined) add('standard:missing',", "if (false) add('standard:missing',"],
+  ['a piece names the piece standard, not another', 'piece.mjs', 'lint.test.mjs', "else if (data.standard !== STANDARD) add('standard:value',", "else if (false) add('standard:value',"],
+  // ---- the writer
+  ['a writer always stamps the piece standard', 'write.mjs', 'write.test.mjs', "standard: STANDARD, ...rest });", "...rest });"],
+  ['a writer cannot be given another standard', 'write.mjs', 'write.test.mjs', "const { kind, context_version, standard, ...rest } = fields ?? {};", "const { kind, context_version, ...rest } = fields ?? {};"],
   // ---- the walk
   ['media outside a piece is unrecorded', 'store.mjs', 'lint.test.mjs', '} else if (isMedia(e.name)) {', '} else if (false) {'],
   ['dot folders and node_modules are skipped', 'store.mjs', 'lint.test.mjs', "const skip = (name) => name.startsWith('.') || name === 'node_modules';", 'const skip = () => false;'],

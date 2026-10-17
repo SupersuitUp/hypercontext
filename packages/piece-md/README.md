@@ -57,6 +57,8 @@ import { lint, find, listPieces, checkPiece } from '@supersuit/piece-md';
 lint('documents');                                   // { findings, pieces, unrecorded }
 find('documents', { person: 'nai-nai', type: 'photo' });
 checkPiece(header, { name: '2026-06-14-1812-nai-nai-at-the-lake' });   // findings for one header
+pieceText({ id, type: 'photo', /* ... */ }, body);   // a new piece.md, stamped with kind and standard
+stampStandard(existingText);                         // add `standard:` to a record, nothing else changes
 ```
 
 ## What it refuses
@@ -65,6 +67,7 @@ checkPiece(header, { name: '2026-06-14-1812-nai-nai-at-the-lake' });   // findin
 - A face without `confirmed`. A model may name someone; only a person confirms them.
 - A scope that was not chosen: `keep` must be `keep`, `home` or `share`.
 - A photo or recording as a bare file. Media is always a folder.
+- A record that does not name its standard. Every `piece.md` carries `standard: https://hypercontext.wiki/standards/piece`, so a reader with no memory of this format can find it.
 
 It reads only `.md` files. Media is seen by its name in a directory listing and never opened.
 

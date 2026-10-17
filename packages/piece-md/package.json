@@ -1,6 +1,6 @@
 {
   "name": "@supersuit/piece-md",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A written standard for a piece of a life's record (a photo, a recording, a video, a generated image, a document): a folder whose piece.md answers the five hypercontext questions, with a checker and a finder.",
   "keywords": ["piece", "media", "photos", "markdown", "frontmatter", "records", "hypercontext", "agents"],
   "type": "module",

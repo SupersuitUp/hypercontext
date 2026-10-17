@@ -202,3 +202,15 @@ test('findings are sorted by piece then code, each naming its piece', (t) => {
     ['2026-06-14-1810-a', 'about:empty'], ['2026-06-14-1810-a', 'keep:value'], ['2026-06-14-1820-b', 'keep:value'],
   ]);
 });
+
+test('a piece names the standard it upholds', (t) => {
+  const { home } = tmpHome(t);
+  piece(home, LAKE, { standard: null });
+  assert.deepEqual(codes(lint(home)), ['standard:missing']);
+});
+
+test('a piece naming another standard is refused', (t) => {
+  const { home } = tmpHome(t);
+  piece(home, LAKE, { standard: '"https://hypercontext.wiki/standards/friend"' });
+  assert.deepEqual(codes(lint(home)), ['standard:value']);
+});
