@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+- **An unnamed group is no longer named after its one member with a person record.** A thread with no display name was named from the members who had a slug or a shown name only, so a four-person thread where one member has a record got that person's first name as its whole name and id. A message meant for the person could then reach the group. Members nobody can name are now counted: "Dana and 2 others", id `dana-and-2-others`. Past four names the list is still cut as "and N more".
+- **`reconcile` takes `taken`**: ids a new record must never get besides the records' own. Pass the people folder's slugs so no group record ever has a person's id; a collision gets the usual numeric suffix.
+- **`nameFromMembers`** is exported: the naming rule on its own, for a caller renaming a record it already has.
+
 ## 0.1.1
 
 - **A renamed thread no longer twins its legacy record.** A thread that would get a new record is held as `legacy-candidate` when a legacy record in the same app names exactly its members and nobody in the thread is unresolved. Judged after every thread in the batch has had its chance to fill a record by name, so a second room with the same people is not held against a record whose own thread is in the list. `record` settles it, as before.

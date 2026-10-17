@@ -47,19 +47,30 @@ function people(t, app) {
   return { list, slugs, strangers, promoted };
 }
 
-// "Dana, Theo" for an unnamed thread: the first part of a slug, or the first word shown.
-function firstNames(t) {
+/**
+ * The name and id an unnamed thread gets from its members: the first part of each slug, or the
+ * first word shown. "Dana, Theo" when everyone but the operator is named. When fewer are named
+ * than `member_count - 1`, the rest are counted ("Dana and 2 others"), so a group is never named
+ * for its one member with a person record: that name, and the id made from it, read as the
+ * person, and a message meant for them could be sent to the group. Past four names the list is
+ * cut and the remainder counted as "and N more".
+ * @param {{members?: object[], member_count?: number}} t a thread descriptor, or the same shape
+ *   built from a record (`members` as `{slug}`, handles as `{id, shown_as}`)
+ * @returns {{display: string, slug: string}}
+ */
+export function nameFromMembers(t) {
   const names = [];
-  for (const m of Array.isArray(t.members) ? t.members : []) {
+  for (const m of Array.isArray(t?.members) ? t.members : []) {
     const slugPart = str(m?.slug).split('-')[0];
     const shown = str(m?.shown_as).trim().split(/\s+/)[0] ?? '';
     const name = slugPart ? slugPart[0].toUpperCase() + slugPart.slice(1) : slugify(shown) ? shown : '';
     if (name) names.push(name);
   }
-  const others = Math.max(names.length, Number.isInteger(t.member_count) ? t.member_count - 1 : 0);
-  if (names.length <= 4 && others <= 4) return { display: names.join(', '), slug: slugify(names.join(' ')) };
+  const others = Math.max(names.length, Number.isInteger(t?.member_count) ? t.member_count - 1 : 0);
   const head = names.slice(0, 4), more = others - head.length;
-  return { display: `${head.join(', ')} and ${more} more`, slug: slugify(`${head.join(' ')} and ${more} more`) };
+  if (!head.length || !more) return { display: head.join(', '), slug: slugify(head.join(' ')) };
+  const tail = names.length > head.length ? `${more} more` : `${more} other${more === 1 ? '' : 's'}`;
+  return { display: `${head.join(', ')} and ${tail}`, slug: slugify(`${head.join(' ')} and ${tail}`) };
 }
 
 function freeId(base, taken) {
@@ -146,7 +157,7 @@ function merge(rec, slot, thread, t, { today, largeGroup }) {
 function newRecord(thread, t, taken, { today, largeGroup }) {
   const { slugs, strangers } = people(t, thread.app);
   const large = Number.isInteger(t.member_count) && t.member_count > largeGroup;
-  const named = firstNames(t);
+  const named = nameFromMembers(t);
   const id = freeId(slugify(thread.name) || named.slug || 'group', taken);
   const last = day(t.last_at);
   return {
@@ -172,15 +183,17 @@ function newRecord(thread, t, taken, { today, largeGroup }) {
  *
  * @param {import('./record.mjs').GroupRecord[]} records from `listRecords`
  * @param {object[]} threads thread descriptors (see the top of this file)
- * @param {{today?: string, largeGroup?: number}} [options] `today` is used as `seen` only when a
- *   thread carries no `last_at`. Above `largeGroup` members, people with no record are left off.
+ * @param {{today?: string, largeGroup?: number, taken?: Iterable<string>}} [options] `today` is used
+ *   as `seen` only when a thread carries no `last_at`. Above `largeGroup` members, people with no
+ *   record are left off. `taken` is ids a new record must never get besides the records' own:
+ *   pass the people folder's slugs, so no group is filed under a person's id.
  * @returns {{create: object[], update: {id: string, patch: object, why: string[]}[], skip: {thread: object, why: string, candidates?: string[]}[]}}
  */
-export function reconcile(records, threads, { today = localToday(), largeGroup = 12 } = {}) {
+export function reconcile(records, threads, { today = localToday(), largeGroup = 12, taken: reserved = [] } = {}) {
   const options = { today: day(today) || localToday(), largeGroup };
   const originals = new Map((records ?? []).map((r) => [r.id, r]));
   const work = (records ?? []).map(clone);
-  const taken = new Set(work.map((r) => r.id));
+  const taken = new Set([...work.map((r) => r.id), ...[...(reserved ?? [])].filter((x) => typeof x === 'string')]);
   const created = new Set();
   const reasons = new Map();
   const skipped = [];

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { reconcile, applyPlan } from '../src/reconcile.mjs';
+import { reconcile, applyPlan, nameFromMembers } from '../src/reconcile.mjs';
 import { listRecords, readRecord } from '../src/store.mjs';
 import { lint } from '../src/lint.mjs';
 import { tmpGroups, put, walk, group, DANA_FREEDOM } from './helpers.mjs';
@@ -295,6 +295,41 @@ test('an unnamed thread is named from its members', () => {
   const [big] = reconcile([], [thread({ id: 'chat2', name: '', members: six, member_count: 7 })], opts).create;
   assert.equal(big.id, 'dana-theo-nora-kit-and-2-more');
   assert.equal(big.name, 'Dana, Theo, Nora, Kit and 2 more');
+});
+
+test('an unnamed thread with members nobody can name says how many others there are', () => {
+  // Four people: the operator, Dana, and two numbers with no name. Named for Dana alone, the
+  // record would be called "Dana" with the id "dana", and a message meant for Dana could find it.
+  const phones = [dana, { id: '+15550000001' }, { id: '+15550000002' }];
+  const [rec] = reconcile([], [thread({ app: 'imessage', id: 'chat1', name: '', members: phones, member_count: 4 })], opts).create;
+  assert.equal(rec.name, 'Dana and 2 others');
+  assert.equal(rec.id, 'dana-and-2-others');
+  // one unnamed member is "1 other"
+  const [two] = reconcile([], [thread({ app: 'imessage', id: 'chat2', name: '', members: [dana, theo, { id: '+15550000003' }], member_count: 4 })], opts).create;
+  assert.equal(two.name, 'Dana, Theo and 1 other');
+  assert.equal(two.id, 'dana-theo-and-1-other');
+  // everyone named: no suffix, as before
+  const [all] = reconcile([], [thread({ app: 'imessage', id: 'chat3', name: '', members: [dana, theo], member_count: 3 })], opts).create;
+  assert.equal(all.name, 'Dana, Theo');
+  // no member_count: nothing to say about anyone else
+  const [unknown] = reconcile([], [thread({ app: 'imessage', id: 'chat4', name: '', members: [nora], member_count: undefined })], opts).create;
+  assert.equal(unknown.name, 'Nora');
+});
+
+test('nameFromMembers is the naming rule, exported for callers that rename a record', () => {
+  assert.deepEqual(nameFromMembers({ members: [dana, { id: '+1555' }, { id: '+1556' }], member_count: 4 }), { display: 'Dana and 2 others', slug: 'dana-and-2-others' });
+  assert.deepEqual(nameFromMembers({ members: [dana, theo], member_count: 3 }), { display: 'Dana, Theo', slug: 'dana-theo' });
+});
+
+test('an id the caller says is taken is never minted', () => {
+  // A person's slug is passed as taken: a group never gets an id a message to that person could hit.
+  const plan = reconcile([], [
+    thread({ app: 'imessage', id: 'chat1', name: '', members: [{ slug: 'dana' }], member_count: 2 }),
+    thread({ app: 'whatsapp', id: 'w@g.us', name: 'Theo Park', members: [theo, nora], member_count: 3 }),
+  ], { ...opts, taken: ['dana', 'theo-park'] });
+  assert.deepEqual(plan.create.map((r) => r.id), ['dana-2', 'theo-park-2']);
+  // a Set works too, and an unrelated taken id changes nothing
+  assert.equal(reconcile([], [thread()], { ...opts, taken: new Set(['nora-lindqvist']) }).create[0].id, 'dana-freedom');
 });
 
 test('a large group omits handles and keeps the member count', () => {

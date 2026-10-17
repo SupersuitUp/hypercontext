@@ -45,6 +45,8 @@ const cases = [
   ['a rename keeps the old name', 'reconcile.mjs', 'reconcile.test.mjs', 'if (norm(old) && !known.includes(norm(old))) rec.aliases.push(old);', 'if (false) rec.aliases.push(old);'],
   ['a member with a person record is not also a handle', 'reconcile.mjs', 'reconcile.test.mjs', 'if (str(m.slug) || !(str(m.id) || str(m.shown_as))) continue;', 'if (!(str(m.id) || str(m.shown_as))) continue;'],
   ['an unnamed thread is named from its members', 'reconcile.mjs', 'reconcile.test.mjs', "const id = freeId(slugify(thread.name) || named.slug || 'group', taken);", "const id = freeId(slugify(thread.name) || 'group', taken);"],
+  ['members nobody can name are counted', 'reconcile.mjs', 'reconcile.test.mjs', 'if (!head.length || !more) return', 'if (true) return'],
+  ['a caller can say an id is taken', 'reconcile.mjs', 'reconcile.test.mjs', "...[...(reserved ?? [])].filter((x) => typeof x === 'string')", '...[]'],
   ['a large group omits handles', 'reconcile.mjs', 'reconcile.test.mjs', 'handles: large ? [] : strangers,', 'handles: strangers,'],
   ['a taken id gets a suffix', 'reconcile.mjs', 'reconcile.test.mjs', 'while (taken.has(id)) id = `${base}-${++n}`;', 'while (false) id = `${base}-${++n}`;'],
   ['seen only moves forward', 'reconcile.mjs', 'reconcile.test.mjs', "if (seen > slot.seen) { slot.seen = seen; why.push('seen'); }", "if (seen !== slot.seen) { slot.seen = seen; why.push('seen'); }"],

@@ -1,6 +1,6 @@
 {
   "name": "@supersuit/group-md",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A written standard for the record of a group of people and its chat threads, with a checker, a finder and a reconciler.",
   "keywords": [
     "group",

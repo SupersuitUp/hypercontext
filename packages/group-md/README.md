@@ -101,7 +101,7 @@ skip    imessage  Old Room  blocked-member
 3 created, 0 updated, 2 skipped
 ```
 
-Run it again with the same threads and nothing changes. `--threads -` reads the list from standard input. A thread with no name is named from its members ("Dana, Theo").
+Run it again with the same threads and nothing changes. `--threads -` reads the list from standard input. A thread with no name is named from its members ("Dana, Theo"). When some of them have no person file and no name the app shows, they are counted rather than dropped ("Dana and 2 others", id `dana-and-2-others`), so a group is never named after its one member you have a file for. Called as a library, `reconcile(records, threads, { taken })` takes ids a new record must never get: pass the slugs of your people folder, and no group is filed under a person's id. `nameFromMembers(descriptor)` is the naming rule on its own, for a caller renaming a record it already has.
 
 What a reconcile does to a record that already exists:
 
