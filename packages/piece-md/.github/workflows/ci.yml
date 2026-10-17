@@ -1,0 +1,31 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+      # Zero dependencies, so there is nothing to install.
+      - run: npm test
+      # Every rule is removed once, and its test must go red.
+      - run: npm run mutation-check
+      # Pack, install the tarball into an empty project, run every documented command.
+      - run: npm run install-proof
+      # The package must run the way the README says, from outside the repo.
+      - run: |
+          cd "$RUNNER_TEMP"
+          node "$GITHUB_WORKSPACE/bin/piece-md.mjs" --help
