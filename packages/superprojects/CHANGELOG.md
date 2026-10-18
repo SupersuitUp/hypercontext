@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **A CRLF header reads as a header.** Git for Windows checks markdown out with CRLF by default, and `split` tested for a literal `---\n`, so every such file read as having no frontmatter and `write` prepended a second header above the first. `split` now normalizes CRLF to LF before parsing; a body read from a CRLF file comes back LF. Found by an operator on Windows (freedom-dev#715).
+
 ## 0.6.1 (2026-10-12)
 
 Three fixes to the owner backfill and the save gate.
