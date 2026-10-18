@@ -26,7 +26,9 @@ export function createFrontmatter(options = {}) {
   }
 
   function split(text, { kind } = {}) {
-    const src = String(text ?? "");
+    // CRLF to LF first: Git for Windows checks markdown out with CRLF by default, and a literal
+    // "---\n" test read every such header as no header (freedom-dev#715).
+    const src = String(text ?? "").replace(/\r\n?/g, "\n");
     if (!OPEN.test(src)) return { data: null, body: src, raw: null };
     const end = src.indexOf("\n---\n", 3);
     const endEof = end < 0 && src.endsWith("\n---") ? src.length - 4 : -1;

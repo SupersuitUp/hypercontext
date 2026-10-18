@@ -157,3 +157,21 @@ test("quoted-value handling preserves structural syntax refusals", () => {
   }
   assert.throws(() => F.split("---\ngoal: value"), /unterminated frontmatter/);
 });
+test("codec reads and writes a CRLF header (a Git for Windows checkout) as one header", () => {
+  const F = factory(),
+    root = mkdtempSync(pathJoin(tmpdir(), "codec-crlf-"));
+  try {
+    const crlf = "---\r\nphase: not started\r\n---\r\n# State\r\n\r\nBody.\r\n";
+    assert.deepEqual(F.split(crlf).data, { phase: "not started" });
+    assert.equal(F.readText(crlf, "state").data.phase, "not started");
+    const file = pathJoin(root, "STATE.md");
+    writeFileSync(file, crlf);
+    F.write(file, { phase: "drafting" }, { kind: "state" });
+    const out = readFileSync(file, "utf8");
+    assert.equal((out.match(/^---$/gm) || []).length, 2, out);
+    assert.match(out, /^---\nphase: drafting\n---\n/);
+    assert.match(out, /Body\./);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
