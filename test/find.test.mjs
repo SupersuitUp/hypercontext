@@ -23,6 +23,11 @@ test('every kind finds its records in a Supersuit layout', () => {
   assert.deepEqual(got.conversation, ['meeting-transcripts/2032-01-05-call/transcript.md']);
 });
 
+test('an archived person is still a friend record', () => {
+  const ws = mayaWorkspace({ 'people/archive/old-neighbor/friend.md': md('kind: friend\nid: old-neighbor') });
+  assert.deepEqual(findRecords(ws, 'friend'), ['people/jo-park/friend.md', 'people/archive/old-neighbor/friend.md']);
+});
+
 test('a log file is never a friend record, and README is never a document', () => {
   const ws = mayaWorkspace();
   assert.ok(!findRecords(ws, 'friend').some((p) => p.includes('/log/')));

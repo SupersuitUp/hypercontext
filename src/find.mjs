@@ -85,8 +85,11 @@ export function findRecords(ws, kind, fs = fsDefault) {
     case 'self':
       return fs.isFile(join(ws, 'self/self.md')) ? ['self/self.md'] : [];
     case 'friend':
-      return dirsIn(ws, 'people', fs).filter((n) => n !== 'groups' && fs.isFile(join(ws, 'people', n, 'friend.md')))
-        .map((n) => `people/${n}/friend.md`);
+      // An archived person keeps their record under people/archive/, and it is still a record.
+      return [
+        ...dirsIn(ws, 'people', fs).filter((n) => n !== 'groups' && fs.isFile(join(ws, 'people', n, 'friend.md'))).map((n) => `people/${n}/friend.md`),
+        ...dirsIn(ws, 'people/archive', fs).filter((n) => fs.isFile(join(ws, 'people/archive', n, 'friend.md'))).map((n) => `people/archive/${n}/friend.md`),
+      ];
     case 'group':
       return dirsIn(ws, 'people/groups', fs).filter((n) => fs.isFile(join(ws, 'people/groups', n, 'group.md')))
         .map((n) => `people/groups/${n}/group.md`);
