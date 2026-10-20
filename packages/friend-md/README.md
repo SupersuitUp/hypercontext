@@ -71,7 +71,7 @@ npx friend-md read ann-lee --people ./people --sections Now --json
 npx friend-md lint --people ./people
 ```
 
-Commands: `read`, `list`, `path`, `resolve`, `operator`, `lint`. Use `--workspace DIR`
+Commands: `read`, `list`, `path`, `resolve`, `operator`, `lint`, `stamp`. Use `--workspace DIR`
 for a root containing `people/` and `self/`; this also honors local `.freedom.json`
 `paths.people`, `paths.self` and `paths.user` overrides. Paths may be relative to the
 root or absolute. No global configuration is read. `operator` reads the root's
@@ -82,6 +82,35 @@ sections for an agent. `--json` produces machine-readable output.
 
 Exit codes: **0** success or lint warnings only; **1** missing record, lint error or
 runtime refusal; **2** malformed CLI arguments or an ambiguous match.
+
+## Self-documenting
+
+Every friend.md names the standard it follows, so an agent that has never seen Supersuit can
+open the file and find its rules:
+
+```yaml
+---
+kind: friend
+standard: https://hypercontext.wiki/standards/friend
+id: ann-lee
+```
+
+Every writer in the package (`ensure`, `migratePerson`, `migrateGroup`, and the Python
+`ensure`) stamps it directly after `kind:`. `lint` reports a record without it, or naming
+any other URL, as `self-doc:missing` at level error. `STANDARD` is exported.
+
+Backfill existing records with `stamp`, a dry run unless `--apply` is passed:
+
+```sh
+npx friend-md stamp --workspace .          # lists what it would change, exit 0
+npx friend-md stamp --workspace . --apply  # writes it
+```
+
+It inserts `standard:` after `kind:` (first in the header when there is no `kind:`), keeps
+every other byte and CRLF, replaces a wrong URL in place, and changes nothing on a second run.
+It never touches a file with no header, a flat record, or anything under `log/`. `--json`
+prints `{ applied, standard, changed: [{slug, path}], current: [...], skipped: [{slug, path, reason}] }`.
+`stampStandard(text)` is the same edit as a pure function.
 
 ## Validate or convert a record
 

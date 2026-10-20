@@ -28,6 +28,7 @@ exist, and lint reports the split record.
 ```yaml
 ---
 kind: friend
+standard: https://hypercontext.wiki/standards/friend
 id: ann-lee
 name: Ann Lee
 aliases: [Annie]
@@ -46,7 +47,7 @@ Planning the next tea gathering.
 Short and casual.
 ```
 
-Required fields: `kind`, `id`, `name`, `summary`, `read_when`, `as_of`, `keep`,
+Required fields: `kind`, `standard`, `id`, `name`, `summary`, `read_when`, `as_of`, `keep`,
 `circle`, `relationship`. The id matches the folder name. Contact and routing fields
 remain top-level keys. `last_contact` and legacy `last_interaction_date` are kept on
 the same date by `setLastContact`.
@@ -58,6 +59,14 @@ relationship labels become tags during conversion.
 Portrait limit: **8,192 UTF-8 bytes**. Blocked portrait limit: **1,024 bytes**.
 `Now` has at most **10 nonblank lines**. Lint checks required keys, id, vocabulary,
 size, log formatting, duplicate layouts and stray files. Untended records warn.
+
+## Self-documenting
+
+Every portrait carries `standard: https://hypercontext.wiki/standards/friend` directly after `kind:`, naming the
+rules it follows for a reader with no other context. The package's writers stamp it; `lint`
+reports a missing or different value as `self-doc:missing` (error). Backfill a workspace with
+`friend-md stamp --workspace DIR` (dry run) and `--apply`, which inserts the line and leaves
+every other byte unchanged. `setLastContact` does not stamp: it touches only its two keys.
 
 ## History
 

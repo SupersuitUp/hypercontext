@@ -7,6 +7,9 @@ import { localDay } from "./time.mjs";
 import { nameFromUserMd } from "./operator-name.mjs";
 
 export const FRIEND_FILE = "friend.md";
+/** The page every friend.md names as the standard it follows (`standard:`, directly after `kind:`),
+ *  so an agent that has never seen this package can open the file and find its rules. */
+export const STANDARD = "https://hypercontext.wiki/standards/friend";
 export const GROUP_FILE = "group.md";
 export const CIRCLES = ["inner", "close", "active", "known", "past", "blocked"];
 export const LEGACY_CIRCLE = { "the-3": "inner", "active-orbit": "active", blacklist: "blocked", "inner-circle": "inner",
@@ -459,7 +462,7 @@ export function ensure(dir, slug, fields = {}) {
   if (workspaceLayout(dir) === "folder") {
     const p = join(dir, slug, FRIEND_FILE);
     mkdirSync(join(dir, slug), { recursive: true });
-    return createNew(p, `---\nkind: friend\nid: ${slug}\nname: ${q(name)}\nsummary: ""\nread_when: ""\n` +
+    return createNew(p, `---\nkind: friend\nstandard: ${STANDARD}\nid: ${slug}\nname: ${q(name)}\nsummary: ""\nread_when: ""\n` +
       `as_of: ${localDay()}\nkeep: home\ncircle: known\nrelationship: [contact]\n${contact}---\n\n## Now\n\n## Open\n- Who is this to the operator?\n`);
   }
   const p = join(dir, `${slug}.md`);
@@ -618,7 +621,8 @@ export function declaredFacets(dir) {
 export function lint(dir, { slug } = {}) {
   const knownFacets = new Set([...FACETS, ...declaredFacets(dir)]);
   const out = [];
-  const add = (s, rule, severity, message) => out.push({ slug: s, rule, severity, message });
+  // `code` and `level` repeat `rule` and `severity` under the names the other hypercontext linters use.
+  const add = (s, rule, severity, message, extra = {}) => out.push({ slug: s, rule, severity, message, code: rule, level: severity, ...extra });
   const folderWs = workspaceLayout(dir) === "folder";
   for (const s of slug ? [slug] : listSlugs(dir, { archive: true })) {
     if (!safeSlug(dir, s)) { add(s, "bad-slug", "error", `"${s}" does not name a place inside people/`); continue; }
@@ -636,6 +640,10 @@ export function lint(dir, { slug } = {}) {
       // Present but empty is a fresh stub, not a malformed record: ensure() writes these blank.
       const untended = REQUIRED.filter((k) => k in raw && (raw[k] === "" || (Array.isArray(raw[k]) && !raw[k].length)));
       if (untended.length) add(s, "untended", "warn", `empty: ${untended.join(", ")}`);
+      // Self-documenting: the record names the rules it follows, for a reader with no other context.
+      if (raw.standard !== STANDARD) add(s, "self-doc:missing", "error",
+        raw.standard === undefined ? `standard is missing; it must be ${STANDARD}` : `standard "${raw.standard}" is not ${STANDARD}`,
+        { fix: "friend-md stamp --apply (dry run without --apply) writes standard: after kind:, every other byte unchanged" });
       if (raw.id && raw.id !== s) add(s, "id-mismatch", "error", `id "${raw.id}" is not the folder name "${s}"`);
       const n = normalize(raw);
       const max = n.blocked ? LIMITS.blockedBytes : LIMITS.friendBytes;
@@ -707,7 +715,7 @@ export function lint(dir, { slug } = {}) {
 // line belongs to (it is proved present in a Carried over block, not proved under the right
 // `### date`).
 
-export const GEN_KEYS = new Set(["kind", "id", "name", "summary", "read_when", "as_of", "keep", "circle", "relationship", "tags",
+export const GEN_KEYS = new Set(["kind", "standard", "id", "name", "summary", "read_when", "as_of", "keep", "circle", "relationship", "tags",
   "since", "location", "last_contact", "migrated_from", "migrated_at"]);
 export const CONTACT_KEYS = ["phone", "phone_alt", "email", "email_alt", "work_email", "whatsapp", "telegram", "imessage",
   "github", "linkedin", "instagram", "twitter", "website"];
@@ -723,7 +731,7 @@ const KEEP_KEYS = new Set(["title", "date_added", "relevant_to", ...CONTACT_KEYS
  *  written before this layout reads it, and setLastContact keeps the two at the same date. */
 const RENAMED_KEYS = new Set(["current_location"]);
 /** Never evicted from friend.md to make it fit: the envelope, the block, the contact keys, the provenance. */
-const PINNED = new Set([...REQUIRED, "do_not_contact", ...CONTACT_KEYS, "migrated_from", "migrated_at"]);
+const PINNED = new Set([...REQUIRED, "standard", "do_not_contact", ...CONTACT_KEYS, "migrated_from", "migrated_at"]);
 export const OLD_FIELDS = "## Old header fields";
 /** The pre-door blacklist grep, per line: `do_not_contact: true|yes`, `circle: blacklist|blocked`. */
 const BLOCK_MARKER = /^(?:do_not_contact:\s*["']?(?:true|yes)\b|circle:\s*["']?(?:blacklist|blocked)\b)/i;
@@ -972,7 +980,7 @@ export function migratePerson(text, { slug, day, resolveTranscript, from, keep =
   }
   if (!facets.length) facets.push("contact");
   const name = (typeof n.name === "string" && n.name.trim()) || h1Text || slug;
-  const items = [["kind", "friend"], ["id", slug], ["name", q(name)], ["summary", '""'], ["read_when", '""'], ["as_of", day],
+  const items = [["kind", "friend"], ["standard", STANDARD], ["id", slug], ["name", q(name)], ["summary", '""'], ["read_when", '""'], ["as_of", day],
     ["keep", "home"], ["circle", blocked ? "blocked" : n.circle], ["relationship", `[${facets.join(", ")}]`]]
     .map(([k, v]) => ({ key: k, lines: [`${k}: ${v}`] }));
   if (tags.length) items.push({ key: "tags", lines: [`tags: [${tags.join(", ")}]`], derived: true });
@@ -1128,3 +1136,35 @@ export function verifyMigration(text, files, { slug, resolveTranscript, from, lo
   if (Buffer.byteLength(fm) > max) unaccounted.push({ line: 0, text: "friend.md over limit", reason: `${Buffer.byteLength(fm)} bytes, limit ${max}` });
   return { accounted, unaccounted };
 }
+
+// ---- Self-documenting backfill -----------------------------------------------------------------
+
+/** What stamping `text` would do: { text, status } with status `stamped` (changed), `current`
+ *  (already names STANDARD), `no-header` (no `---` fence on line 1, or it never closes) or
+ *  `unsafe` (a `standard:` value spread over more lines, left for a person). */
+export function stampPlan(text) {
+  const src = String(text);
+  const ls = src.split("\n");
+  const fence = (l) => l.replace(/\r$/, "") === "---";
+  if (!fence(ls[0])) return { text: src, status: "no-header" };
+  const end = ls.findIndex((l, i) => i > 0 && fence(l));
+  if (end < 0) return { text: src, status: "no-header" };
+  const eol = ls[0].endsWith("\r") ? "\r" : "";
+  const line = `standard: ${STANDARD}${eol}`;
+  const at = ls.findIndex((l, i) => i > 0 && i < end && /^standard:/.test(l));
+  if (at >= 0) {
+    if (at + 1 < end && /^[ \t]+[^ \t\r]/.test(ls[at + 1])) return { text: src, status: "unsafe" };
+    if (readHeader(src).standard === STANDARD) return { text: src, status: "current" };
+    const lineEol = ls[at].endsWith("\r") ? "\r" : "";
+    ls.splice(at, 1, `standard: ${STANDARD}${lineEol}`);
+    return { text: ls.join("\n"), status: "stamped" };
+  }
+  const kind = ls.findIndex((l, i) => i > 0 && i < end && /^kind:/.test(l));
+  ls.splice(kind >= 0 ? kind + 1 : 1, 0, line);
+  return { text: ls.join("\n"), status: "stamped" };
+}
+
+/** `text` with `standard:` set to STANDARD, directly after `kind:` (or first in the header when
+ *  there is none), every other byte unchanged and CRLF kept. Idempotent. A file with no header is
+ *  returned as it came. */
+export const stampStandard = (text) => stampPlan(text).text;

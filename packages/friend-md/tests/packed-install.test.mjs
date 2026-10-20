@@ -28,7 +28,7 @@ test("the actual tarball installs its documented API, CLI and Python companion i
   run("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund", join(scratch, pack.filename)], consumer);
   mkdirSync(join(consumer, "people", "ann-lee"), { recursive: true });
   writeFileSync(join(consumer, "people", "README.md"), "---\nlayout: friend-md\n---\n");
-  writeFileSync(join(consumer, "people", "ann-lee", "friend.md"), "---\nkind: friend\nid: ann-lee\nname: Ann Lee\naliases: [Annie]\nsummary: Tea club collaborator.\nread_when: Before planning tea.\nas_of: 2026-10-04\nkeep: home\ncircle: close\nrelationship: [friend]\n---\n## Now\nTea on Friday.\n");
+  writeFileSync(join(consumer, "people", "ann-lee", "friend.md"), "---\nkind: friend\nstandard: https://hypercontext.wiki/standards/friend\nid: ann-lee\nname: Ann Lee\naliases: [Annie]\nsummary: Tea club collaborator.\nread_when: Before planning tea.\nas_of: 2026-10-04\nkeep: home\ncircle: close\nrelationship: [friend]\n---\n## Now\nTea on Friday.\n");
   const out = run(process.execPath, ["--input-type=module", "-e", `
     import assert from 'node:assert/strict';
     import { resolve, readPerson, ensure, appendLog, lint, peopleDir, migratePerson } from '@supersuit/friend-md';

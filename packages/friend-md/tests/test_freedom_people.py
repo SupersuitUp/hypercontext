@@ -139,7 +139,9 @@ class Write(unittest.TestCase):
         out = P.ensure(self.p, "new-pal", name="New Pal", phone="+15125550199")
         self.assertEqual(out, self.p / "new-pal" / "friend.md")
         t = out.read_text()
-        self.assertTrue(t.startswith('---\nkind: friend\nid: new-pal\nname: "New Pal"\nsummary: ""\nread_when: ""\nas_of: '))
+        self.assertEqual(P.STANDARD, "https://hypercontext.wiki/standards/friend")
+        self.assertTrue(t.startswith('---\nkind: friend\nstandard: https://hypercontext.wiki/standards/friend\n'
+                                     'id: new-pal\nname: "New Pal"\nsummary: ""\nread_when: ""\nas_of: '))
         self.assertIn('circle: known\nrelationship: [contact]\nphone: "+15125550199"\n---\n\n## Now\n\n## Open\n', t)
         self.assertEqual(P.ensure(self.p, "ann-lee", name="Other"), self.p / "ann-lee.md")
         self.assertIn("Ann Lee", (self.p / "ann-lee.md").read_text())

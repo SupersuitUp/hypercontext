@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { resolve as absolute } from "node:path";
 import * as P from "../src/index.mjs";
 
-const HELP = `Usage: friend-md <read|list|path|resolve|operator|lint> [person]
+const HELP = `Usage: friend-md <read|list|path|resolve|operator|lint|stamp> [person]
   --people DIR       Explicit people directory
   --workspace DIR    Root containing people/ and self/ (default: working directory)
   --json             Machine-readable output
@@ -12,7 +12,11 @@ const HELP = `Usage: friend-md <read|list|path|resolve|operator|lint> [person]
   --paths            List slug and record path together
   --no-phone         List records without a phone
   --no-contact       List records without a message address
+  --apply            stamp: write the changes (default is a dry run that lists them)
   --help             Show this help
+
+stamp adds standard: ${P.STANDARD} after kind: in every friend.md
+that lacks it, every other byte unchanged. Records with no header and log/ files are never touched.
 
 Exit codes: 0 success; 1 missing record, lint error or runtime refusal; 2 usage or ambiguity.
 Whole-workspace migration and message capture are provided by Freedom.
@@ -22,7 +26,7 @@ function main(argv) {
   const options = {};
   const positional = [];
   const valued = new Set(["--people", "--workspace", "--sections"]);
-  const switches = new Set(["--json", "--prompt", "--paths", "--no-phone", "--no-contact", "--help"]);
+  const switches = new Set(["--json", "--prompt", "--paths", "--no-phone", "--no-contact", "--apply", "--help"]);
   for (let i = 0; i < argv.length; i++) {
     const value = argv[i];
     if (valued.has(value)) {
@@ -35,18 +39,41 @@ function main(argv) {
   }
   if (options["--help"]) { process.stdout.write(HELP); return 0; }
   const [cmd, arg] = positional;
-  if (!cmd || positional.length > 2 || !["read", "list", "path", "resolve", "operator", "lint"].includes(cmd)) {
+  if (!cmd || positional.length > 2 || !["read", "list", "path", "resolve", "operator", "lint", "stamp"].includes(cmd)) {
     process.stderr.write(HELP); return 2;
   }
   if (["read", "path", "resolve"].includes(cmd) && !arg) {
     process.stderr.write(`${cmd} requires a person\n${HELP}`); return 2;
   }
-  if (["list", "operator"].includes(cmd) && arg) {
+  if (["list", "operator", "stamp"].includes(cmd) && arg) {
     process.stderr.write(`${cmd} does not take a person\n${HELP}`); return 2;
   }
   const root = absolute(options["--workspace"] ?? process.cwd());
   const dir = options["--people"] ? absolute(options["--people"]) : P.peopleDir(root);
   const say = (object, text) => process.stdout.write((options["--json"] ? JSON.stringify(object) : text) + "\n");
+  if (options["--apply"] && cmd !== "stamp") { process.stderr.write(`--apply is only for stamp\n${HELP}`); return 2; }
+  if (cmd === "stamp") {
+    const applied = Boolean(options["--apply"]);
+    const report = { applied, standard: P.STANDARD, changed: [], current: [], skipped: [] };
+    for (const slug of P.listSlugs(dir, { archive: true })) {
+      const path = P.recordPath(dir, slug);
+      if (!path || !path.endsWith(`/${P.FRIEND_FILE}`)) continue; // a flat record is not a friend.md
+      const text = readFileSync(path, "utf8");
+      const plan = P.stampPlan(text);
+      if (plan.status === "stamped") {
+        if (applied) writeFileSync(path, plan.text);
+        report.changed.push({ slug, path });
+      } else if (plan.status === "current") report.current.push({ slug, path });
+      else report.skipped.push({ slug, path, reason: plan.status === "no-header" ? "no header" : "standard spans several lines" });
+    }
+    const verb = applied ? "stamped" : "would stamp";
+    const lines = [...report.changed.map((c) => `${verb}\t${c.slug}\t${c.path}`),
+      ...report.skipped.map((c) => `skipped\t${c.slug}\t${c.reason}`),
+      `${report.changed.length} ${applied ? "stamped" : "to stamp"}, ${report.current.length} already current, ${report.skipped.length} skipped` +
+        (applied || !report.changed.length ? "" : "; rerun with --apply to write")];
+    say(report, lines.join("\n"));
+    return 0;
+  }
   if (cmd === "resolve") {
     const slug = P.resolve(dir, arg);
     if (!slug) return 1;

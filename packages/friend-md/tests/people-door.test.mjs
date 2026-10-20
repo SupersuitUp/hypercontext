@@ -121,7 +121,7 @@ test("ensure creates the shape the workspace is in, and never overwrites", () =>
   const p2 = P.ensure(folder, "dee-ray", { name: "Dee Ray", phone: "+15125550104" });
   assert.equal(p2, join(folder, "dee-ray", "friend.md"));
   const t = rf(p2, "utf8");
-  assert.match(t, /kind: friend\nid: dee-ray\nname: "Dee Ray"/);
+  assert.match(t, /kind: friend\nstandard: https:\/\/hypercontext\.wiki\/standards\/friend\nid: dee-ray\nname: "Dee Ray"/);
   assert.match(t, /circle: known/);
   assert.match(t, /## Now\n/);
   assert.equal(P.ensure(folder, "dee-ray", { name: "Changed" }), p2);
@@ -146,7 +146,7 @@ test("appendLog: folder writes log/YYYY-MM.md newest first; flat appends under t
 const LIBPATH = join(ROOT, "bin", "friend-md.mjs");
 
 test("lint names every rule it breaks", () => {
-  const good = `---\nkind: friend\nid: ok-pal\nname: Ok Pal\nsummary: s\nread_when: r\nas_of: 2026-09-30\nkeep: home\ncircle: close\nrelationship: [friend]\n---\n## Now\nx\n`;
+  const good = `---\nkind: friend\nstandard: https://hypercontext.wiki/standards/friend\nid: ok-pal\nname: Ok Pal\nsummary: s\nread_when: r\nas_of: 2026-09-30\nkeep: home\ncircle: close\nrelationship: [friend]\n---\n## Now\nx\n`;
   const d = tree({
     "README.md": "---\nlayout: friend-md\n---\n",
     "ok-pal/friend.md": good,
@@ -159,7 +159,7 @@ test("lint names every rule it breaks", () => {
   });
   const rules = (slug) => P.lint(d).filter((f) => f.slug === slug).map((f) => f.rule).sort();
   assert.deepEqual(rules("ok-pal"), []);
-  assert.deepEqual(rules("bad-pal"), ["bad-circle", "id-mismatch", "log-line", "missing-key", "now-too-long", "stray-file", "unknown-facet"]);
+  assert.deepEqual(rules("bad-pal"), ["bad-circle", "id-mismatch", "log-line", "missing-key", "now-too-long", "self-doc:missing", "stray-file", "unknown-facet"]);
   assert.ok(rules("split-pal").includes("split-record"));
   assert.deepEqual(rules("old-pal"), ["flat-record"]);
 });
@@ -194,7 +194,7 @@ test("resolve reads the whole header, however long a folded value precedes the c
 });
 
 // ---- fix round 1 -------------------------------------------------------------------------
-const GOODFM = (id, extra = "") => `---\nkind: friend\nid: ${id}\nname: N\nsummary: s\nread_when: r\nas_of: 2026-09-30\nkeep: home\ncircle: close\nrelationship: [friend]\n${extra}---\n## Now\nx\n`;
+const GOODFM = (id, extra = "") => `---\nkind: friend\nstandard: https://hypercontext.wiki/standards/friend\nid: ${id}\nname: N\nsummary: s\nread_when: r\nas_of: 2026-09-30\nkeep: home\ncircle: close\nrelationship: [friend]\n${extra}---\n## Now\nx\n`;
 
 test("readHeader: block-list values become arrays (aliases resolve, no unknown-facet)", () => {
   const rec = `---\nkind: friend\nid: bl-pal\nname: Bl Pal\nsummary: s\nread_when: r\nas_of: 2026-09-30\nkeep: home\ncircle: close\n` +
@@ -471,7 +471,7 @@ test("routeHeading sends the named sections to log, threads, quotes, and everyth
   assert.equal(P.routeHeading("Group Chats"), "threads");
 });
 
-const LOGGED = (id) => `---\nkind: friend\nid: ${id}\nname: N\nsummary: s\nread_when: r\nas_of: 2026-09-30\nkeep: home\ncircle: close\nrelationship: [friend]\n---\n## Now\nx\n`;
+const LOGGED = (id) => `---\nkind: friend\nstandard: https://hypercontext.wiki/standards/friend\nid: ${id}\nname: N\nsummary: s\nread_when: r\nas_of: 2026-09-30\nkeep: home\ncircle: close\nrelationship: [friend]\n---\n## Now\nx\n`;
 
 test("lint log-line checks only bullets before the first ## heading; undated.md and threads/ are exempt and not stray", () => {
   const d = tree({
@@ -604,7 +604,7 @@ test("Freedom 5: operator() follows a remapped self/ through .freedom.json", () 
 });
 
 // ---- declared facets (Freedom's people README: "Add your own facets here, and the lint will stop warning about them")
-const FACETFM = (id, rel) => `---\nkind: friend\nid: ${id}\nname: N\nsummary: s\nread_when: r\nas_of: 2026-09-30\nkeep: home\ncircle: close\nrelationship: [${rel}]\n---\n## Now\nx\n`;
+const FACETFM = (id, rel) => `---\nkind: friend\nstandard: https://hypercontext.wiki/standards/friend\nid: ${id}\nname: N\nsummary: s\nread_when: r\nas_of: 2026-09-30\nkeep: home\ncircle: close\nrelationship: [${rel}]\n---\n## Now\nx\n`;
 const unknownFacets = (d) => P.lint(d).filter((f) => f.rule === "unknown-facet");
 
 test("a facet outside the vocabulary warns when nothing declares it", () => {

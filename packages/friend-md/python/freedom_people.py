@@ -11,6 +11,8 @@ from datetime import date as _date
 from pathlib import Path
 
 FRIEND_FILE = "friend.md"
+# The page every friend.md names as the standard it follows; held equal to STANDARD in index.mjs.
+STANDARD = "https://hypercontext.wiki/standards/friend"
 GROUP_FILE = "group.md"
 CIRCLES = ["inner", "close", "active", "known", "past", "blocked"]
 LEGACY_CIRCLE = {"the-3": "inner", "active-orbit": "active", "blacklist": "blocked", "inner-circle": "inner",
@@ -383,7 +385,7 @@ def ensure(dir, slug, **fields):
     if workspace_layout(d) == "folder":
         p = d / slug / FRIEND_FILE
         p.parent.mkdir(parents=True, exist_ok=True)
-        return _create_new(p, f'---\nkind: friend\nid: {slug}\nname: {_q(name)}\nsummary: ""\nread_when: ""\n'
+        return _create_new(p, f'---\nkind: friend\nstandard: {STANDARD}\nid: {slug}\nname: {_q(name)}\nsummary: ""\nread_when: ""\n'
                   f"as_of: {_local_day()}\nkeep: home\ncircle: known\nrelationship: [contact]\n{contact}---\n\n## Now\n\n## Open\n- Who is this to the operator?\n")
     p = d / f"{slug}.md"
     d.mkdir(parents=True, exist_ok=True)
