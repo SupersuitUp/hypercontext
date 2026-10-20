@@ -43,7 +43,7 @@ test('set refuses relative time, a missing date, and a by that disagrees with th
   refused(() => garden(home, { by: '2027-09-01' }), 'date:mismatch');
 });
 
-test('set refuses a reused id, a fourth personal or second company superobjective, and eight signs', (t) => {
+test('set refuses a reused id, a fourth personal or fourth company superobjective, and eight signs', (t) => {
   const { home } = tmpHome(t);
   garden(home);
   refused(() => garden(home), 'id:folder');
@@ -51,7 +51,13 @@ test('set refuses a reused id, a fourth personal or second company superobjectiv
   garden(home, { id: 'three', statement: 'Three done by October 2, 2027.' });
   refused(() => garden(home, { id: 'four', statement: 'Four done by October 3, 2027.' }), 'rank:cap');
   studio(home);
-  refused(() => studio(home, { id: 'second' }), 'rank:cap');
+  assert.doesNotThrow(() => studio(home, { id: 'second', statement: 'By October 1, 2027, the kits sell in two countries.' }), 'a company may hold a second');
+  assert.doesNotThrow(() => studio(home, { id: 'third', statement: 'By October 2, 2027, a kit wins a national design prize.' }), 'and a third');
+  refused(() => studio(home, { id: 'fourth', statement: 'By October 3, 2027, a fourth thing.' }), 'rank:cap');
+  assert.deepEqual(listRecords(home).filter((r) => r.data.root === 'company').map((r) => [r.data.id, r.data.rank]).sort(),
+    [['kits-in-every-store', '1'], ['second', '2'], ['third', '3']], 'a company ranks its superobjectives like a person');
+  garden(home, { id: 'jonah-own', owner: 'jonah', statement: 'Jonah rows across the lake by October 4, 2027.' });
+  // the roots are counted apart: the company's three do not use up a person's three
   refused(() => garden(home, { id: 'many', owner: 'jonah', signs: ['1 a', '2 b', '3 c', '4 d', '5 e', '6 f', '7 g', '8 h'] }), 'signs:count');
   assert.deepEqual(listRecords(home).filter((r) => r.data.owner === 'maya').map((r) => r.data.rank).sort(), ['1', '2', '3']);
 });

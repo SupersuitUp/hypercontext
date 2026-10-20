@@ -52,10 +52,21 @@ redGreen('a fourth active personal superobjective', 'rank:cap', (h) => {
   garden(h, { id: 'four', owner: 'jonah', statement: 'Four done by October 3, 2027.' });
   patchHeader(join(h, 'four'), { owner: 'maya', rank: 4 });
 });
-redGreen('a second active company superobjective', 'rank:cap', (h) => {
-  studio(h, { id: 'other', organization: 'Other Co' });
-  patchHeader(join(h, 'other'), { organization: 'Fernhill Studio' });
+redGreen('a fourth active company superobjective', 'rank:cap', (h) => {
+  studio(h, { id: 'second', statement: 'By October 1, 2027, the kits sell in two countries.' });
+  studio(h, { id: 'third', statement: 'By October 2, 2027, a kit wins a national design prize.' });
+  studio(h, { id: 'fourth', organization: 'Other Co', statement: 'By October 3, 2027, a fourth thing ships.' });
+  patchHeader(join(h, 'fourth'), { organization: 'Fernhill Studio', rank: 4 });
 }, { make: studio });
+
+test('rank:cap is green at three active company superobjectives, ranked 1..3', (t) => {
+  const { home } = tmpHome(t);
+  studio(home);
+  studio(home, { id: 'second', statement: 'By October 1, 2027, the kits sell in two countries.' });
+  studio(home, { id: 'third', statement: 'By October 2, 2027, a kit wins a national design prize.' });
+  garden(home, { owner: 'jonah' });
+  assert.deepEqual(codes(home).filter((c) => c.startsWith('rank:')), []);
+});
 redGreen('ranks skip one', 'rank:gap', (h, dir) => patchHeader(dir, { rank: 2 }));
 redGreen('two signs on an active superobjective', 'signs:count', (h, dir) => patchHeader(dir, { signs: GARDEN_SIGNS.slice(0, 2).map((s) => ({ ...s, state: 'open' })) }));
 redGreen('a sign id used twice', 'signs:id', (h, dir) => patchHeader(dir, { signs: GARDEN_SIGNS.map((s) => ({ ...s, id: 'same', state: 'open' })) }));

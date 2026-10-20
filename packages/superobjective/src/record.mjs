@@ -24,10 +24,11 @@ const cap1 = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 export const TERM_TITLE = cap1(TERM.many);
 
 /**
- * Most active superobjectives per owner (personal) or per organization (company). Company is 1
- * today; whether a company may hold more is Gary's open call (2026-10-20), so it is this one number.
+ * Most active superobjectives per owner (personal) or per organization (company). The same rule for
+ * both (Gary, 2026-10-20): up to three, ranked, one by default; the first leads when two compete.
+ * Counted separately per root, so a person's three never use up their company's three.
  */
-export const CAP = Object.freeze({ personal: 3, company: 1 });
+export const CAP = Object.freeze({ personal: 3, company: 3 });
 /** Signs on an active superobjective. */
 export const SIGNS = Object.freeze({ min: 3, max: 7 });
 export const SLUG = /^[a-z0-9][a-z0-9-]*$/;

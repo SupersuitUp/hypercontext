@@ -31,11 +31,11 @@ A superobjective belongs to exactly one root, and the roots never mix.
 | Root | How many active | Who | Where | Default visibility |
 |---|---|---|---|---|
 | `personal` | up to 3 per owner, ranked 1..n; rank 1 leads when two compete | `owner: <id>` | `self/calling/superobjectives/<id>/` | `private` |
-| `company` | exactly 1 per organization, rank 1 | `owners: [<id>, ...]`, `organization:` | `superobjectives/<id>/` in the company workspace | `members` |
+| `company` | up to 3 per organization, ranked 1..n; one by default; rank 1 leads when two compete | `owners: [<id>, ...]`, `organization:` | `superobjectives/<id>/` in the company workspace | `members` |
 
 A role root (a person's goal inside a company) is not part of version "1".
 
-Two things are open and each is one constant in `src/record.mjs`, so a decision is a one-line change: whether a company may hold more than one active superobjective (`CAP.company`, 1 today), and whether "signs" keeps its name (`TERM`, which also lists older header keys still read, so a rename to "milestones" would keep reading `signs:`).
+Both roots follow the same rule (Gary, 2026-10-20): up to three active, ranked, one by default. Most companies hold one; a second or third is set only when the owners choose it. The caps are counted separately per root, so a person's superobjectives never use up their company's. The cap is `CAP` in `src/record.mjs`, and the word "signs" (kept, 2026-10-20) is `TERM` there, which also lists any older header keys still read.
 
 **Nothing personal ever reaches a company.** A company superproject may only serve a company superobjective. A personal superproject may serve either.
 
@@ -94,7 +94,7 @@ keep: keep
 | `owner` | personal | the owner's id |
 | `owners` | company | list of owner ids |
 | `organization` | company, recommended | the organization's name; ranks and the cap are counted per organization |
-| `rank` | active records | integer; personal 1..3 unique per owner, company always 1; removed on close or retire |
+| `rank` | active records | integer; 1..3, unique per owner (personal) or per organization (company); removed on close or retire |
 | `statement` | yes | one sentence, one line, no `**`, holding the exact date |
 | `set` | yes | `YYYY-MM-DD`, the day it was set |
 | `by` | yes | `YYYY-MM-DD`, equal to the date written in the statement |
@@ -207,7 +207,7 @@ The package ships the gates: deterministic checks, each a coded finding. Judges 
 | `date:mismatch` | error | the date in the statement is not the header's `by`, or the statement names no date |
 | `date:horizon` | warn | `by` is under 183 or over 548 days from `set` |
 | `statement:body` | error | the body's bold statement line is missing or differs from the header |
-| `rank:cap` | error | more than 3 active personal per owner, or more than 1 active company per organization |
+| `rank:cap` | error | more than 3 active personal per owner, or more than 3 active company per organization |
 | `rank:gap` | error | active ranks in a group are not exactly 1..n |
 | `signs:count` | error | fewer than 3 or more than 7 signs on an active superobjective |
 | `signs:id` | error | a sign with no kebab-case id, a repeated id, no text, or a state outside `open`, `met`, `missed` |
@@ -223,7 +223,7 @@ The package ships the gates: deterministic checks, each a coded finding. Judges 
 
 `signs:vague` is a heuristic. It treats as concrete: a digit, a month name, a number word (one, twelve, half, every...), a capitalised word that does not start the sentence, or an event verb (signed, published, launched, shipped, closed, accepted, has, is, runs...).
 
-The writers refuse what lint would report, before anything is written: relative time, a mismatched date, a fourth personal or second company superobjective, a reused id, more than 7 signs, a raise that moves the date later, a lower without an owner and their words, a lower that would leave fewer than 3 signs, a `missed` before the date, a personal superobjective made public by anyone but its owner, and any change after `set` (except `meet-sign`) with no why.
+The writers refuse what lint would report, before anything is written: relative time, a mismatched date, a fourth active personal or company superobjective, a reused id, more than 7 signs, a raise that moves the date later, a lower without an owner and their words, a lower that would leave fewer than 3 signs, a `missed` before the date, a personal superobjective made public by anyone but its owner, and any change after `set` (except `meet-sign`) with no why.
 
 ## 4. Writing
 
