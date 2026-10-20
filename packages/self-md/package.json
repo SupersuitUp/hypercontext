@@ -1,6 +1,6 @@
 {
   "name": "@supersuit/self-md",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A written standard for the folder that holds everything about one person (self/), with a lint that enforces it and a sweep that derives which tools read each file.",
   "type": "module",
   "bin": {

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // self-md: lint a workspace's self/ folder, stamp derived read_by blocks, list undeclared readers.
 // Exit codes: 0 clean, 1 findings, 2 usage error.
-import { resolve } from "node:path";
-import { lintSelf, collectReads, stampReadBy, undeclaredReaders, isMain } from "../src/index.mjs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { lintSelf, collectReads, stampReadBy, undeclaredReaders, isMain, STANDARD, stampStandard } from "../src/index.mjs";
 
 export const USAGE = `usage: self-md <command> [options]
 
@@ -13,6 +14,9 @@ export const USAGE = `usage: self-md <command> [options]
       --write needs every reader root: generated blocks no given root declares are cleared.
   self-md undeclared --workspace DIR --root DIR [--root DIR ...] [--json]
       List files under the roots that name a workspace folder without declaring it.
+  self-md stamp-standard --workspace DIR [--write] [--json]
+      Plan (or with --write, apply) standard: ${STANDARD} in DIR/self/self.md's header,
+      directly after kind:, every other byte unchanged. Refuses a self.md with no header.
 
 Exit: 0 clean, 1 findings, 2 usage error.`;
 
@@ -68,6 +72,23 @@ export function main(argv, { out = (s) => console.log(s), err = (s) => console.e
       }
     }
     return code;
+  }
+  if (o.cmd === "stamp-standard") {
+    if (!o.workspace) { err("stamp-standard needs --workspace"); return 2; }
+    const file = join(o.workspace, "self", "self.md");
+    const report = (status, reason) => {
+      const r = { file: "self/self.md", standard: STANDARD, status, write: o.write, ...(reason ? { reason } : {}) };
+      if (o.json) out(JSON.stringify(r, null, 2)); else out(`${status}\t${r.file}${reason ? `\t${reason}` : ""}`);
+    };
+    if (!existsSync(file)) { report("missing", "no self/self.md"); return 1; }
+    const text = readFileSync(file, "utf8");
+    let next;
+    try { next = stampStandard(text); } catch (e) { report("refused", e.message); return 1; }
+    if (next === text) { report("already"); return 0; }
+    if (!o.write) { report("would-stamp"); return 1; }
+    writeFileSync(file, next);
+    report("stamped");
+    return 0;
   }
   if (o.cmd === "undeclared") {
     const u = undeclaredReaders(o.workspace, o.roots);

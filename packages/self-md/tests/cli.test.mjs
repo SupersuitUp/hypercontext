@@ -13,7 +13,7 @@ function tree(files) {
   for (const [p, t] of Object.entries(files)) { mkdirSync(dirname(join(root, p)), { recursive: true }); writeFileSync(join(root, p), t); }
   return root;
 }
-const SELF = "---\nkind: self\nid: ann-lee\nname: Ann Lee\nsummary: Ann, on one screen.\nread_when: every session\nas_of: 2026-10-08\nkeep: home\n---\n\n# Ann Lee\n";
+const SELF = "---\nkind: self\nstandard: https://hypercontext.wiki/standards/self\nid: ann-lee\nname: Ann Lee\nsummary: Ann, on one screen.\nread_when: every session\nas_of: 2026-10-08\nkeep: home\n---\n\n# Ann Lee\n";
 
 test("--help prints usage and exits 0; no command or an unknown one exits 2", () => {
   const h = run(["--help"]);
@@ -142,4 +142,31 @@ test("a generated block is refreshed when a reader's use changes", async () => {
   const t = readFileSync(join(w, "self/journal/README.md"), "utf8");
   assert.match(t, /"a: second use"/);
   assert.doesNotMatch(t, /first use/);
+});
+
+test("stamp-standard: dry run by default, --write stamps byte-preservingly, rerun is a no-op", () => {
+  const raw = SELF.replace("standard: https://hypercontext.wiki/standards/self\n", "");
+  const w = tree({ "self/self.md": raw });
+  const p = join(w, "self", "self.md");
+  const dry = run(["stamp-standard", "--workspace", w, "--json"]);
+  assert.equal(dry.status, 1);
+  assert.deepEqual(JSON.parse(dry.stdout), { file: "self/self.md", standard: "https://hypercontext.wiki/standards/self", status: "would-stamp", write: false });
+  assert.equal(readFileSync(p, "utf8"), raw);
+  const wr = run(["stamp-standard", "--workspace", w, "--write"]);
+  assert.equal(wr.status, 0);
+  assert.match(wr.stdout, /^stamped\tself\/self\.md$/m);
+  assert.equal(readFileSync(p, "utf8"), SELF);
+  const again = run(["stamp-standard", "--workspace", w, "--write", "--json"]);
+  assert.equal(again.status, 0);
+  assert.equal(JSON.parse(again.stdout).status, "already");
+  assert.equal(run(["lint", "--workspace", w]).status, 0);
+});
+test("stamp-standard refuses a self.md with no header and a workspace with no self.md", () => {
+  const w = tree({ "self/self.md": "# Ann Lee\n" });
+  const r = run(["stamp-standard", "--workspace", w, "--write", "--json"]);
+  assert.equal(r.status, 1);
+  assert.equal(JSON.parse(r.stdout).status, "refused");
+  assert.equal(readFileSync(join(w, "self", "self.md"), "utf8"), "# Ann Lee\n");
+  assert.equal(JSON.parse(run(["stamp-standard", "--workspace", tree({ "x.md": "x" }), "--json"]).stdout).status, "missing");
+  assert.equal(run(["stamp-standard"]).status, 2);
 });

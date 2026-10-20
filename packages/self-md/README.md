@@ -12,6 +12,7 @@ npm install @supersuit/self-md
 npx self-md lint --workspace .
 npx self-md undeclared --workspace . --root ./skills
 npx self-md stamp --workspace . --root ./skills --write
+npx self-md stamp-standard --workspace . --write
 ```
 
 ## The standard
@@ -54,6 +55,7 @@ Anything else is declared in `self/README.md`, one bullet per name, with what it
 ```md
 ---
 kind: self
+standard: https://hypercontext.wiki/standards/self
 id: ann-lee
 name: Ann Lee
 summary: Ann, on one screen.
@@ -66,9 +68,19 @@ keep: home
 ...
 ```
 
-- Required, non-empty: `kind` (must be `self`), `id`, `name`, `summary`, `read_when`, `as_of`, `keep`.
+- Required, non-empty: `kind` (must be `self`), `standard` (must be
+  `https://hypercontext.wiki/standards/self`), `id`, `name`, `summary`, `read_when`, `as_of`, `keep`.
 - Refused: `title` (the name is `name:`) and `last_verified`.
 - The body is at most 60 non-empty lines.
+
+### Self-documenting
+
+**self.md names the standard it follows, so an agent that has never seen Supersuit can open the
+file and find its rules.** The header carries `standard: https://hypercontext.wiki/standards/self`
+directly after `kind:`, and lint refuses a self.md whose header has no `standard:` or names any
+other URL (`self-doc:missing`). Nothing in this package creates self.md; to backfill an existing
+one, run `self-md stamp-standard --workspace DIR --write`, which inserts the line and changes no
+other byte (CRLF kept, idempotent, a wrong URL corrected in place, a file with no header refused).
 
 ### What the lint reports
 
@@ -78,6 +90,7 @@ keep: home
 | `self-header` | A required key is missing or empty, `kind` is not `self`, or a refused key is present. |
 | `self-length` | The body is over 60 non-empty lines. |
 | `self-undeclared` | A folder or file at the root of `self/` is neither a default nor declared, or is a dangling symlink. |
+| `self-doc:missing` | The header has no `standard:`, or names a URL other than `https://hypercontext.wiki/standards/self`. |
 | `self-outside` | A collection about the person (`dreams/`, `prayers/`, ...) sits in `documents/collections/` instead of under its facet. |
 
 ## reads: and read_by
@@ -125,7 +138,7 @@ only inside the workspace itself, and after the workspace folder's own name from
 ## Library
 
 ```js
-import { lintSelf, collectReads, stampReadBy, undeclaredReaders } from "@supersuit/self-md";
+import { lintSelf, collectReads, stampReadBy, undeclaredReaders, stampStandard } from "@supersuit/self-md";
 
 const findings = lintSelf("/path/to/workspace");
 // [{ rule, path, message, severity }]
@@ -138,6 +151,9 @@ const plan = stampReadBy("/path/to/workspace", reads, { write: true });
 
 const loose = undeclaredReaders("/path/to/workspace", ["/path/to/skills"]);
 // [{ file, path }]
+
+const stamped = stampStandard(selfMdText);
+// the same text with `standard: <STANDARD>` after `kind:`; throws when there is no header
 ```
 
 Every default can be overridden without changing it for anyone else:
@@ -153,7 +169,7 @@ lintSelf(root, {
 undeclaredReaders(root, roots, { scan: ["self", "notes"], deep: ["self"] });
 ```
 
-Also exported: `FACETS`, `ROOT_FILES`, `PERSON_COLLECTIONS`, `REQUIRED_KEYS`, `REFUSED_KEYS`,
+Also exported: `STANDARD`, `STAMP_COMMAND`, `FACETS`, `ROOT_FILES`, `PERSON_COLLECTIONS`, `REQUIRED_KEYS`, `REFUSED_KEYS`,
 `SCREEN_LINES`, `MANIFEST_NAMES`, `SCAN_FOLDERS`, `DEEP_FOLDERS`, `selfFacetFor(root, facet)`,
 `declaredExtras(root)`, `readHeader(text)` and `isMain(import.meta.url)`.
 
@@ -163,9 +179,15 @@ Also exported: `FACETS`, `ROOT_FILES`, `PERSON_COLLECTIONS`, `REQUIRED_KEYS`, `R
 self-md lint --workspace DIR [--json]
 self-md stamp --workspace DIR --root DIR [--root DIR ...] [--write] [--json]
 self-md undeclared --workspace DIR --root DIR [--root DIR ...] [--json]
+self-md stamp-standard --workspace DIR [--write] [--json]
 self-md --help
 ```
 
 Exit codes: `0` clean, `1` findings (a lint error, an undeclared mention, or a stamp target that is
-missing or hand-kept), `2` usage error. `--json` prints one JSON object instead of tab-separated
+missing or hand-kept; for `stamp-standard`, a self.md still unstamped after the run, missing, or
+refused for having no header), `2` usage error. `--json` prints one JSON object instead of tab-separated
 lines.
+
+`stamp-standard --json` prints `{ "file": "self/self.md", "standard": "<URL>", "status", "write" }`,
+plus `reason` when refused or missing. `status` is `already`, `would-stamp` (dry run), `stamped`,
+`refused` or `missing`.

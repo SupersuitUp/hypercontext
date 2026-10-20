@@ -35,6 +35,44 @@ export const PERSON_COLLECTIONS = {
 export const REQUIRED_KEYS = ["kind", "id", "name", "summary", "read_when", "as_of", "keep"];
 /** Keys self.md's header must not carry. */
 export const REFUSED_KEYS = ["title", "last_verified"];
+/**
+ * The URL of the rules self.md follows. self.md's header names it in `standard:`, directly after
+ * `kind:`, so an agent that has never seen this package can open the file and find its rules.
+ */
+export const STANDARD = "https://hypercontext.wiki/standards/self";
+/** The command that backfills `standard:`, named in every self-doc:missing finding. */
+export const STAMP_COMMAND = "self-md stamp-standard --workspace DIR --write";
+
+/**
+ * Return `text` with `standard: <STANDARD>` in its header, every other byte unchanged.
+ * Inserted directly after the first `kind:` line (first in the header when there is none); a
+ * `standard:` line naming another URL is corrected in place. Idempotent. The file's line ending
+ * (LF or CRLF) is kept. Throws when the text has no closed `---` header.
+ * @param {string} text The whole file.
+ * @returns {string}
+ */
+export function stampStandard(text) {
+  const src = String(text ?? "");
+  const open = src.match(/^---(\r?\n)/);
+  if (!open) throw new Error("no header: self.md must open with a --- block");
+  const nl = open[1];
+  const start = open[0].length;
+  const close = src.slice(start).search(/^---[ \t]*(?:\r?\n|$)/m);
+  if (close < 0) throw new Error("no header: the --- block never closes");
+  const end = start + close;
+  const head = src.slice(start, end);
+  const line = `standard: ${STANDARD}`;
+  const has = head.match(/^standard:[^\r\n]*/m);
+  if (has) {
+    if (has[0].replace(/\s+#.*$/, "").trim() === line || readHeader(src).standard === STANDARD) return src;
+    const at = start + has.index;
+    return src.slice(0, at) + line + src.slice(at + has[0].length);
+  }
+  const kind = head.match(/^kind:[^\r\n]*\r?\n/m);
+  const at = kind ? start + kind.index + kind[0].length : start;
+  return src.slice(0, at) + line + nl + src.slice(at);
+}
+
 /** The most non-empty body lines self.md may have: one screen. */
 export const SCREEN_LINES = 60;
 
@@ -69,7 +107,8 @@ export function declaredExtras(root) {
  * Rules: self-missing (no self/self.md), self-header (a required key missing or empty, kind not
  * `self`, a refused key present), self-length (body over one screen), self-undeclared (a folder or
  * file at the root of self/ that is neither a default nor declared in self/README.md),
- * self-outside (a person collection left in documents/collections/).
+ * self-outside (a person collection left in documents/collections/), self-doc:missing (the header
+ * has no `standard:` or names a URL other than STANDARD).
  *
  * @param {string} root The workspace folder.
  * @param {object} [options] Every option defaults to the standard.
@@ -93,6 +132,10 @@ export function lintSelf(root, {
   for (const k of REQUIRED_KEYS) if (head[k] === undefined || String(head[k]).trim() === "") add("self-header", "self/self.md", `missing or empty ${k}`);
   if (head.kind !== undefined && head.kind !== "self") add("self-header", "self/self.md", `kind is ${head.kind}, not self`);
   for (const k of REFUSED_KEYS) if (head[k] !== undefined) add("self-header", "self/self.md", `${k}: is not part of self.md (the name is name:)`);
+  if (head.standard === undefined || String(head.standard).trim() === "")
+    add("self-doc:missing", "self/self.md", `no standard: in the header, so the file does not name the rules it follows (${STANDARD}); run ${STAMP_COMMAND}`);
+  else if (head.standard !== STANDARD)
+    add("self-doc:missing", "self/self.md", `standard is ${head.standard}, not ${STANDARD}; run ${STAMP_COMMAND}`);
   const body = text.replace(/^---\n[\s\S]*?\n---\n?/, "");
   const lines = body.split("\n").filter((l) => l.trim()).length;
   if (lines > screenLines) add("self-length", "self/self.md", `${lines} lines; self.md fits on one screen (${screenLines})`);
