@@ -1,0 +1,19 @@
+{
+  "name": "@supersuit/hypercontext",
+  "version": "0.1.0",
+  "description": "One check over a whole workspace: every record names the standard it follows, and every kind of record passes its own package's checks.",
+  "keywords": ["hypercontext", "records", "markdown", "frontmatter", "lint", "self-documenting", "agents", "supersuit"],
+  "type": "module",
+  "bin": { "hypercontext": "bin/hypercontext.mjs" },
+  "exports": { ".": "./src/index.mjs", "./package.json": "./package.json" },
+  "files": ["bin/", "src/", "docs/", "README.md", "CHANGELOG.md", "LICENSE"],
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "mutation-check": "node scripts/mutation-check.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "license": "MIT",
+  "publishConfig": { "access": "public" },
+  "repository": { "type": "git", "url": "git+https://github.com/SupersuitUp/hypercontext.git" },
+  "dependencies": {}
+}
