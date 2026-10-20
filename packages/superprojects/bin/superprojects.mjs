@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {readFileSync,writeFileSync,existsSync} from 'node:fs';
 import {join,resolve,dirname,basename,relative} from 'node:path';
-import {createProjectEngine,readContext,validateContext,contextGraph,verifyContext,exportContext,assertCanClose,assertSafeConfig,validDate,parsePlan,lintPlan,planStatus,schedulePlan,proposeBlocks,NAMES,recordFileOf,mapFileOf,planMigration,applyMigration,recordSession,sessionsOf,touchedSuperprojects,SESSIONS_FILE} from '../src/index.mjs';
+import {createProjectEngine,readContext,validateContext,contextGraph,verifyContext,exportContext,assertCanClose,assertSafeConfig,validDate,parsePlan,lintPlan,planStatus,schedulePlan,proposeBlocks,NAMES,recordFileOf,mapFileOf,planMigration,applyMigration,stampStandard,standardForFile,recordSession,sessionsOf,touchedSuperprojects,SESSIONS_FILE} from '../src/index.mjs';
 
 const HELP=`superprojects <command> [options]
 
@@ -28,6 +28,10 @@ migrate      Convert a tree to the new names (--root <dir>). A dry run unless --
              projects/ folder -> superprojects/ with a projects -> superprojects link left
              behind, and the Markdown links that would break rewritten. Refuses (exit 2,
              nothing changed) when a destination already exists. Never commits.
+             --stamp-standard: instead of renaming, set standard: on every SUPERPROJECT.md,
+             PROJECT.md, STATE.md, ATOMIC-ACTION-MAP.md and PLAN.md under the root, nested
+             and done/ included, to the standard that file follows. Byte-preserving and
+             idempotent; a file with no header is skipped and listed. A dry run unless --apply.
 session      Record that a session checkpointed a superproject (--project <dir> --id <session id>
              [--landed <what landed>] [--harness <name>]). Appends one line to its
              sessions.jsonl; a repeat with nothing new writes nothing.
@@ -49,7 +53,7 @@ No command sends records.
 `;
 class Usage extends Error {}
 const VALUE_OPTIONS=new Set(['root','file','slug','name','owner','goal','date','summary','read-when','keep','audience','actor','next-action','kind','cadence','parent','deliverable','phase','repo','source-of-truth','dependency','by','source','origin','rev','snapshot','to','where','project','deadline','scenario','free','id','landed','harness','workspace']);
-const FLAG_OPTIONS=new Set(['json','write','help','allow-external','all-scenarios','no-plan','no-map','apply']);
+const FLAG_OPTIONS=new Set(['json','write','help','allow-external','all-scenarios','no-plan','no-map','apply','stamp-standard']);
 const MAP_COMMANDS=new Set(['map','plan']);
 function parse(args){
   const values={}; let command;
@@ -78,6 +82,7 @@ function main(args){
   if(!allowed.includes(command))throw new Usage(`Unknown command: ${command}`);
   if(a.write&&command!=='verify')throw new Usage('--write is only supported by verify');
   if(a.apply&&command!=='migrate')throw new Usage('--apply is only supported by migrate');
+  if(a['stamp-standard']&&command!=='migrate')throw new Usage('--stamp-standard is only supported by migrate');
   const engine=createProjectEngine();
   if(command==='scaffold'){
     requireKeys(a,['root','slug','name','owner','goal','date','summary','read-when','keep','audience','actor','next-action']);
@@ -97,7 +102,9 @@ function main(args){
   }
   if(command==='verify'){
     requireKeys(a,['date','by','source','origin']);const file=onlyFile(a);
-    const text=verifyContext(readFileSync(file,'utf8'),{date:a.date,by:a.by,source:a.source,origin:a.origin,rev:a.rev,snapshot:a.snapshot});
+    const url=standardForFile(file);
+    const verified=verifyContext(readFileSync(file,'utf8'),{date:a.date,by:a.by,source:a.source,origin:a.origin,rev:a.rev,snapshot:a.snapshot});
+    const text=url?stampStandard(verified,url):verified;
     const findings=validateContext(text,{file}).filter(f=>f.level==='error');
     if(findings.length)throw new Error(findings.map(f=>f.message).join('; '));
     if(a.write)writeFileSync(file,text);
@@ -135,6 +142,16 @@ function main(args){
   if(command==='touched'){
     requireKeys(a,['workspace','id']);const superprojects=touchedSuperprojects(resolve(a.workspace),a.id);
     emit(a.json?{superprojects}:superprojects.map(p=>`${p.slug}  ${p.dir}`).join('\n')||'This session checkpointed no superproject.',a.json);return 0;
+  }
+  if(command==='migrate'&&a['stamp-standard']){
+    requireKeys(a,['root']);
+    const r=engine.stampRoot(resolve(a.root),{write:!!a.apply});
+    if(a.json){emit(r,true);return 0;}
+    const show=p=>relative(dirname(r.root),p)||'.';
+    const lines=[...r.stamps.map(s=>`stamp ${show(s.file)}: standard: ${s.to}${s.from?` (was ${s.from})`:''}`),...r.skipped.map(s=>`skip ${show(s.file)}: ${s.why}`)];
+    if(!r.stamps.length){console.log([...lines,'Nothing to stamp: every record with a header already names its standard.'].join('\n'));return 0;}
+    console.log([...lines,r.applied?`Stamped ${r.stamps.length} files. Review the diff and commit it.`:'Dry run: nothing changed. Run again with --apply to do it.'].join('\n'));
+    return 0;
   }
   if(command==='migrate'){
     requireKeys(a,['root']);

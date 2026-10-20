@@ -169,7 +169,7 @@ test("codec reads and writes a CRLF header (a Git for Windows checkout) as one h
     F.write(file, { phase: "drafting" }, { kind: "state" });
     const out = readFileSync(file, "utf8");
     assert.equal((out.match(/^---$/gm) || []).length, 2, out);
-    assert.match(out, /^---\nphase: drafting\n---\n/);
+    assert.match(out, /^---\nstandard: "https:\/\/hypercontext\.wiki\/standards\/state"\nphase: drafting\n---\n/);
     assert.match(out, /Body\./);
   } finally {
     rmSync(root, { recursive: true, force: true });

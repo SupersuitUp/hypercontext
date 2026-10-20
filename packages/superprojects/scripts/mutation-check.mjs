@@ -48,6 +48,12 @@ const cases=[
   ['Today opening a sentence is a date','engine.mjs','engine.test.mjs','if (!SENTENCE_OPEN.test(line)) continue;','continue;'],
   ['lowercase today is always a date','engine.mjs','engine.test.mjs','if (word === "Today") {','if (/^today$/i.test(word)) {'],
   ['migrate leaves code alone','migrate.mjs','migrate.test.mjs','const masked = line.replace(/(`+)[^`]*?\\1/g, (m) => " ".repeat(m.length));','const masked = line;'],
+  ['lint refuses a record with no standard','engine.mjs','standard.test.mjs','if (said.value === url) continue;','continue;'],
+  ['scaffold stamps the record standard','engine.mjs','standard.test.mjs','const data = { standard: STANDARDS.superproject, kind, status, goal, repo };','const data = { kind, status, goal, repo };'],
+  ['a write stamps the standard','frontmatter/index.mjs','standard.test.mjs','if (standard?.length === 1) next = withStandard(next, standard[0]);','/* not stamped */'],
+  ['stamp keeps the line ending','standard.mjs','standard.test.mjs','`standard: ${url}${h.eol}`','`standard: ${url}\\n`'],
+  ['stamp is idempotent','standard.mjs','standard.test.mjs','if (unquote(STANDARD_LINE.exec(line.content)[1]) === url) return src;','/* always rewrites */'],
+  ['stamp reaches nested and done/','engine.mjs','standard.test.mjs','    for (const dir of projectDirs(root))\n      for (const name of [N.record','    for (const dir of projectDirs(root).filter((d) => !d.includes("/done/") && !d.includes("/superprojects/2")))\n      for (const name of [N.record'],
 ];
 let caught=0;
 for(const [name,source,suite,before,after] of cases){

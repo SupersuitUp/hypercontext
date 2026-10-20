@@ -1,7 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.7.0 (2026-10-20)
 
+Every superproject record file is self-documenting: it names the standard it follows, so an agent that has never seen Supersuit can open it and find its rules.
+
+- **`standard:` on every record.** SUPERPROJECT.md and PROJECT.md follow `https://hypercontext.wiki/standards/superproject`, STATE.md follows `https://hypercontext.wiki/standards/state`, and ATOMIC-ACTION-MAP.md and PLAN.md follow `https://hypercontext.wiki/standards/atomic-action-map`. New export `STANDARDS` (frozen) holds the three. `scaffold` writes the key first in all three files, and the frontmatter `write` puts the right one first on every write, so an old record gains it the next time anything writes it. `verify --write` stamps it too. The project and state kinds now know the `standard` key and refuse a wrong URL on write.
+- **Lint refuses a record that does not name its standard.** Check `self-doc:missing`, level error, one finding per file, for a missing `standard:` or one naming another file's URL (a STATE.md carrying the superproject URL is wrong). The fix names the backfill command below. **This is new strictness: a tree written before 0.7.0 lints with these errors until it is stamped.**
+- **Backfill: `superprojects migrate --root <dir> --stamp-standard [--apply]`.** A dry run unless `--apply`; renames nothing. Inserts the right `standard:` byte-preservingly (every other byte unchanged, CRLF kept), corrects a wrong value in place, is idempotent, reaches nested superprojects and `done/`, and skips and lists a file with no header. New exports `stampStandard(text, url)`, `readStandard(text)`, `standardForFile(file)`, `withStandard(data, url)`, `SELF_DOC_CHECK`, and `engine.stampRoot(root, { write })`.
 - **A CRLF header reads as a header.** Git for Windows checks markdown out with CRLF by default, and `split` tested for a literal `---\n`, so every such file read as having no frontmatter and `write` prepended a second header above the first. `split` now normalizes CRLF to LF before parsing; a body read from a CRLF file comes back LF. Found by an operator on Windows (freedom-dev#715).
 
 ## 0.6.1 (2026-10-12)

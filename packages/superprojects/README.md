@@ -190,6 +190,27 @@ It is a separate append-only file so two sessions saving the same superproject n
 
 A repeat checkpoint by the same session with nothing new writes nothing. `recordSession` refuses a folder with no record file and anything that could not be a session id; a damaged line is skipped and reported by `readSessions`, never fatal. Library calls: `recordSession`, `readSessions`, `sessionsOf`, `touchedBy`, `touchedSuperprojects`, `sessionsFileOf`, `SESSIONS_FILE`.
 
+## Self-documenting
+
+**Every record file names the standard it follows**, so an agent that has never seen Supersuit can open the file and find its rules. The header's `standard:` key holds one URL per file:
+
+| File | `standard:` |
+|---|---|
+| SUPERPROJECT.md (or legacy PROJECT.md) | `https://hypercontext.wiki/standards/superproject` |
+| STATE.md | `https://hypercontext.wiki/standards/state` |
+| ATOMIC-ACTION-MAP.md (or legacy PLAN.md) | `https://hypercontext.wiki/standards/atomic-action-map` |
+
+`scaffold` writes it as the first header key, and every write through the package's frontmatter writer puts the right one first. `lint` refuses a file that has no `standard:` or names another file's URL, as `self-doc:missing` at level error, one finding per file. The exported `STANDARDS` object holds the three URLs.
+
+To stamp a tree that predates this:
+
+```sh
+npx superprojects migrate --root superprojects --stamp-standard            # dry run: lists every file it would stamp
+npx superprojects migrate --root superprojects --stamp-standard --apply    # does it
+```
+
+It reaches every superproject the package walks, nested children and `done/` included, and renames nothing. It is byte-preserving: it inserts one `standard:` line after the opening `---` (or corrects a wrong value where it stands), keeps the file's own line endings, CRLF included, and changes no other byte. Running it again finds nothing. A file with no header block is skipped and listed; lint still names it. `--json` prints `{root, stamps:[{file,from,to}], skipped:[{file,why}], applied}`. As library calls: `stampStandard(text, url)` (pure), `readStandard(text)`, and `engine.stampRoot(root, { write })`.
+
 ## Moving a tree to the new names
 
 ```sh
@@ -242,7 +263,7 @@ Include every referenced local record using repeated `--file`; each must indepen
 
 Quoted values keep commas inside an inline list item or an allowed nested flow-map value. Double-quoted values decode JSON-style escaped quotes and backslashes, including a backslash immediately before the closing quote; an invalid escape stays literal. Single-quoted values retain backslashes literally. Nesting still requires explicit `nestedKeysFor` permission for that kind.
 
-Engine options include `frontmatter`, people resolution (`personExists`, `personPath`, `personHref`, `recordPath`, `recordName`, `workspaceLayout`), workspace paths, `deriveSourceOfTruth`, `continentOperators`, `localDay`, `lastRunAt`, `parseBooked` and `names`. Optional command formatters produce advice in the product's vocabulary. `scaffoldProject` accepts explicit `context` and `stateContext`; calls without them preserve legacy behavior.
+Engine options include `frontmatter`, people resolution (`personExists`, `personPath`, `personHref`, `recordPath`, `recordName`, `workspaceLayout`), workspace paths, `deriveSourceOfTruth`, `continentOperators`, `localDay`, `lastRunAt`, `parseBooked` and `names`. Optional command formatters produce advice in the product's vocabulary (`stampCommand(dir)` names the command in a `self-doc:missing` fix). `scaffoldProject` accepts explicit `context` and `stateContext`; calls without them preserve legacy behavior.
 
 Every file and folder name comes from one exported object, `NAMES`: `record` SUPERPROJECT.md, `legacyRecord` PROJECT.md, `state` STATE.md, `map` ATOMIC-ACTION-MAP.md, `legacyMap` PLAN.md, `root` superprojects, `legacyRoot` projects, `done` done. The engine option `names` overrides any of them, and the engine exposes the result as `engine.NAMES`, with `NESTED_ROOT` and `LEGACY_NESTED_ROOT`. `recordFileOf(dir)` and `mapFileOf(dir)` return the new file when it exists, else the legacy one, else null; `rootsOf(base)` returns the roots under a folder, new first, read once when one links the other. `allowedRootFiles` defaults to all five file names. The frontmatter kinds match records by path, under either folder name at any depth; a product with other names supplies its own `KINDS`.
 

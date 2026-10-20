@@ -1,4 +1,5 @@
 // Superproject and state schema extracted from the running engine.
+import { STANDARDS } from "../standard.mjs";
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_SCALAR = 400;
@@ -20,6 +21,9 @@ export const PROJECT_STATUS = Object.freeze([
 const roleKeys = () =>
   Object.fromEntries(ROLE_KEYS.map((k) => [k, { type: "slugs" }]));
 
+// Every record names the one page for its rules; a write puts the right one first.
+const standardKey = (url) => ({ standard: { type: "word", values: [url] } });
+
 const contextKeys = () => ({
   context_version: { type: "word", values: ["1"] },
   id: { type: "string" },
@@ -40,6 +44,7 @@ export const KINDS = Object.freeze({
     // depth (`<slug>/superprojects/<child>/`, `done/` included), named either way.
     file: /(^|\/)(super)?projects\/(done\/)?[^/]+\/(SUPER)?PROJECT\.md$/,
     keys: {
+      ...standardKey(STANDARDS.superproject),
       ...contextKeys(),
       kind: { type: "word", values: ["finite", "ongoing"] },
       status: { type: "word", values: PROJECT_STATUS },
@@ -84,6 +89,7 @@ export const KINDS = Object.freeze({
   state: {
     file: /(^|\/)(super)?projects\/(done\/)?[^/]+\/STATE\.md$/,
     keys: {
+      ...standardKey(STANDARDS.state),
       ...contextKeys(),
       phase: { type: "string" },
       last_worked: { type: "date", machine: true },

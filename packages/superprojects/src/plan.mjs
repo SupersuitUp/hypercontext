@@ -6,6 +6,7 @@
 // Function names keep "plan" (parsePlan, lintPlan, ...) because they are the API.
 import { parseFlat } from './frontmatter/yaml.mjs';
 import { validDate } from './context.mjs';
+import { STANDARDS } from './standard.mjs';
 
 const UNIT = { m: 1, h: 60, d: 1440, w: 10080 };
 const DAY_MS = 86400000;
@@ -444,6 +445,7 @@ export function proposeBlocks(plan, { today, freeSlots = [], actor, scenario = n
 /** The skeleton ATOMIC-ACTION-MAP.md a finite superproject is born with. */
 export function renderActionMapMd({ today, nextAction, deliverable, owner }) {
   return `---
+standard: ${STANDARDS.atomicActionMap}
 plan_version: "1"
 baseline: ${today}
 ---

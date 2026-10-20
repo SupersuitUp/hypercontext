@@ -1,6 +1,6 @@
 {
   "name": "@supersuit/superprojects",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Superprojects: portable Markdown projects an agent can carry, with an atomic action map, an on-track answer, verified context and sharing checks",
   "type": "module",
   "bin": {

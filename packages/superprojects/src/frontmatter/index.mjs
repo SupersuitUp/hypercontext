@@ -6,6 +6,7 @@ import {
   nestedKeysFor as defaultNestedKeysFor,
   PROJECT_STATUS,
 } from "./kinds.mjs";
+import { withStandard } from "../standard.mjs";
 export { FrontmatterSyntaxError };
 export function createFrontmatter(options = {}) {
   const KINDS = options.KINDS ?? DEFAULT_KINDS;
@@ -224,11 +225,14 @@ export function createFrontmatter(options = {}) {
     const text = existsSync(file) ? readFileSync(file, "utf8") : "";
     const { data, body: original } = split(text, { kind });
     let body = original;
-    const next = { ...(data ?? {}) };
+    let next = { ...(data ?? {}) };
     for (const [k, v] of Object.entries(patch ?? {})) {
       if (v === undefined) delete next[k];
       else next[k] = v;
     }
+    // A kind whose schema names one standard is stamped with it, first, on every write.
+    const standard = kind ? KINDS[kind]?.keys?.standard?.values : null;
+    if (standard?.length === 1) next = withStandard(next, standard[0]);
     if (kind) {
       const refusals = validate(kind, next, {
         exists: exists ?? personExists(file),

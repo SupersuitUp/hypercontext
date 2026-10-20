@@ -30,6 +30,14 @@ import { ROLE_KEYS } from "./frontmatter/kinds.mjs";
 import { HANDLE_RE, validNickname, NICKNAME_MAX } from "./handle.mjs";
 import { parsePlan, lintPlan, renderActionMapMd } from "./plan.mjs";
 import {
+  STANDARDS,
+  SELF_DOC_CHECK,
+  standardForFile,
+  readStandard,
+  stampStandard,
+  withStandard,
+} from "./standard.mjs";
+import {
   namesOf,
   recordFileOf as recordFileIn,
   mapFileOf as mapFileIn,
@@ -518,6 +526,28 @@ export function createProjectEngine(options = {}) {
           `${slug} holds both ${current} and ${legacy}; ${current} is the ${what} every reader uses, and ${legacy} is ignored.`,
           `Merge anything ${join(dir, legacy)} still says into ${join(dir, current)}, then delete ${legacy}.`,
         );
+    // Self-documenting: every record file names the standard it follows, so a reader that has
+    // never seen Supersuit can open it and find its rules.
+    const stampCmd =
+      options.stampCommand?.(dir) ??
+      `superprojects migrate --root "${topRootOf(dir)}" --stamp-standard --apply`;
+    for (const name of [N.record, N.legacyRecord, N.state, N.map, N.legacyMap]) {
+      const f = join(dir, name);
+      if (!existsSync(f)) continue;
+      const url = standardForFile(f, N);
+      const said = readStandard(f === file && text !== null ? src : readFileSync(f, "utf8"));
+      if (said.value === url) continue;
+      add(
+        ERROR,
+        SELF_DOC_CHECK,
+        said.value
+          ? `${slug}/${name} says standard: ${said.value}; a ${name} follows ${url}.`
+          : `${slug}/${name} names no standard; it follows ${url}, and a reader who has never seen Supersuit cannot find its rules without it.`,
+        said.header
+          ? `Run ${stampCmd}, which sets standard: ${url} and changes nothing else.`
+          : `${join(dir, name)} has no header block; give it one with any write through the package, or run ${stampCmd} once it has one.`,
+      );
+    }
     const backfillCmd =
       options.backfillCommand?.(dir) ??
       `Update the missing header values in ${file}.`;
@@ -1072,8 +1102,17 @@ export function createProjectEngine(options = {}) {
     const inWorkspace = personExists(file);
     const exists = (slug) => declared.has(slug) || inWorkspace(slug);
     const { data, body } = split(before);
+    const patchedKind = Object.keys(patch).length ? fmKindOf?.(file) : null;
+    const patchedStandard = patchedKind
+      ? KINDS?.[patchedKind]?.keys?.standard?.values
+      : null;
     const text = Object.keys(patch).length
-      ? joinFm({ ...(data ?? {}), ...patch }, body)
+      ? joinFm(
+          patchedStandard?.length === 1
+            ? withStandard({ ...(data ?? {}), ...patch }, patchedStandard[0])
+            : { ...(data ?? {}), ...patch },
+          body,
+        )
       : before;
 
     // A dry run asks the writer's own question first, so it reports the refusal the write
@@ -1121,6 +1160,32 @@ export function createProjectEngine(options = {}) {
       written: doWrite && text !== before,
       text,
     };
+  }
+
+  /**
+   * Stamp every record file under `root` (nested and done/ included) with the standard it
+   * follows. A dry run unless `write`. Byte-preserving and idempotent; a file with no header is
+   * skipped and reported.
+   */
+  function stampRoot(root, { write: doWrite = false } = {}) {
+    const stamps = [],
+      skipped = [];
+    for (const dir of projectDirs(root))
+      for (const name of [N.record, N.legacyRecord, N.state, N.map, N.legacyMap]) {
+        const file = join(dir, name);
+        if (!existsSync(file)) continue;
+        const url = standardForFile(file, N);
+        const before = readFileSync(file, "utf8");
+        const said = readStandard(before);
+        if (!said.header) {
+          skipped.push({ file, why: "no header block" });
+          continue;
+        }
+        if (said.value === url) continue;
+        stamps.push({ file, from: said.value, to: url });
+        if (doWrite) writeFileSync(file, stampStandard(before, url));
+      }
+    return { root, stamps, skipped, applied: !!doWrite };
   }
 
   function backfillRoot(root, opts = {}) {
@@ -1215,7 +1280,7 @@ export function createProjectEngine(options = {}) {
       visible: "visible",
       subject: "subjects",
     };
-    const data = { kind, status, goal, repo };
+    const data = { standard: STANDARDS.superproject, kind, status, goal, repo };
     const scope = (
       Array.isArray(rawPaths) ? rawPaths : String(rawPaths).split(",")
     )
@@ -1293,7 +1358,7 @@ export function createProjectEngine(options = {}) {
   } = {}) {
     if (!today) throw new Error("scaffold: today is required");
     const stateText = (data, body) =>
-      checkedContextText(data, body, context, "state");
+      checkedContextText(withStandard(data, STANDARDS.state), body, context, "state");
     const threads = openThreads.length
       ? openThreads.map((t) => `- ${t}`)
       : ["- none yet"];
@@ -2007,6 +2072,7 @@ export function createProjectEngine(options = {}) {
     NESTED_ROOT,
     LEGACY_NESTED_ROOT,
     lintRoot,
+    stampRoot,
     peopleDirFor,
     backfillProject,
     backfillRoot,
