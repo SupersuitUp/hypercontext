@@ -240,3 +240,18 @@ test('migrate: a dry run by default, --apply writes, --drop-legacy removes the o
   assert.deepEqual(run(['lint', dir, '--json']).json().findings, []);
   assert.match(run(['migrate', dir]).out, /nothing to migrate/);
 });
+
+test('lint refuses an unstamped record, and migrate stamps it', (t) => {
+  const { dir } = tmpGroups(t);
+  const path = put(dir, 'quiet-room', 'kind: group\nid: quiet-room\nname: Quiet Room\nthreads: []\nmembers: []', { stamp: false });
+  const bad = run(['lint', dir, '--json']);
+  assert.equal(bad.code, 1);
+  assert.deepEqual(bad.json().findings.map((f) => [f.level, f.code]), [['error', 'self-doc:missing']]);
+  const dry = run(['migrate', dir]);
+  assert.match(dry.out, /migrate\s+quiet-room\s+standard stamped\n/);
+  assert.match(dry.out, /Dry run: 1 record would change/);
+  const applied = run(['migrate', dir, '--apply', '--json']).json();
+  assert.deepEqual(applied, { changes: [{ id: 'quiet-room', path, legacy: [], threads: [], dropped: [], stamp: true }], applied: true });
+  assert.equal(run(['lint', dir]).code, 0);
+  assert.match(run(['migrate', dir]).out, /nothing to migrate/);
+});

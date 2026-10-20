@@ -244,3 +244,26 @@ export function writeHeader(text, patch) {
   }
   return [f.lines[0], ...segs.flatMap((s) => s.lines), ...f.lines.slice(f.close)].join('\n');
 }
+
+/**
+ * Set one header key, and when the header does not have it yet, place it directly after the
+ * segment of `afterKey` (first in the header when that key is absent) instead of at the end.
+ * Every other line stays byte-identical, and the line ending follows the opening fence.
+ * A key already holding the value is a no-op; one holding another value is replaced in place.
+ * @param {string} text the whole file
+ * @param {string} key
+ * @param {any} value
+ * @param {string} afterKey
+ */
+export function placeKey(text, key, value, afterKey) {
+  const src = String(text ?? '');
+  const f = fences(src);
+  if (!f) return writeHeader(src, { [key]: value });
+  const segs = segments(f.lines.slice(1, f.close));
+  if (segs.some((s) => s.key === key)) return writeHeader(src, { [key]: value });
+  const eol = /\r$/.test(f.lines[0]) ? '\r' : '';
+  const at = segs.findIndex((s) => s.key === afterKey);
+  const lines = renderKey(key, value).map((l) => l + eol);
+  segs.splice(at + 1, 0, { key, value: '', lines });
+  return [f.lines[0], ...segs.flatMap((s) => s.lines), ...f.lines.slice(f.close)].join('\n');
+}

@@ -21,7 +21,7 @@ Usage:
   group-md reconcile <dir> --threads <file.json|-> [--apply] [--json] [--today YYYY-MM-DD] [--large-group N]
       Compare thread descriptors with the records and print the plan. Writes only with --apply.
   group-md migrate <dir> [--apply] [--drop-legacy] [--json]
-      Write legacy thread keys as threads:. A dry run without --apply.
+      Write legacy thread keys as threads:, and stamp a missing standard: URL. A dry run without --apply.
   group-md --help | --version
 
 <dir> is the folder holding one <id>/group.md per group.
@@ -153,7 +153,11 @@ const commands = {
     const result = migrate(need(dir), { apply: Boolean(opt.apply), dropLegacy: Boolean(opt['drop-legacy']) });
     if (opt.json) { json(result); return 0; }
     const n = result.changes.length;
-    const out = result.changes.map((c) => `migrate  ${c.id}  threads from ${c.legacy.join(', ')}${c.dropped.length ? '; legacy keys dropped' : ''}`);
+    const what = (c) => [
+      c.legacy.length ? `threads from ${c.legacy.join(', ')}${c.dropped.length ? '; legacy keys dropped' : ''}` : '',
+      c.stamp ? 'standard stamped' : '',
+    ].filter(Boolean).join('; ');
+    const out = result.changes.map((c) => `migrate  ${c.id}  ${what(c)}`);
     out.push(!n ? 'nothing to migrate' : opt.apply ? `${plural(n, 'record')} migrated` : `Dry run: ${plural(n, 'record')} would change; pass --apply to write`);
     print(out.join('\n'));
     return 0;

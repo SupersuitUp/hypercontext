@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0
+
+- **Every group record is self-documenting.** A record names the standard it follows in `standard: "https://hypercontext.wiki/standards/group"`, directly after `kind:`, so an agent that has never seen this package can open the file and find its rules. The URL is exported as `STANDARD`.
+- **Every writer stamps it.** `writeRecord`, `addAlias`, `applyPlan` (and so `reconcile --apply`) and `migrate --apply` insert the key after `kind:` when it is missing and correct a different URL in place. No other line moves.
+- **`lint` refuses a record without it**: new code `self-doc:missing`, level error, for a missing key or any other URL. Its message names the fix, `group-md migrate <dir> --apply`.
+- **`migrate` backfills it.** The dry run lists every record missing the stamp, and `--apply` writes it byte-preservingly, CRLF kept, idempotent. Each change in the JSON gains `stamp: boolean`; a stamp-only change has empty `legacy`, `threads` and `dropped`. The legacy thread-key behavior is unchanged.
+- **`stampStandard(text)`**: the stamp as a pure function over a file's text.
+- The format document is now version 0.2.0 of the standard.
+
 ## 0.1.2
 
 - **An unnamed group is no longer named after its one member with a person record.** A thread with no display name was named from the members who had a slug or a shown name only, so a four-person thread where one member has a record got that person's first name as its whole name and id. A message meant for the person could then reach the group. Members nobody can name are now counted: "Dana and 2 others", id `dana-and-2-others`. Past four names the list is still cut as "and N more".

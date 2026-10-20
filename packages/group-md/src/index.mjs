@@ -8,3 +8,4 @@ export { find, NOISE } from './find.mjs';
 export { reconcile, applyPlan, nameFromMembers, RECONCILED_KEYS } from './reconcile.mjs';
 export { lint } from './lint.mjs';
 export { migrate, planMigration } from './migrate.mjs';
+export { STANDARD, stampStandard } from './standard.mjs';

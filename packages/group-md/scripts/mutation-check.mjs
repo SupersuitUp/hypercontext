@@ -60,6 +60,14 @@ const cases = [
   ['two legacy imessage keys are one thread', 'record.mjs', 'record.test.mjs', "out.push({ app: 'imessage', id: guid, name, seen: '' });", "out.push({ app: 'imessage', id: '', name, seen: '' });"],
   ['a legacy key is not read twice', 'record.mjs', 'record.test.mjs', 'threads.push(...legacyThreads(d, new Set(threads.map((t) => t.app))));', 'threads.push(...legacyThreads(d, new Set()));'],
   ['one thread belongs to one record', 'lint.mjs', 'lint.test.mjs', "    const [app, id] = key.split('\\u0000');", "    continue; const [app, id] = key.split('\\u0000');"],
+  // ---- self-documenting
+  ['lint refuses a record that does not name its standard', 'lint.mjs', 'standard.test.mjs', 'if (data.standard !== STANDARD) {', 'if (false) {'],
+  ['the standard is placed directly after kind', 'standard.mjs', 'standard.test.mjs', "placeKey(text, 'standard', STANDARD, 'kind')", "placeKey(text, 'standard', STANDARD, 'nope')"],
+  ['an existing record is stamped when written', 'store.mjs', 'standard.test.mjs', '  const text = stampStandard(writeHeader(found.text, patch));\n  if (text !== found.text) writeFileSync(found.path, text);\n  return found.path;', '  const text = writeHeader(found.text, patch);\n  if (text !== found.text) writeFileSync(found.path, text);\n  return found.path;'],
+  ['a patch stamps the record', 'store.mjs', 'standard.test.mjs', '  const text = stampStandard(writeHeader(found.text, patch));\n  if (text !== found.text) writeFileSync(found.path, text);\n  return { path', '  const text = writeHeader(found.text, patch);\n  if (text !== found.text) writeFileSync(found.path, text);\n  return { path'],
+  ['a new record is stamped', 'record.mjs', 'standard.test.mjs', '    standard: STANDARD,\n', ''],
+  ['migrate lists a missing stamp', 'migrate.mjs', 'standard.test.mjs', "if (stamp) changes.push(", "if (false) changes.push("],
+  ['a wrong standard URL is a finding', 'standard.mjs', 'standard.test.mjs', "export const STANDARD = 'https://hypercontext.wiki/standards/group';", "export const STANDARD = 'https://hypercontext.wiki/standards/groups';"],
   ['migrate keeps legacy keys unless asked', 'migrate.mjs', 'migrate.test.mjs', 'const dropped = dropLegacy ? legacy : [];', 'const dropped = legacy;'],
   // ---- the command line
   ['migrate is a dry run until applied', BIN, 'cli.test.mjs', 'migrate(need(dir), { apply: Boolean(opt.apply),', 'migrate(need(dir), { apply: true,'],

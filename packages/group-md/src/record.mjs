@@ -3,6 +3,8 @@
 // The record is what the finder, the reconciler and the checker work on. It holds only what the
 // standard defines; every other header key stays in the file and is never read here.
 
+import { STANDARD } from './standard.mjs';
+
 export const APPS = ['imessage', 'whatsapp', 'telegram', 'signal'];
 
 /** How each app is written in `last_contact.how`. */
@@ -69,13 +71,14 @@ export function toRecord(data, { path = '' } = {}) {
 
 /**
  * The header patch that writes a record. Standard keys only, in the standard's order; a legacy
- * key is never produced. `tracked` appears only when the operator said stop.
+ * key is never produced. `standard` always names the group standard, directly after `kind`. `tracked` appears only when the operator said stop.
  * @param {GroupRecord} record
  */
 export function fromRecord(record) {
   const r = record;
   return {
     kind: 'group',
+    standard: STANDARD,
     id: r.id,
     name: r.name,
     origin: r.origin ?? '',

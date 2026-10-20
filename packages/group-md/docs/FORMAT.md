@@ -1,6 +1,6 @@
 # The group record format
 
-Version 0.1.0 of the standard. This page is the reference; the README is the tour.
+Version 0.2.0 of the standard. This page is the reference; the README is the tour.
 
 ## Where a record lives
 
@@ -17,6 +17,7 @@ Names starting with `.` or `_`, and `README.md`, are not records.
 | key | required | shape |
 | --- | --- | --- |
 | `kind` | yes | the literal `group` |
+| `standard` | yes | the literal `https://hypercontext.wiki/standards/group`, directly after `kind` |
 | `id` | yes | equals the folder name; matches `^[a-z0-9][a-z0-9-]*$` |
 | `name` | yes | display name, any text |
 | `threads` | yes (may be an empty list) | block list of flow maps `{app, id, name, seen}` |
@@ -62,6 +63,14 @@ A group of more than twelve people keeps `member_count` and the members who have
 ### aliases
 
 Every phrase the operator has used for the group. `group-md alias` appends one; a reconcile appends a thread's old name when the thread is renamed. Two phrases are the same alias when they are equal after normalizing (lowercase, no punctuation, no emoji, single spaces).
+
+## Self-documenting
+
+Every record names the standard it follows, so a reader with no other context can open the file and find its rules. That is the `standard:` key, holding `https://hypercontext.wiki/standards/group`, written directly after `kind:`.
+
+- Every writer in the package stamps it: a new record is created with it, and any write to an existing record inserts it after `kind:` (first in the header when there is no `kind:`) or replaces a different URL in place.
+- `lint` reports `self-doc:missing` (error) when it is absent or names any other URL.
+- `group-md migrate <dir>` lists the records missing it and `--apply` stamps them. The stamp is one inserted line; every other byte, CRLF line endings included, is kept, and a second run changes nothing. `stampStandard(text)` does the same to a string.
 
 ## Unknown keys
 

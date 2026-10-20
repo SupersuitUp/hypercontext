@@ -12,9 +12,21 @@ export function tmpGroups(t) {
   return { parent, dir };
 }
 
-/** Write `<dir>/<slug>/group.md` (or `<dir>/<slug>.md` when flat) from header YAML. */
-export function put(dir, slug, yaml, { flat = false, body = '\n## Now\n' } = {}) {
-  const text = `---\n${yaml.trim()}\n---\n${body}`;
+const STANDARD_LINE = 'standard: "https://hypercontext.wiki/standards/group"';
+
+/** Header YAML as the standard writes it: `standard:` directly after `kind:`, or first. */
+export function stamped(yaml) {
+  const y = yaml.trim();
+  if (/^standard:/m.test(y)) return y;
+  return /^kind:.*$/m.test(y) ? y.replace(/^(kind:.*)$/m, `$1\n${STANDARD_LINE}`) : `${STANDARD_LINE}\n${y}`;
+}
+
+/**
+ * Write `<dir>/<slug>/group.md` (or `<dir>/<slug>.md` when flat) from header YAML. Fixtures are
+ * current records, so `standard:` is added unless `stamp: false` asks for one written before it.
+ */
+export function put(dir, slug, yaml, { flat = false, body = '\n## Now\n', stamp = true } = {}) {
+  const text = `---\n${stamp ? stamped(yaml) : yaml.trim()}\n---\n${body}`;
   if (flat) { writeFileSync(join(dir, `${slug}.md`), text); return join(dir, `${slug}.md`); }
   mkdirSync(join(dir, slug), { recursive: true });
   writeFileSync(join(dir, slug, 'group.md'), text);

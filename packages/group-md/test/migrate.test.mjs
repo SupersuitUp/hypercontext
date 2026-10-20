@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { migrate } from '../src/migrate.mjs';
 import { readRecord } from '../src/store.mjs';
 import { lint } from '../src/lint.mjs';
-import { tmpGroups, put, walk, DANA_FREEDOM } from './helpers.mjs';
+import { tmpGroups, put, walk, stamped, DANA_FREEDOM } from './helpers.mjs';
 
 const LEGACY = `kind: group
 id: night-shift
@@ -37,7 +37,7 @@ test('--apply writes threads and keeps the legacy keys, so older readers still w
   const path = put(dir, 'night-shift', LEGACY, { body: '\n## Now\n\nKept.\n' });
   assert.equal(migrate(dir, { apply: true }).applied, true);
   const text = readFileSync(path, 'utf8');
-  assert.ok(text.includes(LEGACY + '\nthreads:\n  - {app: imessage, id: "iMessage;+;chat000111", name: "NIGHT SHIFT (Dana, Theo)", seen: ""}\n  - {app: whatsapp, id: "", name: "Night Shift WA", seen: ""}\n---\n\n## Now\n\nKept.\n'));
+  assert.ok(text.includes(stamped(LEGACY) + '\nthreads:\n  - {app: imessage, id: "iMessage;+;chat000111", name: "NIGHT SHIFT (Dana, Theo)", seen: ""}\n  - {app: whatsapp, id: "", name: "Night Shift WA", seen: ""}\n---\n\n## Now\n\nKept.\n'));
   assert.deepEqual(readRecord(dir, 'night-shift').threads.map((x) => x.app), ['imessage', 'whatsapp'], 'still two threads, not four');
   assert.ok(lint(dir).some((f) => f.code === 'legacy:keys'), 'lint keeps reporting the legacy keys until they are gone');
   // a second run has nothing left to do

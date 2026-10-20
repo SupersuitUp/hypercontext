@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { readHeader, writeHeader } from './header.mjs';
 import { toRecord, fromRecord } from './record.mjs';
 import { norm, ID } from './normalize.mjs';
+import { stampStandard } from './standard.mjs';
 
 export const RECORD_FILE = 'group.md';
 const NEW_BODY = '\n## Now\n';
@@ -74,7 +75,7 @@ const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 /**
  * Write a record. A new one is created as `<dir>/<id>/group.md` with an empty Now section. An
  * existing one has only the header keys that changed rewritten: its body, its unknown keys and
- * its legacy keys are left exactly as they were.
+ * its legacy keys are left exactly as they were. Every write stamps `standard:` after `kind:`.
  * @returns {string} the path written
  */
 export function writeRecord(dir, record) {
@@ -99,20 +100,20 @@ export function writeRecord(dir, record) {
     const empty = next[key] === undefined || next[key] === null || (key === 'handles' && !next[key].length);
     patch[key] = empty ? null : next[key];
   }
-  const text = writeHeader(found.text, patch);
+  const text = stampStandard(writeHeader(found.text, patch));
   if (text !== found.text) writeFileSync(found.path, text);
   return found.path;
 }
 
 /**
  * Patch header keys of an existing record. Used by the reconciler and the migration, which know
- * exactly which keys they mean to change.
+ * exactly which keys they mean to change. Stamps `standard:` as every write does.
  * @returns {{path: string, changed: boolean}|null} null when no record has that id
  */
 export function patchRecord(dir, id, patch) {
   const found = locate(dir, assertId(id));
   if (!found) return null;
-  const text = writeHeader(found.text, patch);
+  const text = stampStandard(writeHeader(found.text, patch));
   if (text !== found.text) writeFileSync(found.path, text);
   return { path: found.path, changed: text !== found.text };
 }

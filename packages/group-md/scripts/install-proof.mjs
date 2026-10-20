@@ -92,11 +92,11 @@ try {
   mkdirSync(join(dir, 'groups', 'night-shift'));
   writeFileSync(join(dir, 'groups', 'night-shift', 'group.md'), LEGACY);
   assert.match(cli(['find', 'groups', 'night shift']).stdout, /^night-shift\b/);
-  assert.match(cli(['lint', 'groups']).stdout, /warn\s+legacy:keys\s+night-shift[\s\S]*0 errors, 2 warnings/);
+  assert.match(cli(['lint', 'groups'], 1).stdout, /warn\s+legacy:keys\s+night-shift[\s\S]*error\s+self-doc:missing\s+night-shift[\s\S]*1 error, 2 warnings/);
   assert.match(cli(['migrate', 'groups']).stdout, /Dry run: 1 record would change/);
   assert.equal(readFileSync(join(dir, 'groups', 'night-shift', 'group.md'), 'utf8'), LEGACY, 'a dry run writes nothing');
   assert.match(cli(['migrate', 'groups', '--apply']).stdout, /1 record migrated/);
-  assert.ok(readFileSync(join(dir, 'groups', 'night-shift', 'group.md'), 'utf8').includes('keep: home\nmembers: ["nora-lindqvist", "theo-park"]\nimessage_group: "Night Shift"\nthreads:\n'));
+  assert.ok(readFileSync(join(dir, 'groups', 'night-shift', 'group.md'), 'utf8').includes('kind: group\nstandard: "https://hypercontext.wiki/standards/group"\nid: night-shift\nname: "Night Shift"\nkeep: home\nmembers: ["nora-lindqvist", "theo-park"]\nimessage_group: "Night Shift"\nthreads:\n'));
   cli(['migrate', 'groups', '--apply', '--drop-legacy']);
   assert.deepEqual(json(['lint', 'groups']).findings.map((f) => f.code), ['thread:no-id']);
 
@@ -106,7 +106,7 @@ try {
   cli(['frobnicate'], 2);
 
   // 4. The library, imported by its package name.
-  const script = "import { find, listRecords, reconcile, applyPlan, lint, migrate, readRecord, writeRecord, addAlias, readHeader, writeHeader, toRecord, fromRecord, norm, slugify } from '@supersuit/group-md'; const r = find('launch crew', listRecords('groups')); if (r.match?.id !== 'launch-crew' || [reconcile, applyPlan, lint, migrate, readRecord, writeRecord, addAlias, readHeader, writeHeader, toRecord, fromRecord, norm, slugify].some((f) => typeof f !== 'function')) process.exit(1);";
+  const script = "import { find, listRecords, reconcile, applyPlan, lint, migrate, readRecord, writeRecord, addAlias, readHeader, writeHeader, toRecord, fromRecord, norm, slugify, STANDARD, stampStandard } from '@supersuit/group-md'; const r = find('launch crew', listRecords('groups')); if (r.match?.id !== 'launch-crew' || STANDARD !== 'https://hypercontext.wiki/standards/group' || [stampStandard, reconcile, applyPlan, lint, migrate, readRecord, writeRecord, addAlias, readHeader, writeHeader, toRecord, fromRecord, norm, slugify].some((f) => typeof f !== 'function')) process.exit(1);";
   run(process.execPath, ['--input-type=module', '-e', script]);
 
   // 5. Nothing was written outside the groups directory and the files this proof made itself.

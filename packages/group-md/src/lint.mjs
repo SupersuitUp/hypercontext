@@ -4,6 +4,7 @@
 import { scan } from './store.mjs';
 import { APPS, LEGACY_KEYS } from './record.mjs';
 import { norm, ID } from './normalize.mjs';
+import { STANDARD } from './standard.mjs';
 
 const isMap = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const has = (data, key) => typeof data[key] === 'string' ? data[key] !== '' : data[key] !== undefined;
@@ -30,6 +31,10 @@ export function lint(dir) {
     if (e.layout === 'flat') add('warn', 'layout:flat', slug, `${slug}.md is the flat layout; a group is a folder holding group.md`);
     if (e.shadowed) continue;
 
+    // Self-documenting: the file names the rules it follows, for a reader with no other context.
+    if (data.standard !== STANDARD) {
+      add('error', 'self-doc:missing', slug, `${data.standard ? `standard is "${data.standard}"` : 'standard is missing'}; every group record names ${STANDARD}. Run group-md migrate <dir> --apply to stamp it`);
+    }
     if (data.kind !== 'group') add('error', 'kind:missing', slug, data.kind ? `kind is "${data.kind}", expected "group"` : 'kind: group is missing');
     if (data.id !== slug || !ID.test(slug)) {
       add('error', 'id:mismatch', slug, !data.id ? 'id is missing' : data.id !== slug ? `id "${data.id}" does not equal the folder name "${slug}"` : `id "${slug}" is not lowercase letters, digits and dashes`);

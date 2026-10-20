@@ -23,6 +23,7 @@ A group is a folder `<groups-dir>/<id>/` holding `group.md`:
 ```markdown
 ---
 kind: group
+standard: "https://hypercontext.wiki/standards/group"
 id: launch-crew
 name: "Launch Crew"
 origin: census
@@ -56,6 +57,14 @@ last_contact: {date: 2026-10-11, how: iMessage}
 | `last_contact` | no | flow map `{date, how}` |
 
 Any other key in the header is left exactly as it is by every writer, byte for byte. The full standard, including the legacy keys it still reads, is in [docs/FORMAT.md](docs/FORMAT.md).
+
+## Self-documenting
+
+Every record names the standard it follows, so an agent that has never seen this package can open the file and find its rules. The header carries `standard: "https://hypercontext.wiki/standards/group"` directly after `kind:`. The package exports the URL as `STANDARD`.
+
+- **Every write stamps it.** `writeRecord`, `addAlias`, `applyPlan` (so `reconcile --apply`) and `migrate --apply` put `standard:` after `kind:` when it is missing and correct it in place when it names another URL. No other line moves.
+- **`lint` refuses a record without it.** A missing `standard:`, or one naming any other URL, is `self-doc:missing` at level error.
+- **`migrate` backfills it.** `group-md migrate <dir>` lists every record that needs the stamp; `--apply` writes it, one inserted line, every other byte kept, CRLF line endings included. A second run changes nothing. `stampStandard(text)` is the same thing as a pure function.
 
 ## Feeding it threads
 
@@ -180,6 +189,7 @@ It exits 1 when any finding is an error. Warnings alone exit 0.
 
 | code | level | meaning |
 | --- | --- | --- |
+| `self-doc:missing` | error | `standard:` is missing or is not `https://hypercontext.wiki/standards/group`; `group-md migrate <dir> --apply` stamps it |
 | `kind:missing` | error | `kind` is not `group` |
 | `id:mismatch` | error | `id` is missing, is not the folder name, or is not a slug |
 | `name:missing` | error | no `name` |
@@ -205,7 +215,7 @@ migrate  night-shift  threads from imessage_group
 1 record migrated
 ```
 
-The legacy keys stay in place, so a reader that predates this package keeps working. `--drop-legacy` removes them once nothing reads them. Nothing is renamed and no file moves.
+`migrate` also stamps `standard:` on every record that lacks it (the line reads `migrate  <id>  standard stamped`, or `...; standard stamped` after the threads). The legacy keys stay in place, so a reader that predates this package keeps working. `--drop-legacy` removes them once nothing reads them. Nothing is renamed and no file moves.
 
 ## Commands
 
@@ -230,7 +240,7 @@ Every command takes `--json`. With it, standard output is one JSON document and 
 | `find` | `{phrase, match: record or null, candidates: [record], via}` |
 | `alias` | `{id, added, aliases}` |
 | `reconcile` | `{plan: {create: [record], update: [{id, patch, why}], skip: [{thread, why, candidates?}]}, applied, created, updated}` |
-| `migrate` | `{changes: [{id, path, legacy, threads, dropped}], applied}` |
+| `migrate` | `{changes: [{id, path, legacy, threads, dropped, stamp}], applied}`; `stamp` is true when the record gains `standard:`, and a stamp-only change has empty `legacy`, `threads` and `dropped` |
 
 A record in JSON is `{id, name, threads, members, handles, memberCount, aliases, purpose, origin, tracked, lastContact, legacy, path, layout}`.
 
@@ -251,7 +261,7 @@ const plan = reconcile(records, threads, { today: '2026-10-13' }); // pure: read
 applyPlan('groups', plan);                                          // the only half that writes
 ```
 
-Also exported: `readRecord`, `writeRecord`, `migrate`, `planMigration`, `readHeader`, `writeHeader`, `toRecord`, `fromRecord`, `norm`, `slugify`.
+Also exported: `readRecord`, `writeRecord`, `migrate`, `planMigration`, `readHeader`, `writeHeader`, `toRecord`, `fromRecord`, `norm`, `slugify`, `STANDARD`, `stampStandard`.
 
 ## How it is tested
 
