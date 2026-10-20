@@ -95,8 +95,10 @@ standard: https://hypercontext.wiki/standards/friend
 id: ann-lee
 ```
 
-Every writer in the package (`ensure`, `migratePerson`, `migrateGroup`, and the Python
-`ensure`) stamps it directly after `kind:`. `lint` reports a record without it, or naming
+Every writer in the package (`ensure`, `migratePerson`, and the Python `ensure`) stamps it
+directly after `kind:`. `migrateGroup` stamps a group.md with `GROUP_STANDARD`
+(`https://hypercontext.wiki/standards/group`) instead, and `stamp` and `lint` leave
+`people/groups/` alone. `lint` reports a record without it, or naming
 any other URL, as `self-doc:missing` at level error. `STANDARD` is exported.
 
 Backfill existing records with `stamp`, a dry run unless `--apply` is passed:

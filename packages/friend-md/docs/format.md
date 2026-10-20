@@ -66,7 +66,9 @@ Every portrait carries `standard: https://hypercontext.wiki/standards/friend` di
 rules it follows for a reader with no other context. The package's writers stamp it; `lint`
 reports a missing or different value as `self-doc:missing` (error). Backfill a workspace with
 `friend-md stamp --workspace DIR` (dry run) and `--apply`, which inserts the line and leaves
-every other byte unchanged. `setLastContact` does not stamp: it touches only its two keys.
+every other byte unchanged. `setLastContact` does not stamp: it touches only its two keys. A group.md names
+`https://hypercontext.wiki/standards/group` (`GROUP_STANDARD`), and `people/groups/` is never
+stamped or linted here.
 
 ## History
 

@@ -10,6 +10,8 @@ export const FRIEND_FILE = "friend.md";
 /** The page every friend.md names as the standard it follows (`standard:`, directly after `kind:`),
  *  so an agent that has never seen this package can open the file and find its rules. */
 export const STANDARD = "https://hypercontext.wiki/standards/friend";
+/** The standard a group.md names instead: groups are their own record type (@supersuit/group-md). */
+export const GROUP_STANDARD = "https://hypercontext.wiki/standards/group";
 export const GROUP_FILE = "group.md";
 export const CIRCLES = ["inner", "close", "active", "known", "past", "blocked"];
 export const LEGACY_CIRCLE = { "the-3": "inner", "active-orbit": "active", blacklist: "blocked", "inner-circle": "inner",
@@ -1030,7 +1032,7 @@ export function migratePerson(text, { slug, day, resolveTranscript, from, keep =
 export const GROUP_KEEP = ["members", "imessage_group", "whatsapp_group", "telegram_group", "purpose"];
 
 /** One flat group record (`people/groups/<slug>.md`) -> the files of `people/groups/<slug>/`: the
- *  person migration with `kind: group`, its friend.md named group.md, and the group's own keys kept.
+ *  person migration with `kind: group` and `standard: GROUP_STANDARD`, its friend.md named group.md, and the group's own keys kept.
  *  The proof is the person proof, run on the output before the rename (only the generated kind line
  *  differs, and the proof never reads generated keys). */
 export function migrateGroup(text, { slug, day, resolveTranscript, from } = {}) {
@@ -1038,7 +1040,7 @@ export function migrateGroup(text, { slug, day, resolveTranscript, from } = {}) 
   // lives in one place rather than log/ for migrated lines and threads/ for new ones.
   const r = migratePerson(text, { slug, day, resolveTranscript, from: from ?? `people/groups/${slug}.md`, keep: GROUP_KEEP, logTo: "threads" });
   const files = {};
-  for (const [k, v] of Object.entries(r.files)) files[k === FRIEND_FILE ? GROUP_FILE : k] = k === FRIEND_FILE ? v.replace(/^kind: friend$/m, "kind: group") : v;
+  for (const [k, v] of Object.entries(r.files)) files[k === FRIEND_FILE ? GROUP_FILE : k] = k === FRIEND_FILE ? v.replace(/^kind: friend$/m, "kind: group").replace(`\nstandard: ${STANDARD}\n`, `\nstandard: ${GROUP_STANDARD}\n`) : v;
   return { ...r, files: Object.fromEntries(Object.keys(files).sort().map((k) => [k, files[k]])) };
 }
 

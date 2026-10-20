@@ -11,6 +11,7 @@ import { ROOT } from "./helpers.mjs";
 const P = await import(join(ROOT, "src", "index.mjs"));
 const BIN = join(ROOT, "bin", "friend-md.mjs");
 const URL = "https://hypercontext.wiki/standards/friend";
+const GROUP_URL = "https://hypercontext.wiki/standards/group";
 const README = "---\nlayout: friend-md\n---\n";
 
 function tree(t, files) {
@@ -37,12 +38,33 @@ test("ensure stamps standard: directly after kind: in a new folder record", (t) 
   assert.deepEqual(P.lint(d).filter((f) => f.severity === "error"), []);
 });
 
-test("migratePerson stamps standard: directly after kind:, and a group keeps it", () => {
+test("migratePerson stamps standard: directly after kind:", () => {
   const r = P.migratePerson(`---\ntitle: "Maya Lin"\n---\n\n# Maya Lin\n`, { slug: "maya-lin", day: "2026-10-20" });
   assert.match(r.files["friend.md"], new RegExp(`^---\\nkind: friend\\nstandard: ${URL}\\nid: maya-lin\\n`));
   assert.deepEqual(r.proof.unaccounted, []);
-  const g = P.migrateGroup(`---\ntitle: "Tea Club"\n---\n`, { slug: "tea-club", day: "2026-10-20" });
-  assert.match(g.files["group.md"], new RegExp(`^---\\nkind: group\\nstandard: ${URL}\\n`));
+});
+
+test("migrateGroup stamps the GROUP standard on group.md, never the friend one", () => {
+  assert.equal(P.GROUP_STANDARD, GROUP_URL);
+  const g = P.migrateGroup(`---\ntitle: "Tea Club"\nmembers:\n  - maya-lin\n---\n`, { slug: "tea-club", day: "2026-10-20" });
+  assert.match(g.files["group.md"], new RegExp(`^---\\nkind: group\\nstandard: ${GROUP_URL}\\n`));
+  assert.ok(!g.files["group.md"].includes(URL), "group.md carries the friend URL");
+  assert.equal(g.files["friend.md"], undefined);
+  assert.deepEqual(g.proof.unaccounted, []);
+});
+
+test("stamp and lint never touch or judge people/groups/", (t) => {
+  const group = `---\nkind: group\nid: tea-club\nname: Tea Club\n---\n`;
+  const ws = tree(t, { ".freedom.json": "{}", "people/README.md": README,
+    "people/groups/tea-club/group.md": group, "people/groups/old-club/friend.md": group,
+    "people/groups/flat-club.md": group, "people/maya-lin/friend.md": body("maya-lin", URL) });
+  const run = cli("stamp", "--workspace", ws, "--apply", "--json");
+  assert.equal(run.status, 0, run.stderr);
+  const r = JSON.parse(run.stdout);
+  assert.deepEqual([...r.changed, ...r.skipped].map((c) => c.path).filter((p) => p.includes("groups")), []);
+  for (const rel of ["groups/tea-club/group.md", "groups/old-club/friend.md", "groups/flat-club.md"])
+    assert.equal(readFileSync(join(ws, "people", rel), "utf8"), group, rel);
+  assert.deepEqual(P.lint(join(ws, "people")).filter((f) => /group|club/.test(f.slug)), []);
 });
 
 test("an input standard: line is not covered by the generated stamp", () => {

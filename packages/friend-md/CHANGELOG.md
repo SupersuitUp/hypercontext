@@ -6,8 +6,10 @@ Every friend.md now names the standard it follows, so an agent that has never se
 open the file and find its rules.
 
 - `STANDARD` (`https://hypercontext.wiki/standards/friend`) is exported, from JavaScript and the Python companion.
-- `ensure`, `migratePerson` and `migrateGroup` (and Python `ensure`) write `standard:` directly
-  after `kind:`. A `standard:` line in a legacy record is kept under Old header fields, never
+- `ensure` and `migratePerson` (and Python `ensure`) write `standard:` directly after `kind:`.
+  `migrateGroup` writes the group standard instead, `GROUP_STANDARD`
+  (`https://hypercontext.wiki/standards/group`, exported), because a group.md is its own record
+  type. `stamp` and `lint` never touch or judge anything under `people/groups/`. A `standard:` line in a legacy record is kept under Old header fields, never
   silently covered by the generated one.
 - `lint` reports a folder record with no `standard:`, or one naming another URL, as
   `self-doc:missing` at level error, with a `fix` naming the stamp command. Every finding now also
