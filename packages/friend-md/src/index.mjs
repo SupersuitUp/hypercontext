@@ -599,6 +599,18 @@ export function setLastContact(dir, slug, { date, how, about } = {}) {
   return path;
 }
 
+/** A record's size against LIMITS: its UTF-8 bytes, NOT counting the exact `standard: STANDARD`
+ *  header line (with its line ending). The line is required boilerplate, so it never decides whether
+ *  a record is too big; a different URL counts like any other line. */
+export function recordBytes(text) {
+  const src = String(text);
+  const ls = src.split("\n");
+  const bare = (l) => l.replace(/\r$/, "");
+  const end = bare(ls[0]) === "---" ? ls.findIndex((l, i) => i > 0 && bare(l) === "---") : -1;
+  const at = end > 0 ? ls.findIndex((l, i) => i > 0 && i < end && bare(l) === `standard: ${STANDARD}`) : -1;
+  return Buffer.byteLength(src) - (at > 0 ? Buffer.byteLength(ls[at] + "\n") : 0);
+}
+
 const REQUIRED = ["kind", "id", "name", "summary", "read_when", "as_of", "keep", "circle", "relationship"];
 const KNOWN_FILES = new Set([FRIEND_FILE, "story.md", "voice.md", "quotes.md", "private.md", "media.md", "log", "threads", "messages"]);
 export const LOG_LINE = /^- \d{4}-\d{2}(-\d{2})? · .+ (\[[^\]]+\]|\(my read\)|\(said by [^)]+\))$/;
@@ -649,7 +661,7 @@ export function lint(dir, { slug } = {}) {
       if (raw.id && raw.id !== s) add(s, "id-mismatch", "error", `id "${raw.id}" is not the folder name "${s}"`);
       const n = normalize(raw);
       const max = n.blocked ? LIMITS.blockedBytes : LIMITS.friendBytes;
-      if (Buffer.byteLength(text) > max) add(s, "too-big", "error", `${Buffer.byteLength(text)} bytes, limit ${max}`);
+      if (recordBytes(text) > max) add(s, "too-big", "error", `${recordBytes(text)} bytes (the standard line not counted), limit ${max}`);
       const now = sectionsOf(parts(text).body).Now;
       if (now && now.split("\n").filter((l) => l.trim()).length > LIMITS.nowLines) add(s, "now-too-long", "error", `Now is over ${LIMITS.nowLines} lines`);
       if (raw.circle && !CIRCLES.includes(String(raw.circle))) add(s, "bad-circle", "error", `circle "${raw.circle}"`);
@@ -1010,7 +1022,7 @@ export function migratePerson(text, { slug, day, resolveTranscript, from, keep =
     }
     files["friend.md"] = ["---", ...items.filter((it) => !it.out).flatMap((it) => it.lines), "---", "", "## Now", "",
       "## Where the rest is", ...where].join("\n") + "\n";
-    const bytes = Buffer.byteLength(files["friend.md"]);
+    const bytes = recordBytes(files["friend.md"]);
     if (bytes <= max) break;
     const size = (it) => Buffer.byteLength(it.lines.join("\n"));
     const pick = items.filter((it) => !it.out && !PINNED.has(it.key))
@@ -1020,7 +1032,7 @@ export function migratePerson(text, { slug, day, resolveTranscript, from, keep =
     if (pick.entry) pick.entry.evicted = true;
     evicted++;
   }
-  const bytes = Buffer.byteLength(files["friend.md"]);
+  const bytes = recordBytes(files["friend.md"]);
   const overLimit = bytes > max ? { bytes, max } : null;
   if (overLimit) notes.push(`friend.md is ${bytes} bytes, over its ${max}-byte limit, after moving ${evicted} optional header field(s)`);
   else if (evicted) notes.push(`${evicted} optional header field(s) left friend.md to fit ${max} bytes (raw ones are in story.md under Old header fields)`);
@@ -1135,7 +1147,7 @@ export function verifyMigration(text, files, { slug, resolveTranscript, from, lo
   }
   if (doorBlocked && !normalize(readHeader(fm)).blocked) unaccounted.push({ line: 0, text: "friend.md weaker than the record", reason: "the door reads this record as blocked" });
   const max = doorBlocked || normalize(header).blocked || normalize(readHeader(fm)).blocked ? LIMITS.blockedBytes : LIMITS.friendBytes;
-  if (Buffer.byteLength(fm) > max) unaccounted.push({ line: 0, text: "friend.md over limit", reason: `${Buffer.byteLength(fm)} bytes, limit ${max}` });
+  if (recordBytes(fm) > max) unaccounted.push({ line: 0, text: "friend.md over limit", reason: `${recordBytes(fm)} bytes, limit ${max}` });
   return { accounted, unaccounted };
 }
 

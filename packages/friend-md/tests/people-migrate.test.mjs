@@ -398,8 +398,8 @@ test("overLimit: a blocked record whose pinned keys cannot fit 1024 bytes is ref
     "linkedin", "instagram", "twitter", "website"].map((k) => `${k}: "${k}-${"z".repeat(90)}"`).join("\n");
   const text = `---\ntitle: "Vel Ashby"\ndo_not_contact: true\nrelevant_to: "${"y".repeat(150)}"\n${keys}\n---\n`;
   const r = P.migratePerson(text, { slug: "vel-ashby", day: DAY });
-  assert.ok(Buffer.byteLength(r.files["friend.md"]) > 1024);
-  assert.deepEqual(r.overLimit, { bytes: Buffer.byteLength(r.files["friend.md"]), max: 1024 });
+  assert.ok(P.recordBytes(r.files["friend.md"]) > 1024, "over the cap even without the standard line");
+  assert.deepEqual(r.overLimit, { bytes: P.recordBytes(r.files["friend.md"]), max: 1024 });
   assert.ok(r.proof.unaccounted.some((u) => u.line === 0 && u.text === "friend.md over limit"));
   assert.ok(!r.notes.some((n) => /to fit/.test(n)), r.notes.join(" | "));
   assert.equal(run("rich").overLimit, null);

@@ -149,3 +149,27 @@ test("CLI stamp is a dry run by default, --apply writes, a second run changes no
   assert.equal(text.status, 0);
   assert.match(text.stdout, /0 to stamp/);
 });
+
+test("the standard: line never makes a record too big: a 1000-byte blocked record passes before and after stamping", (t) => {
+  const pad = (target) => {
+    const head = `---\nkind: friend\nid: maya-lin\nname: Maya Lin\nsummary: s\nread_when: r\nas_of: 2026-10-20\nkeep: home\ncircle: blocked\nrelationship: [contact]\nnote: "`;
+    const tail = `"\n---\n## Now\nx\n`;
+    return head + "x".repeat(target - Buffer.byteLength(head + tail)) + tail;
+  };
+  const before = pad(1000);
+  assert.equal(Buffer.byteLength(before), 1000);
+  const after = P.stampStandard(before);
+  assert.ok(Buffer.byteLength(after) > 1024, "the stamp alone takes this record over the raw cap");
+  const tooBig = (text) => {
+    const d = tree(t, { "README.md": README, "maya-lin/friend.md": text });
+    return P.lint(d).filter((f) => f.rule === "too-big");
+  };
+  assert.deepEqual(tooBig(before), []);
+  assert.deepEqual(tooBig(after), []);
+  assert.equal(P.recordBytes(after), 1000);
+  const over = P.stampStandard(pad(1030));
+  assert.equal(tooBig(over).length, 1, "a record genuinely over the cap still fails");
+  assert.match(tooBig(over)[0].message, /1030 bytes/);
+  const wrong = before.replace("kind: friend\n", `kind: friend\nstandard: https://example.com/a-much-longer-url-than-the-real-one\n`);
+  assert.equal(tooBig(wrong).length, 1, "only the real standard line is exempt");
+});

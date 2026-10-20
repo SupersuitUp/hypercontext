@@ -17,6 +17,11 @@ open the file and find its rules.
 - `friend-md stamp [--people DIR | --workspace DIR] [--apply] [--json]` backfills existing records:
   a dry run by default, byte-preserving, CRLF kept, idempotent, never touching a headerless file
   or `log/`. `stampStandard(text)` and `stampPlan(text)` are the pure functions behind it.
+- The `standard:` line never makes a record too big. Size limits (8,192 bytes, 1,024 for a blocked
+  record) are measured WITHOUT the exact `standard: <URL>` header line, so a record just under the
+  cap stays under it after `stamp`. This is one rule in one place, `recordBytes(text)` (exported),
+  used by `lint`'s `too-big`, `migratePerson`'s field eviction and `overLimit`, and the migration
+  proof. A `standard:` naming any other URL counts like any other line.
 
 ## 0.2.0 (2026-10-08)
 

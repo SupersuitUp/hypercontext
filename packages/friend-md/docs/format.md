@@ -57,6 +57,8 @@ are the exported `FACETS` vocabulary; multiple facets are allowed. Unknown legac
 relationship labels become tags during conversion.
 
 Portrait limit: **8,192 UTF-8 bytes**. Blocked portrait limit: **1,024 bytes**.
+Both are measured without the `standard:` header line (`recordBytes`), which is required
+boilerplate and never what makes a record too big.
 `Now` has at most **10 nonblank lines**. Lint checks required keys, id, vocabulary,
 size, log formatting, duplicate layouts and stray files. Untended records warn.
 
