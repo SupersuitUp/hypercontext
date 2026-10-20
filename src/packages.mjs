@@ -7,7 +7,7 @@
 import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 
 const require = createRequire(import.meta.url);
 
@@ -85,7 +85,9 @@ export const LINTS = {
     for (const root of roots) {
       const r = runJson(dir, bin, ['lint', '--root', join(ws, root)]);
       if (!r.ok) return { ran: false, note: r.error };
-      for (const f of findingsOf(r.json)) if (f.level !== 'ok') findings.push(normalize(f, (s) => `${root}/${s}`));
+      // A nested superproject comes back as an absolute path rather than a slug.
+      const where = (s) => (s.startsWith('/') ? relative(ws, s) : `${root}/${s}`);
+      for (const f of findingsOf(r.json)) if (f.level !== 'ok') findings.push(normalize(f, where));
     }
     return { ran: true, findings };
   },

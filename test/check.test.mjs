@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { check } from '../src/check.mjs';
 import { normalize } from '../src/packages.mjs';
@@ -67,8 +67,13 @@ test('superproject findings point at the superproject folder', async () => {
   const pkgs = stubPackages({ superprojects: { name: '@supersuit/superprojects', bin: 'bin/superprojects.mjs', json: { findings: [
     { level: 'ok', check: 'projects:header:owner', slug: '2032-01-02-garden-book', line: 'fine' },
     { level: 'warn', check: 'projects:plan:missing', slug: 'done/2031-05-01-old-fence', line: 'no map' },
+    { level: 'error', check: 'state-integrity', slug: '__WS__/superprojects/2032-01-02-garden-book/STATE.md', line: 'says today' },
   ] } } });
-  const r = await check(mayaWorkspace(), { kinds: ['superproject'], packagesDir: pkgs });
+  const ws = mayaWorkspace();
+  const bin = join(pkgs, 'superprojects/bin/superprojects.mjs');
+  writeFileSync(bin, readFileSync(bin, 'utf8').replace('__WS__', ws));
+  const r = await check(ws, { kinds: ['superproject'], packagesDir: pkgs });
+  assert.equal(r.findings.find((x) => x.code === 'state-integrity').path, 'superprojects/2032-01-02-garden-book/STATE.md');
   const f = r.findings.filter((x) => x.code === 'projects:plan:missing');
   assert.equal(f.length, 1);
   assert.equal(f[0].path, 'superprojects/done/2031-05-01-old-fence');
