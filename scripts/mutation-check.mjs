@@ -38,7 +38,7 @@ const cases = [
   ['a shared run is not run twice', 'src/stamp.mjs', 'stamp.test.mjs', 'if (done.has(lead)) {', 'if (false) {'],
   ['a rejected command is reported', 'src/stamp.mjs', 'stamp.test.mjs', 'r.status === 2 || ', ''],
   ['a missing baseline file is a usage error', 'bin/hypercontext.mjs', 'cli.test.mjs', 'if (baseFile && !baseline) usage(', 'if (false) usage('],
-  ['check fails on errors', 'bin/hypercontext.mjs', 'cli.test.mjs', 'process.exit(r.ok ? 0 : 1);', 'process.exit(0);'],
+  ['check fails on errors', 'bin/hypercontext.mjs', 'cli.test.mjs', "r.ok ? 0 : 1);", '0);'],
 ];
 
 let caught = 0;

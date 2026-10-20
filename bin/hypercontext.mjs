@@ -36,6 +36,10 @@ const kinds = opt('--kind')?.split(',').map((s) => s.trim()).filter(Boolean);
 const packagesDir = opt('--packages') ? resolve(opt('--packages')) : undefined;
 
 const usage = (m) => { process.stderr.write(`${m}\nRun hypercontext --help for usage.\n`); process.exit(2); };
+// Write, then exit once the pipe has taken all of it. process.exit() straight after a large
+// write to a pipe cuts the output off mid-stream, and a cut-off --json is a parse error for
+// whoever is reading it.
+const finish = (text, code) => process.stdout.write(text, () => process.exit(code));
 
 if (!cmd || cmd === '--help' || cmd === '-h') { process.stdout.write(HELP + '\n'); process.exit(cmd ? 0 : 2); }
 if (cmd === '--version') { process.stdout.write(JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version + '\n'); process.exit(0); }
@@ -43,8 +47,7 @@ if (kinds) for (const k of kinds) if (!KINDS.some((x) => x.kind === k)) usage(`n
 
 if (cmd === 'kinds') {
   const rows = KINDS.map((k) => ({ kind: k.kind, standard: k.standard, package: k.pkg?.name ?? null }));
-  process.stdout.write(json ? JSON.stringify(rows, null, 2) + '\n' : rows.map((r) => `${r.kind.padEnd(18)} ${r.standard}  ${r.package ?? '(no package yet)'}`).join('\n') + '\n');
-  process.exit(0);
+  finish(json ? JSON.stringify(rows, null, 2) + '\n' : rows.map((r) => `${r.kind.padEnd(18)} ${r.standard}  ${r.package ?? '(no package yet)'}`).join('\n') + '\n', 0);
 }
 
 if (cmd === 'check') {
@@ -53,14 +56,12 @@ if (cmd === 'check') {
   try { baseline = readBaseline(baseFile); } catch (e) { usage(`cannot read the baseline ${baseFile}: ${e.message}`); }
   if (baseFile && !baseline) usage(`no baseline at ${baseFile}; write one with hypercontext baseline --write`);
   const r = applyBaseline(await check(ws, { kinds, packagesDir, shapes: !flag('--no-shapes') }), baseline);
-  process.stdout.write(json ? JSON.stringify(r, null, 2) + '\n' : renderReport(r) + '\n');
-  process.exit(r.ok ? 0 : 1);
+  finish(json ? JSON.stringify(r, null, 2) + '\n' : renderReport(r) + '\n', r.ok ? 0 : 1);
 }
 
 if (cmd === 'stamp') {
   const s = await stamp(ws, { kinds, apply: flag('--apply'), packagesDir });
-  process.stdout.write(json ? JSON.stringify(s, null, 2) + '\n' : renderStamp(s) + '\n');
-  process.exit(0);
+  finish(json ? JSON.stringify(s, null, 2) + '\n' : renderStamp(s) + '\n', 0);
 }
 
 if (cmd === 'baseline') {
@@ -68,8 +69,8 @@ if (cmd === 'baseline') {
   if (!file) usage('baseline needs --write <file>');
   const r = await check(ws, { kinds, packagesDir });
   const w = writeBaseline(resolve(file), r, { accept: flag('--accept') });
-  process.stdout.write(json ? JSON.stringify(w) + '\n' : `baseline: ${w.count} known error(s) written to ${file}; ${w.dropped} fixed since the last one${w.refused ? `; ${w.refused} new error(s) NOT accepted (pass --accept to record them)` : ''}\n`);
-  process.exit(w.refused ? 1 : 0);
+  finish(json ? JSON.stringify(w) + '\n' : `baseline: ${w.count} known error(s) written to ${file}; ${w.dropped} fixed since the last one${w.refused ? `; ${w.refused} new error(s) NOT accepted (pass --accept to record them)` : ''}\n`, w.refused ? 1 : 0);
 }
 
-usage(`unknown command: ${cmd}`);
+// finish() exits only once the output has drained, so nothing below may run after a command.
+if (!['kinds', 'check', 'stamp', 'baseline'].includes(cmd)) usage(`unknown command: ${cmd}`);

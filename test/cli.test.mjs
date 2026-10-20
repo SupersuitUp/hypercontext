@@ -56,3 +56,12 @@ test('kinds lists every kind with its standard', () => {
   assert.ok(rows.length >= 15);
   for (const x of rows) assert.match(x.standard, /^https:\/\/hypercontext\.wiki\/standards\/[a-z-]+$/);
 });
+
+test('a report too big for one pipe write still arrives whole', () => {
+  const files = {};
+  for (let i = 0; i < 3000; i++) files[`documents/2032-01-01-${String(i).padStart(6, '0')}-note.md`] = '---\naudience: jo\n---\nx\n';
+  const r = run('check', mayaWorkspace(files), '--no-shapes', '--json');
+  assert.equal(r.status, 1);
+  const report = JSON.parse(r.stdout);
+  assert.equal(report.rows.find((x) => x.kind === 'document').records, 3003);
+});
