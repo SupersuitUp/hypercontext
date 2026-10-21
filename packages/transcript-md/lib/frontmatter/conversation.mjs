@@ -29,7 +29,8 @@ export const SELF_DOC_VERSION='self-doc:version';
 /** The codes that say a record is not self-documenting. Reported, never blocking a read. */
 export const SELF_DOC_CODES=Object.freeze([SELF_DOC_MISSING,SELF_DOC_VERSION]);
 const VERSIONED=/^https:\/\/hypercontext\.wiki\/standards\/conversation\/v([1-9][0-9]*)$/;
-/** Every code parseConversationHeader and validateConversation can emit, with its one level.
+/** Every code `transcript-md validate` can report (header codec, reader, legacy reader, the
+ * command itself), with its one level.
  * standards/conversation/v1.json ships the same table as `codes`; a test proves they agree. */
 export const DIAGNOSTIC_CODES=freeze({
   INVALID_UTF8:{level:'error',means:'The file is not valid UTF-8, so its header cannot be read.',fix:'Re-save the file as UTF-8 from its original bytes.'},
@@ -86,14 +87,58 @@ export const DIAGNOSTIC_CODES=freeze({
   REVIEW_DIMENSIONS_REQUIRED:{level:'error',means:'A reviewed version has no review dimensions or repeats one.',fix:'List each dimension once.'},
   REVIEW_ENTRY_PATH_INVALID:{level:'error',means:'A reviewed version entry path is not relative.',fix:'Use the record-relative path.'},
   REVISION_AUTHORIZATION_REQUIRED:{level:'error',means:'An authorized change to a protected turn has no operator decision.',fix:'Record the operator-decision evidence.'},
+  // The reader (record body, redirects, enumeration), which `validate` runs.
+  CANONICAL_HEADER_REQUIRED:{level:'error',means:'A <id>/transcript.md has no header at all.',fix:'Add the conversation header between --- lines.'},
+  INVALID_REDIRECT:{level:'error',means:'A conversation-redirect header has keys other than schema_version, kind and to, or a body.',fix:'Keep exactly schema_version 1, kind and a nonempty to, with an empty body.'},
+  CANONICAL_SECTIONS_INVALID:{level:'error',means:'The body does not have exactly ## Now, ## Transcript, ## Log and ## Open questions, in that order.',fix:'Restore the four H2 sections, exactly spelled, in order.'},
+  TITLE_MISMATCH:{level:'error',means:'The body has more than one H1, or an H1 that differs from the header title.',fix:'Keep at most one H1, equal to title.'},
+  TRANSCRIPT_SECTION_UNKNOWN:{level:'warning',means:'No transcript section was found in the body.',fix:'Add a ## Transcript section when the words are available.'},
+  TRANSCRIPT_EMPTY:{level:'warning',means:'The transcript section holds no words.',fix:'Nothing is wrong; add the words when they exist.'},
+  TURN_HEADING_INVALID:{level:'error',means:'A heading names a turn but is not `### t-NNNNNN`.',fix:'Write turn headings as ### t-000001.'},
+  TURN_GRAMMAR_INVALID:{level:'error',means:'The transcript section has text before its first turn.',fix:'Move that text into a turn or into another section.'},
+  TURN_ID_DUPLICATE:{level:'error',means:'Two turns share an id.',fix:'Give each turn a unique t-NNNNNN id.'},
+  TURN_METADATA_INVALID:{level:'error',means:'A turn heading is not followed by a `<!-- turn {...} -->` line with exactly speaker, sources, timing and source_gap.',fix:'Put the turn metadata comment directly under the heading.'},
+  TURN_SPEAKER_UNKNOWN:{level:'error',means:'A turn speaker is not one of the participants.',fix:'Use a participant id, or null when the speaker is unknown.'},
+  TURN_SOURCE_INVALID:{level:'error',means:'A turn has neither sources nor a written source_gap, or a blank gap.',fix:'Cite the capture span, or explain the gap in source_gap.'},
+  TURN_TIMING_INVALID:{level:'error',means:'A turn timing does not fit its declared captures and mappings.',fix:'Correct the timing, or set it to null.'},
+  SPEAKER_UNRESOLVED:{level:'warning',means:'A turn has no known speaker.',fix:'Map the speaker to a participant when known.'},
+  TIMING_UNRESOLVED:{level:'warning',means:'A turn has no timing.',fix:'Add timing when a capture mapping exists.'},
+  TURN_SOURCE_UNRESOLVED:{level:'warning',means:'A turn records a source gap instead of a capture span.',fix:'Cite the capture span when it becomes available.'},
+  TURN_EMPTY:{level:'warning',means:'A turn holds no words.',fix:'Add its words, or retire the turn.'},
+  SOURCE_UNKNOWN:{level:'warning',means:'The record lists no source captures.',fix:'Add the capture the words came from when known.'},
+  PARTICIPANTS_UNKNOWN:{level:'warning',means:'The record lists no participants.',fix:'Add the participants when known.'},
+  NOT_FOUND:{level:'error',means:'The file or record does not exist.',fix:'Check the path or id.'},
+  READ_INCOMPLETE:{level:'error',means:'The record or its workspace could not be read completely.',fix:'Check the path, the workspace and file permissions, then retry.'},
+  REDIRECT_LOOP:{level:'error',means:'Redirects lead back to a record already visited.',fix:'Point the redirect at the final record.'},
+  REDIRECT_TARGET_INVALID:{level:'error',means:'A redirect leads to something that is not a canonical <id>/transcript.md.',fix:'Point the redirect at a canonical record.'},
+  REDIRECT_WORKSPACE_REQUIRED:{level:'error',means:'A redirect cannot be followed without an explicit workspace.',fix:'Pass --workspace.'},
+  REDIRECT_HOP_LIMIT:{level:'error',means:'More than eight redirects in a row.',fix:'Point the first redirect straight at the final record.'},
+  REDIRECT_OUTSIDE_WORKSPACE:{level:'error',means:'A redirect, or a requested path, leaves the workspace.',fix:'Use a workspace-relative target.'},
+  SYMLINK_EXCLUDED:{level:'error',means:'A symlink in the transcripts folder was not followed.',fix:'Replace the link with the real file or folder.'},
+  UNCLASSIFIED_MARKDOWN:{level:'error',means:'A Markdown file sits where no conversation record can be.',fix:'Move it, or into a <id>/transcript.md.'},
+  ID_COLLISION:{level:'error',means:'Two records have ids that are equal after Unicode case folding.',fix:'Rename one of them.'},
+  AMBIGUOUS_ALIAS:{level:'error',means:'An alias or id resolves to more than one record.',fix:'Remove or narrow the duplicate alias.'},
+  // The legacy reader, for flat <name>.md files from before the format.
+  LEGACY_FIELD_UNPARSED:{level:'error',means:'A legacy header line or field could not be read as a flat key and value.',fix:'Correct the line, or migrate the record to a canonical header.'},
+  DATE_CONFLICT:{level:'error',means:'A legacy header gives more than one date.',fix:'Keep one date.'},
+  SOURCE_SERVICE_UNRESOLVED:{level:'error',means:'A legacy recording names no recognised service.',fix:'Name the service, or migrate and record the capture explicitly.'},
+  RECORDING_ID_UNRESOLVED:{level:'error',means:'A legacy recording has no usable recording id.',fix:'Add the exact recording id.'},
+  SOURCE_ROLE_UNRESOLVED:{level:'error',means:'A legacy source names a role that is not recognised.',fix:'Use a recognised role, or migrate the record.'},
+  TIME_BASIS_UNRESOLVED:{level:'warning',means:'A legacy header has time fields the reader will not interpret as a start.',fix:'Migrate the record and state start explicitly.'},
+  RESTRICTION_UNRESOLVED:{level:'error',means:'A legacy privacy or sharing field could not be interpreted; the record is treated as private.',fix:'Migrate the record and set keep explicitly.'},
+  // The `validate` command itself.
+  INVALID_ARGUMENTS:{level:'error',means:'The command line is not one the CLI accepts.',fix:'Run transcript-md --help for the exact flags.'},
 });
 /** Error diagnostics that stop interpretation: every error except the self-documentation codes. */
 export const blockingDiagnostics=diagnostics=>(Array.isArray(diagnostics)?diagnostics:[]).filter(d=>d?.severity==='error'&&!SELF_DOC_CODES.includes(d.code));
-/** One diagnostic, its level taken from DIAGNOSTIC_CODES. An unlisted code is a bug and throws. */
+/** The level DIAGNOSTIC_CODES gives `code`. An unlisted code is a bug and throws. */
+export function diagnosticLevel(code) {
+  if(typeof code!=='string'||!Object.hasOwn(DIAGNOSTIC_CODES,code))throw new Error(`unlisted conversation diagnostic code: ${code}`);
+  return DIAGNOSTIC_CODES[code].level;
+}
+/** One header diagnostic, its level taken from DIAGNOSTIC_CODES. */
 export function conversationDiagnostic(code,field,message) {
-  const entry=Object.hasOwn(DIAGNOSTIC_CODES,code)?DIAGNOSTIC_CODES[code]:null;
-  if(!entry)throw new Error(`unlisted conversation diagnostic code: ${code}`);
-  return {code,severity:entry.level,path:null,field,message};
+  return {code,severity:diagnosticLevel(code),path:null,field,message};
 }
 const diagnostic=conversationDiagnostic;
 /** The self-documentation finding for a `standard` value, or null when it is STANDARD. */

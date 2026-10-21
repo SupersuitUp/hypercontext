@@ -3,7 +3,7 @@ import {readFileSync,readdirSync,lstatSync,realpathSync} from 'node:fs';
 import {resolve,relative,basename,dirname,join,isAbsolute,sep} from 'node:path';
 import {createHash} from 'node:crypto';
 import {paths} from './freedom-workspace.mjs';
-import {parseConversationHeader,validateConversation,blockingDiagnostics} from './frontmatter/conversation.mjs';
+import {parseConversationHeader,validateConversation,blockingDiagnostics,diagnosticLevel} from './frontmatter/conversation.mjs';
 // A missing `standard` is reported in diagnostics but never stops a read: records predate the rule.
 const blocks=diagnostics=>blockingDiagnostics(diagnostics).length>0;
 import {parseConversationInstant,compareConversationInstants} from './freedom-conversation-time.mjs';
@@ -11,7 +11,8 @@ import {normalizeLegacy} from './freedom-conversation-legacy.mjs';
 import {conversationIdCollisionKey as foldId} from './freedom-conversation-casefold.mjs';
 
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
-const diagnostic=(code,path=null,field=null,severity='error')=>({code,severity,path,field,message:'Conversation record requires explicit resolution; no source content is included in this diagnostic.'});
+// Every level comes from DIAGNOSTIC_CODES; an unlisted code throws.
+const diagnostic=(code,path=null,field=null)=>({code,severity:diagnosticLevel(code),path,field,message:'Conversation record requires explicit resolution; no source content is included in this diagnostic.'});
 const excludedPart=p=>/^[._]/.test(p)||['sources','derived','staging'].includes(p);
 export function classifyConversationPath(p) {
  if(typeof p!=='string'||p.includes('\\')||p.includes('\0'))return 'excluded';
@@ -77,8 +78,8 @@ function sectionsFor(record,bodyStartLine) {
   if(titles.length>1||titles.some(h=>h.name!==record.header.title))record.diagnostics.push(diagnostic('TITLE_MISMATCH',record.file,'title'));
  }
  const transcripts=sections.filter(s=>s.kind==='transcript');
- if(!transcripts.length)record.diagnostics.push(diagnostic('TRANSCRIPT_SECTION_UNKNOWN',record.file,'body','warning'));
- else if(!canonical&&transcripts.every(s=>!s.bytes.toString('utf8').replace(/^[^\n]*(?:\n|$)/,'').trim()))record.diagnostics.push(diagnostic('TRANSCRIPT_EMPTY',record.file,'body','warning'));
+ if(!transcripts.length)record.diagnostics.push(diagnostic('TRANSCRIPT_SECTION_UNKNOWN',record.file,'body'));
+ else if(!canonical&&transcripts.every(s=>!s.bytes.toString('utf8').replace(/^[^\n]*(?:\n|$)/,'').trim()))record.diagnostics.push(diagnostic('TRANSCRIPT_EMPTY',record.file,'body'));
  return sections.sort((a,b)=>a.startLine-b.startLine);
 }
 
@@ -129,7 +130,7 @@ function turnsFor(record) {
   if(meta.speaker!==null&&!record.header.participants.some(p=>p.id===meta.speaker))fail('TURN_SPEAKER_UNKNOWN','speaker');
   const gap=meta.source_gap===null||typeof meta.source_gap==='string'&&!!meta.source_gap.trim();
   if(!gap||!Array.isArray(meta.sources)||!meta.sources.length&&meta.source_gap===null)fail('TURN_SOURCE_INVALID','sources');
-  const warnUnknown=field=>record.diagnostics.push(diagnostic('UNKNOWN_FACT',record.file,`turns[${i}].${field}`,'warning'));
+  const warnUnknown=field=>record.diagnostics.push(diagnostic('UNKNOWN_FACT',record.file,`turns[${i}].${field}`));
   if(Array.isArray(meta.sources))for(const [sourceIndex,ref] of meta.sources.entries()) {
    if(!exactKeys(ref,['capture','locator','start_ms','end_ms'])){fail('TURN_SOURCE_INVALID','sources');continue;}
    for(const key of ['locator','start_ms','end_ms'])if(ref[key]===null)warnUnknown(`sources[${sourceIndex}].${key}`);
@@ -138,14 +139,14 @@ function turnsFor(record) {
   }
   if(!validTiming(meta.timing,captures))fail('TURN_TIMING_INVALID','timing');
   else if(meta.timing!==null){const endField=meta.timing.basis==='wall-clock'?'end':'end_ms';if(meta.timing[endField]===null)warnUnknown(`timing.${endField}`);}
-  for(const [missing,code,field] of [[meta.speaker===null,'SPEAKER_UNRESOLVED','speaker'],[meta.timing===null,'TIMING_UNRESOLVED','timing'],[!!meta.source_gap,'TURN_SOURCE_UNRESOLVED','sources']])if(missing)record.diagnostics.push(diagnostic(code,record.file,field,'warning'));
+  for(const [missing,code,field] of [[meta.speaker===null,'SPEAKER_UNRESOLVED','speaker'],[meta.timing===null,'TIMING_UNRESOLVED','timing'],[!!meta.source_gap,'TURN_SOURCE_UNRESOLVED','sources']])if(missing)record.diagnostics.push(diagnostic(code,record.file,field));
   const textStart=lines[index+1].end,textEnd=end<lines.length?lines[end].start:section.bytes.length;
   turns.push({id,...meta,text:section.bytes.subarray(textStart,textEnd),startLine:lines[index].line,endLine:lines[end-1].line});
  }
  if(blocks(record.diagnostics))return [];
  const empty=turns.map(turn=>!turn.text.toString('utf8').trim());
- for(let i=0;i<turns.length;i++)if(empty[i])record.diagnostics.push(diagnostic('TURN_EMPTY',record.file,`turns[${i}].text`,'warning'));
- if(empty.every(Boolean))record.diagnostics.push(diagnostic('TRANSCRIPT_EMPTY',record.file,'body','warning'));
+ for(let i=0;i<turns.length;i++)if(empty[i])record.diagnostics.push(diagnostic('TURN_EMPTY',record.file,`turns[${i}].text`));
+ if(empty.every(Boolean))record.diagnostics.push(diagnostic('TRANSCRIPT_EMPTY',record.file,'body'));
  return turns;
 }
 
@@ -179,8 +180,8 @@ export function parseConversation(bytes,{file,layout}) {
   const startLine=1+prefix.reduce((n,b)=>n+(b===10?1:0),0);
   record.sections=sectionsFor(record,startLine);
   record.turns=turnsFor(record);
-  if(record.header.sources.length===0&&!record.diagnostics.some(d=>d.code==='SOURCE_UNKNOWN'))record.diagnostics.push(diagnostic('SOURCE_UNKNOWN',record.file,'sources','warning'));
-  if(record.header.participants.length===0)record.diagnostics.push(diagnostic('PARTICIPANTS_UNKNOWN',record.file,'participants','warning'));
+  if(record.header.sources.length===0&&!record.diagnostics.some(d=>d.code==='SOURCE_UNKNOWN'))record.diagnostics.push(diagnostic('SOURCE_UNKNOWN',record.file,'sources'));
+  if(record.header.participants.length===0)record.diagnostics.push(diagnostic('PARTICIPANTS_UNKNOWN',record.file,'participants'));
  }
  return attachGaps(record);
 }

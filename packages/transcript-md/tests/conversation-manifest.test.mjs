@@ -1,6 +1,7 @@
 // The shipped standard manifest (standards/conversation/v1.json) must say exactly what the
 // codec enforces: its standard is STANDARD, its codes are the code table, and the table holds
-// every code validateConversation and parseConversationHeader can emit. Synthetic data only.
+// every code the manifest's check (`validate`) can report: the header codec, the reader, the
+// legacy reader and the command itself. Synthetic data only.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -9,10 +10,15 @@ import {fileURLToPath} from 'node:url';
 import * as api from '../index.mjs';
 import {header} from './helpers/conversation-fixture.mjs';
 import {validateConversation,parseConversationHeader} from './helpers/guarded-frontmatter-conversation.mjs';
+import {readConversation} from './helpers/guarded-freedom-conversations.mjs';
+import {fixture,bytes} from './helpers/conversation-fixture.mjs';
+import {spawnSync} from './helpers/native.mjs';
+import {join} from 'node:path';
 
 const repo=new URL('../',import.meta.url);
 const manifest=JSON.parse(readFileSync(new URL('standards/conversation/v1.json',repo),'utf8'));
 const codec=readFileSync(new URL('lib/frontmatter/conversation.mjs',repo),'utf8');
+const cli=fileURLToPath(new URL('lib/freedom-conversations-cli.mjs',repo));
 
 test('the manifest is the shipped, exported twin of version 1',()=>{
  assert.deepEqual(api.MANIFEST,manifest);
@@ -65,15 +71,54 @@ test('manifest codes equal the code table, level for level',()=>{
  assert.equal(table.UNKNOWN_FACT.level,'warning');
 });
 
-test('the table holds every code the header codec can emit, and nothing it cannot',()=>{
- // Every code reaches a diagnostic through one of these call shapes in the codec source.
+// Code-shaped literals in these sources that are NOT diagnostics, each with where it lives.
+const NOT_DIAGNOSTICS={
+ NO_HEADER:'stampPlan reason',NOT_CONVERSATION:'stampPlan reason',STAMP_UNVERIFIED:'stampPlan reason',
+ INVALID_HEADER_KEY:'serializeConversationHeader throw',
+ SHARING_HOME:'sharing decision reason',SHARING_UNKNOWN:'sharing decision reason',SHARING_ALLOWED:'sharing decision reason',
+ INVALID_SCHEMA:'sharing decision reason',DELIVERY_TARGET_REQUIRED:'sharing decision reason',INVALID_CONTEXT_DECISION:'sharing decision reason',
+ INVALID_PROJECTION_TARGET:'sharing decision reason',GROUP_MISMATCH:'sharing decision reason',GROUP_UNRESOLVED:'sharing decision reason',
+};
+// Codes the `validate` command adds itself, beyond what the codec and reader emit.
+const CLI_VALIDATE=['INVALID_ARGUMENTS'];
+const sources=['lib/frontmatter/conversation.mjs','lib/freedom-conversations.mjs','lib/freedom-conversation-legacy.mjs'].map(f=>readFileSync(new URL(f,repo),'utf8'));
+
+test('the table holds every code the codec and the reader can emit, and nothing they cannot',()=>{
+ // Every quoted code-shaped literal in the codec, reader and legacy reader is a diagnostic code
+ // unless it is named in NOT_DIAGNOSTICS; indirect forms (ternaries, tuples, helpers) are caught too.
  const emitted=new Set();
- for(const m of codec.matchAll(/\b(?:add|refuse|fail|diagnostic)\(\s*'([A-Za-z0-9_:-]+)'/g))emitted.add(m[1]);
- for(const m of codec.matchAll(/return '([A-Z0-9_]+)'/g))emitted.add(m[1]);
+ for(const src of sources)for(const m of src.matchAll(/'([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+|self-doc:[a-z]+)'/g))if(!Object.hasOwn(NOT_DIAGNOSTICS,m[1]))emitted.add(m[1]);
  for(const m of codec.matchAll(/\bcode:(SELF_DOC_[A-Z]+)/g))emitted.add(api[m[1]]);
+ for(const code of CLI_VALIDATE)emitted.add(code);
  assert.deepEqual([...emitted].sort(),Object.keys(api.DIAGNOSTIC_CODES).sort());
- // Emitting a code that is not in the table is a bug the codec refuses at runtime.
+ for(const code of Object.keys(NOT_DIAGNOSTICS))assert.ok(!Object.hasOwn(api.DIAGNOSTIC_CODES,code),code);
+ // Emitting a code that is not in the table is a bug the codec and the reader refuse at runtime.
  assert.throws(()=>api.conversationDiagnostic('NOT_A_CODE',null,'x'),/NOT_A_CODE/);
+ assert.throws(()=>api.diagnosticLevel('NOT_A_CODE'),/NOT_A_CODE/);
+ for(const src of sources.slice(1))assert.doesNotMatch(src,/severity\s*=\s*'(?:error|warning)'/,'reader levels come from the table');
+});
+
+test('reader and legacy diagnostics, and everything validate reports, carry the table level',()=>{
+ const f=fixture();test.after(()=>f.close());
+ const run=args=>spawnSync(process.execPath,[cli,...args],{cwd:f.root,encoding:'utf8',env:{...process.env,FREEDOM_HOME:join(f.root,'state-home'),FREEDOM_WORKSPACE:''}});
+ const odd=f.put(join(f.rel,'odd-call','transcript.md'),bytes(header({id:'odd-call'}),'\n# Another title\n\n## Now\n\n## Transcript\n\n## Log\n\n## Open questions\n\n## Extra\n'));
+ const turns='\n## Now\n\n## Transcript\n\nloose words\n### t-000001\nnot metadata\n### t-000001\n<!-- turn {"speaker":"p-404","sources":[],"timing":null,"source_gap":null} -->\n\n## Log\n\n## Open questions\n';
+ const canonical=f.put(join(f.rel,'turn-call','transcript.md'),bytes(header({id:'turn-call'}),turns));
+ const flat=f.put(join(f.rel,'old-notes.md'),'---\ntitle: Old\ndate: 2026-02-30\nprivate: maybe\nstarted_at: noon\nsource: zoom\nrecording_id: \nweird line\n---\nWords.\n');
+ const seen=[];
+ for(const file of [odd,canonical,flat]){
+  seen.push(...readConversation(file).diagnostics);
+  const v=run(['validate',file,'--workspace',f.root,'--json']);seen.push(...JSON.parse(v.stdout).diagnostics);
+ }
+ for(const args of [['validate'],['validate',canonical,'--workspace',join(f.root,'no-such-dir'),'--json']]){
+  const v=run(args.includes('--json')?args:[...args,'--json']);seen.push(...JSON.parse(v.stdout).diagnostics);
+ }
+ const codes=new Set(seen.map(d=>d.code));
+ for(const code of ['TITLE_MISMATCH','CANONICAL_SECTIONS_INVALID','TURN_GRAMMAR_INVALID','TURN_METADATA_INVALID','TURN_ID_DUPLICATE','INVALID_DATE','INVALID_ARGUMENTS','READ_INCOMPLETE'])assert.ok(codes.has(code),code+' in '+[...codes]);
+ for(const d of seen){
+  assert.ok(Object.hasOwn(api.DIAGNOSTIC_CODES,d.code),'validate reported an unlisted code: '+d.code);
+  assert.equal(d.severity,api.DIAGNOSTIC_CODES[d.code].level,d.code);
+ }
 });
 
 test('emitted diagnostics carry the table level',()=>{

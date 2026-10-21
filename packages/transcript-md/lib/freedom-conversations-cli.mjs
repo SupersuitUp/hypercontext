@@ -93,7 +93,11 @@ if(args.length===1&&args[0]==='--help') {
   process.exitCode=command==='seek'&&output.candidates?.length===0?1:exitFor(diagnostics,command==='validate');
   }
  }catch(e) {
-  const d=diagnostic(e.code&&/^[A-Z][A-Z0-9_]+$/.test(e.code)?e.code:e.message==='INVALID_ARGUMENTS'?'INVALID_ARGUMENTS':'READ_INCOMPLETE');
+  let code=e.code&&/^[A-Z][A-Z0-9_]+$/.test(e.code)?e.code:e.message==='INVALID_ARGUMENTS'?'INVALID_ARGUMENTS':'READ_INCOMPLETE';
+  // validate is the standard's check: everything it reports is a listed code, so a system error
+  // (ENOENT, EACCES, ...) is reported as READ_INCOMPLETE rather than leaking an errno.
+  if(args[0]==='validate'){const {DIAGNOSTIC_CODES}=await import('./frontmatter/conversation.mjs');if(!Object.hasOwn(DIAGNOSTIC_CODES,code))code='READ_INCOMPLETE';}
+  const d=diagnostic(code);
   if(json)console.log(JSON.stringify({api_version:1,records:[],diagnostics:[d]}));else console.error(`${d.severity}: ${d.code}`);
   process.exitCode=exitFor([d]);
  }

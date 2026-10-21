@@ -2,13 +2,14 @@
 import {createHash} from 'node:crypto';
 import {basename,resolve} from 'node:path';
 import {parseFlat,stripTrailingComment} from './frontmatter/yaml.mjs';
-import {validateConversation,SELF_DOC_CODES} from './frontmatter/conversation.mjs';
+import {validateConversation,SELF_DOC_CODES,diagnosticLevel} from './frontmatter/conversation.mjs';
 
 const hash=b=>createHash('sha256').update(b).digest('hex');
 const text=v=>typeof v==='string'&&v.length>0?v:null;
 const list=v=>Array.isArray(v)?v: text(v)?[v]:[];
 const safeKey=k=>/^[a-z][a-z0-9_]*$/.test(k)&&!['__proto__','prototype','constructor'].includes(k);
-const diag=(code,field,severity='error')=>({code,severity,path:null,field,message:'Legacy metadata requires an explicit resolution; original bytes are retained.'});
+// Every level comes from DIAGNOSTIC_CODES; an unlisted code throws.
+const diag=(code,field)=>({code,severity:diagnosticLevel(code),path:null,field,message:'Legacy metadata requires an explicit resolution; original bytes are retained.'});
 // Existing concat producers declare scalar notes. Preserve them as metadata only;
 // sourcesFrom deliberately never uses note as locator, identity or coverage proof.
 const sourceKeys=new Set(['type','path','url','id','role','service','recording_id','note']);
@@ -150,7 +151,7 @@ export function normalizeLegacy(bytes,{file}) {
  const h={schema_version:1,kind:'conversation',id,title:text(f.title),description:text(f.description),read_when:list(f.read_when),date:null,start:null,as_of:null,audience:text(f.audience),keep:{scope:'unknown',group:null,decision:null},participants:[],sources:source.captures,connections:[],aliases:[{kind:'legacy-path',value:file,namespace:null},...source.aliases],review:{transcription:'unreviewed',attribution:'unreviewed',processing:'unprocessed',evidence:[]},body_format:'legacy',legacy:{original_path:file,original_revision:{kind:'sha256',value:fileSha256},raw_header_base64:base.rawHeader?.toString('base64')??null,raw_header_sha256:base.rawHeader===null?null:hash(base.rawHeader),fields:f,unparsed_keys:[...parsed.unparsed],body_sha256:base.bodySha256},extensions:{}};
  const diagnostics=[...parsed.diagnostics,...source.diagnostics];
  for(const key of ['date','as_of'])if(text(f[key])){const candidate={...h,[key]:f[key]};if(validateConversation(candidate).some(d=>d.field===key&&d.severity==='error'))diagnostics.push(diag('INVALID_DATE',key));else h[key]=f[key];}
- if(['started_at','happened_at','timezone','time_precision','inferred_from','time_local','start_local','start'].some(k=>Object.hasOwn(f,k)||parsed.unparsed.has(k)))diagnostics.push(diag('TIME_BASIS_UNRESOLVED','start','warning'));
+ if(['started_at','happened_at','timezone','time_precision','inferred_from','time_local','start_local','start'].some(k=>Object.hasOwn(f,k)||parsed.unparsed.has(k)))diagnostics.push(diag('TIME_BASIS_UNRESOLVED','start'));
  for(const key of ['private','sensitivity','keep','scope','sharing']) {
   if(parsed.unparsed.has(key)){diagnostics.push(diag('RESTRICTION_UNRESOLVED',key));continue;}
   if(!Object.hasOwn(f,key))continue;
@@ -163,7 +164,7 @@ export function normalizeLegacy(bytes,{file}) {
  // This header is the reader's projection of a flat legacy file, not stored bytes; there is
  // no transcript.md to stamp, so a missing standard is not a finding about this record.
  diagnostics.push(...validateConversation(h).filter(d=>!SELF_DOC_CODES.includes(d.code)));
- if(h.sources.length===0)diagnostics.push(diag('SOURCE_UNKNOWN','sources','warning'));
+ if(h.sources.length===0)diagnostics.push(diag('SOURCE_UNKNOWN','sources'));
  base.header=h;base.diagnostics=diagnostics;base.gaps=diagnostics.filter(d=>d.severity==='warning'||d.code.endsWith('_UNRESOLVED'));
  return base;
 }
