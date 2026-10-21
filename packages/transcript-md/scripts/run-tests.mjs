@@ -59,7 +59,12 @@ if(process.platform==='darwin'){
 writeFileSync(inspection,JSON.stringify({ready:true,physical,symlinks,directories,absent,runtimes:{node,python,git,ps,npm},platform},null,2)+'\n',{flag:'wx'});writeFileSync(events,'',{flag:'wx'});
 for(const [p,h]of Object.entries(physical))if(hash(p)!==h)throw Error('INSPECTION_STALE: '+p);
 for(const p of absent)if(existsSync(p))throw Error('INSPECTION_STALE_ABSENCE: '+p);
-const env={...process.env,TRANSCRIPT_MD_OWNED:owned,TRANSCRIPT_MD_INSPECTION:inspection,TRANSCRIPT_MD_EVENTS:events,TRANSCRIPT_MD_EVIDENCE:evidence,TRANSCRIPT_MD_LABEL:label,TRANSCRIPT_MD_NPM_CLI:npm??'',TRANSCRIPT_MD_TARBALL:argv[1]??'',TRANSCRIPT_MD_PACK_RECEIPT:argv[2]??'',PYTHON:python,TMPDIR:owned,TMP:owned,TEMP:owned,PATH:[dirname(node),dirname(python),dirname(git),process.env.PATH].join(delimiter)};
+const env={...process.env,TRANSCRIPT_MD_OWNED:owned,TRANSCRIPT_MD_INSPECTION:inspection,TRANSCRIPT_MD_EVENTS:events,TRANSCRIPT_MD_EVIDENCE:evidence,TRANSCRIPT_MD_LABEL:label,TRANSCRIPT_MD_NPM_CLI:npm??'',TRANSCRIPT_MD_TARBALL:argv[1]??'',TRANSCRIPT_MD_PACK_RECEIPT:argv[2]??'',PYTHON:python,TMPDIR:owned,TMP:owned,TEMP:owned,PATH:[dirname(node),dirname(python),dirname(git),process.env.PATH].join(delimiter),
+ // Fixture commits carry a made-up identity of their own. A test must never depend on the machine
+ // having a git identity: a CI runner has none, and every fixture commit failed there with
+ // "Author identity unknown" (2026-10-21), while a developer's own identity was being written
+ // into throwaway fixture history.
+ GIT_AUTHOR_NAME:'transcript-md tests',GIT_AUTHOR_EMAIL:'tests@example.invalid',GIT_COMMITTER_NAME:'transcript-md tests',GIT_COMMITTER_EMAIL:'tests@example.invalid'};
 for(const k of Object.keys(env))if(['GIT_DIR','GIT_WORK_TREE','GIT_COMMON_DIR','GIT_INDEX_FILE','GIT_PREFIX','GIT_OBJECT_DIRECTORY','GIT_ALTERNATE_OBJECT_DIRECTORIES'].includes(k)||k.startsWith('FREEDOM_')||['CLAUDE_PLUGIN_ROOT','CLAUDE_CONFIG_DIR','NEXT_STEP_WORKSPACE'].includes(k))delete env[k];
 let args;
 if(mode==='--candidate')args=[join(repo,'scripts/candidate.mjs')];else if(mode==='--installed')args=[join(repo,'scripts/installed-smoke.mjs'),installedRoot];else args=['--test','--test-concurrency=1',...(argv.length?argv:readdirSync(join(repo,'tests')).filter(n=>n.endsWith('.test.mjs')).map(n=>join(repo,'tests',n)))];
