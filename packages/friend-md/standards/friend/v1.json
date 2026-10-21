@@ -1,0 +1,142 @@
+{
+  "manifest_version": 1,
+  "standard": "https://hypercontext.wiki/standards/friend/v1",
+  "kind": "friend",
+  "version": 1,
+  "title": "A person",
+  "status": "current",
+  "superseded_by": null,
+  "latest": "https://hypercontext.wiki/standards/friend",
+  "record": {
+    "path": "people/<slug>/friend.md",
+    "format": "md"
+  },
+  "header": {
+    "required": [
+      "kind",
+      "standard",
+      "id",
+      "name",
+      "summary",
+      "read_when",
+      "as_of",
+      "keep",
+      "circle",
+      "relationship"
+    ],
+    "keys": {
+      "standard": {
+        "const": "https://hypercontext.wiki/standards/friend/v1"
+      },
+      "circle": {
+        "enum": [
+          "inner",
+          "close",
+          "active",
+          "known",
+          "past",
+          "blocked"
+        ]
+      }
+    }
+  },
+  "validator": {
+    "package": "@supersuit/friend-md",
+    "implements_since": "0.3.0",
+    "check": "npx -y @supersuit/friend-md@^0.3.0 lint --people people --json",
+    "backfill": "npx -y @supersuit/friend-md@^0.3.0 stamp --people people --apply"
+  },
+  "codes": [
+    {
+      "code": "bad-slug",
+      "level": "error",
+      "means": "the name does not resolve to a place inside people/",
+      "fix": "rename the folder to a lowercase slug of letters, digits and dashes"
+    },
+    {
+      "code": "split-record",
+      "level": "error",
+      "means": "both <slug>.md and <slug>/friend.md exist for one person",
+      "fix": "merge the flat file into the folder record and delete the flat one"
+    },
+    {
+      "code": "flat-record",
+      "level": "warn",
+      "means": "a <slug>.md record in a workspace that uses person folders",
+      "fix": "migrate it into people/<slug>/friend.md"
+    },
+    {
+      "code": "missing-key",
+      "level": "error",
+      "means": "a required header key is absent",
+      "fix": "add the listed keys to the header"
+    },
+    {
+      "code": "untended",
+      "level": "warn",
+      "means": "a required header key is present but empty",
+      "fix": "fill in the listed keys"
+    },
+    {
+      "code": "self-doc:missing",
+      "level": "error",
+      "means": "the record names no standard, the unversioned URL written before versions, or another kind's",
+      "fix": "friend-md stamp --people people --apply"
+    },
+    {
+      "code": "self-doc:version",
+      "level": "error",
+      "means": "the record names a friend standard version this package does not implement",
+      "fix": "upgrade @supersuit/friend-md to a version that implements it, or correct the record's standard:"
+    },
+    {
+      "code": "id-mismatch",
+      "level": "error",
+      "means": "the header id differs from the folder name",
+      "fix": "make id equal the folder name, or rename the folder"
+    },
+    {
+      "code": "too-big",
+      "level": "error",
+      "means": "the record is over its size limit (8192 bytes, 1024 when blocked), the standard: line not counted",
+      "fix": "move detail into story.md, quotes.md or log/"
+    },
+    {
+      "code": "now-too-long",
+      "level": "error",
+      "means": "the Now section has more than 10 nonblank lines",
+      "fix": "trim Now to what is true now; move the rest to log/ or story.md"
+    },
+    {
+      "code": "bad-circle",
+      "level": "error",
+      "means": "circle is not one of inner, close, active, known, past, blocked",
+      "fix": "set circle to one of the six values"
+    },
+    {
+      "code": "unknown-facet",
+      "level": "warn",
+      "means": "a relationship facet is not in the vocabulary or the workspace's people/README.md Facets section",
+      "fix": "use a listed facet, or declare it under ## Facets in people/README.md"
+    },
+    {
+      "code": "log-line",
+      "level": "error",
+      "means": "a log bullet is not `- YYYY-MM[-DD] · text [source]`, `(my read)` or `(said by X)`",
+      "fix": "rewrite the line in the log shape"
+    },
+    {
+      "code": "stray-file",
+      "level": "warn",
+      "means": "a file in the person folder that the format does not define",
+      "fix": "move it into story.md, media.md or a known folder, or delete it"
+    },
+    {
+      "code": "unreadable",
+      "level": "error",
+      "means": "the record could not be read",
+      "fix": "check the file's permissions and encoding"
+    }
+  ],
+  "umbrella": "npx -y @supersuit/hypercontext check <workspace>"
+}
