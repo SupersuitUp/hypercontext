@@ -30,8 +30,8 @@ test('apply stamps a kind with no package, and skips a headerless record', async
 test('a kind marked not stampable is never touched, and the report says why', async () => {
   const ws = mayaWorkspace();
   const before = readFileSync(join(ws, 'recurrents/sunday-dinner.md'), 'utf8');
-  const s = await stamp(ws, { kinds: ['recurrent', 'tile-app', 'conversation'], apply: true });
-  for (const k of ['recurrent', 'tile-app', 'conversation']) {
+  const s = await stamp(ws, { kinds: ['recurrent', 'tile-app'], apply: true });
+  for (const k of ['recurrent', 'tile-app']) {
     assert.equal(kindRow(s, k).via, 'not stamped');
     assert.ok(kindRow(s, k).note.length > 20);
   }
@@ -45,15 +45,17 @@ test('a kind with a package is stamped by its package\'s own command', async () 
     'group-md': { name: '@supersuit/group-md', bin: 'bin/group-md.mjs', log },
     superprojects: { name: '@supersuit/superprojects', bin: 'bin/superprojects.mjs', log },
     'self-md': { name: '@supersuit/self-md', bin: 'bin/self-md.mjs', log },
+    'transcript-md': { name: '@supersuit/transcript-md', bin: 'lib/freedom-conversations-cli.mjs', log },
   });
   const ws = mayaWorkspace();
-  const s = await stamp(ws, { kinds: ['self', 'friend', 'group', 'superproject', 'state'], apply: true, packagesDir: pkgs });
+  const s = await stamp(ws, { kinds: ['self', 'friend', 'group', 'superproject', 'state', 'conversation'], apply: true, packagesDir: pkgs });
   const calls = readFileSync(log, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
   assert.deepEqual(calls, [
     ['stamp-standard', '--workspace', ws, '--write'],
     ['stamp', '--people', join(ws, 'people'), '--apply'],
     ['migrate', join(ws, 'people/groups'), '--apply'],
     ['migrate', '--root', join(ws, 'superprojects'), '--stamp-standard', '--apply'],
+    ['stamp-standard', '--workspace', ws, '--apply'],
   ]);
   // state shares the superprojects run rather than running it twice
   assert.match(kindRow(s, 'state').via, /with superproject/);

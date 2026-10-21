@@ -21,6 +21,8 @@ export const PACKAGE_STAMPS = {
   self: (ws, apply) => [['stamp-standard', '--workspace', ws, ...(apply ? ['--write'] : [])]],
   friend: (ws, apply) => [['stamp', '--people', join(ws, 'people'), ...(apply ? ['--apply'] : [])]],
   group: (ws, apply) => [['migrate', join(ws, 'people/groups'), ...(apply ? ['--apply'] : [])]],
+  // transcript-md takes its mutation lock and checks each file's hash before it writes.
+  conversation: (ws, apply) => [['stamp-standard', '--workspace', ws, ...(apply ? ['--apply'] : [])]],
   superproject: (ws, apply, { roots }) => roots.map((r) => ['migrate', '--root', join(ws, r), '--stamp-standard', ...(apply ? ['--apply'] : [])]),
 };
 
