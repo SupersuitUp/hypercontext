@@ -28,8 +28,8 @@ test('check on an unstamped workspace exits 1 with a row per kind', () => {
 
 test('stamp --apply, then check, passes the stampable kinds', () => {
   const ws = mayaWorkspace();
-  assert.equal(run('stamp', ws, '--kind', 'document,checkpoint,hdsop', '--apply').status, 0);
-  const r = run('check', ws, '--kind', 'checkpoint,hdsop', '--no-shapes', '--json');
+  assert.equal(run('stamp', ws, '--kind', 'document,checkpoint,hdsop,workflow-catalog,recurrent,tile-app', '--apply').status, 0);
+  const r = run('check', ws, '--kind', 'checkpoint,hdsop,workflow-catalog,recurrent,tile-app', '--no-shapes', '--json');
   assert.equal(r.status, 0, r.stdout);
   assert.equal(JSON.parse(r.stdout).ok, true);
 });

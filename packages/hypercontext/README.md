@@ -33,7 +33,13 @@ This package defines no record type. A kind's shape belongs to its package. The 
 | superobjective | /standards/superobjective | @supersuit/superobjective |
 | piece | /standards/piece | @supersuit/piece-md |
 | conversation | /standards/conversation | @supersuit/transcript-md |
-| document, checkpoint, hdsop, workflow-catalog, recurrent, tile-app | /standards/<kind> | no package yet: the shared property only, and a warning saying so |
+| document | /standards/document | @supersuit/document-md |
+| checkpoint | /standards/checkpoint | @supersuit/checkpoint-md |
+| hdsop, workflow-catalog | /standards/hdsop, /workflow-catalog | @supersuit/hdsop-md |
+| recurrent | /standards/recurrent | @supersuit/recurrent-md |
+| tile-app | /standards/tile-app | @supersuit/tile-app-md |
+
+Every kind has a package. A kind added later without one would still be checked for the shared property, with a `validator:missing` warning saying nothing checks its shape.
 
 Every standard lives at `https://hypercontext.wiki/standards/<kind>/v<N>`. `hypercontext kinds` prints the list.
 
@@ -55,15 +61,15 @@ npx @supersuit/hypercontext manifests --out static/standards   # every kind's ma
 kind               records  names standard  context  validated by
 self                     1             1/1      1/1  @supersuit/self-md@0.2.0
 friend                 833         833/833    5/833  @supersuit/friend-md@0.3.0
-document               663         472/663  663/663  none: no package checks this shape yet
+document               663         472/663  663/663  @supersuit/document-md@0.1.0
 ...
 ```
 
 ### The backfill goes through each kind's own package
 
-`stamp` never writes a packaged kind's records itself. It runs the backfill that kind's package ships (`friend-md stamp`, `group-md migrate`, `superprojects migrate --stamp-standard`, `self-md stamp-standard`, `transcript-md stamp-standard`, `piece-md stamp`), because the package knows its own key order and everything else its writers keep. A kind with no package is stamped here, by one byte-preserving edit: the line goes directly after `kind:` (or first), or an unversioned link of the same kind is upgraded where it stands, and every other byte of the file, line endings included, is unchanged. A file with no header is never given one; it is reported, because a record with no header needs writing, not stamping. A file that already names a standard, right or wrong, is left alone and the wrong one is reported.
+`stamp` never writes a packaged kind's records itself. It runs the backfill that kind's package ships (`friend-md stamp`, `group-md migrate`, `superprojects migrate --stamp-standard`, `self-md stamp-standard`, `transcript-md stamp-standard`, `piece-md stamp`, `document-md stamp`, `checkpoint-md stamp`, `hdsop-md stamp`, `recurrent-md migrate`, `tile-app-md stamp`), because the package knows its own key order and everything else its writers keep. The report repeats each package's closing count and every record it skipped, with its reason (a document with no header, a workflow catalog with none). A kind with no package would be stamped here, by one byte-preserving edit: the line goes directly after `kind:` (or first), or an unversioned link of the same kind is upgraded where it stands, and every other byte of the file, line endings included, is unchanged. A file with no header is never given one; it is reported, because a record with no header needs writing, not stamping. A file that already names a standard, right or wrong, is left alone and the wrong one is reported.
 
-Two kinds are never stamped here, and the report says why: a recurrent (its fields are bold labels in the body, and a header beside them would hold a second "last run" that drifts), and a tile app (the host reads `app.json`).
+A recurrent is stamped by `recurrent-md migrate`, which moves its bold body labels into the header in the same edit, so no field is ever kept twice. A tile app is stamped by `tile-app-md stamp`, a textual edit to `app.json` that adds `"standard"` as its first key. A kind marked `stampable: false` (none is, since 0.2.0) is never touched, and the report says why.
 
 Linked files are never records here. A document symlinked in from another repository belongs to that repository; counting it would count it twice, and stamping it would write into a tree this check was never pointed at.
 

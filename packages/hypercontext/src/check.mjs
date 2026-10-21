@@ -27,9 +27,10 @@ const STANDARDS = Object.fromEntries(KINDS.map((k) => [k.kind, k.standard]));
  * @param {boolean} [opts.online=false] also prove every standard the records name is live and matches its owner's manifest
  * @param {Function} [opts.fetch] injected fetch for tests
  * @param {object} [opts.fs] injected filesystem for tests
+ * @param {object[]} [opts.registry] the kinds to judge, KINDS unless a test supplies its own
  */
-export async function check(workspace, { kinds, packagesDir, shapes = true, online = false, fetch, fs = fsDefault, read = (p) => readFileSync(p, 'utf8') } = {}) {
-  const wanted = KINDS.filter((k) => !kinds || kinds.includes(k.kind));
+export async function check(workspace, { kinds, packagesDir, shapes = true, online = false, fetch, fs = fsDefault, read = (p) => readFileSync(p, 'utf8'), registry = KINDS } = {}) {
+  const wanted = registry.filter((k) => !kinds || kinds.includes(k.kind));
   const rows = [];
   const findings = [];
   const seen = new Map(); // kind -> Set of standard URLs its records name
@@ -61,7 +62,9 @@ export async function check(workspace, { kinds, packagesDir, shapes = true, onli
     } else if (k.sharesLint) {
       row.validator = k.pkg.name;
       row.validatorNote = `checked with ${k.sharesLint}`;
-    } else if (records.length === 0) {
+    } else if (records.length === 0 && !registry.some((x) => x.sharesLint === k.kind && findRecords(workspace, x.kind, fs).length)) {
+      // A kind whose run also checks another (hdsop checks the catalog) still runs when only the
+      // other kind has records.
       row.validator = k.pkg.name;
       row.validatorNote = 'nothing to check';
     } else {

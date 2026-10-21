@@ -38,7 +38,9 @@ async function exportedStandards({ root, pkg }) {
   const out = new Set();
   if (typeof mod.STANDARD === 'string') out.add(mod.STANDARD);
   if (mod.STANDARDS && typeof mod.STANDARDS === 'object') for (const v of Object.values(mod.STANDARDS)) if (typeof v === 'string') out.add(v);
-  if (Array.isArray(mod.KINDS)) for (const k of mod.KINDS) if (!k.pkg) out.add(k.standard);
+  // The umbrella's KINDS are records naming their owner; a kind with no package would be its own.
+  // (Another package may export a KINDS of its own, document-md's genres, which holds no standards.)
+  if (Array.isArray(mod.KINDS)) for (const k of mod.KINDS) if (k && typeof k === 'object' && typeof k.standard === 'string' && !k.pkg) out.add(k.standard);
   return out;
 }
 

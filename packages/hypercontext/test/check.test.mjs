@@ -4,6 +4,7 @@ import { writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { check } from '../src/check.mjs';
 import { normalize } from '../src/packages.mjs';
+import { KINDS } from '../src/kinds.mjs';
 import { mayaWorkspace, stubPackages, md, STD } from './helpers.mjs';
 
 const row = (r, k) => r.rows.find((x) => x.kind === k);
@@ -27,10 +28,46 @@ test('a stamped record counts as self-documenting', async () => {
 });
 
 test('a kind with no package is a warning, once, so the gap is visible', async () => {
-  const r = await check(mayaWorkspace(), { kinds: ['recurrent'] });
+  const registry = KINDS.map((k) => (k.kind === 'recurrent' ? { ...k, pkg: null } : k));
+  const r = await check(mayaWorkspace(), { kinds: ['recurrent'], registry });
   const w = r.findings.filter((f) => f.code === 'validator:missing');
   assert.equal(w.length, 1);
   assert.equal(w[0].level, 'warn');
+  assert.equal(row(r, 'recurrent').validator, null);
+});
+
+test('every kind has a package, so no workspace reports validator:missing', async () => {
+  const r = await check(mayaWorkspace(), { packagesDir: '' });
+  assert.deepEqual(r.findings.filter((f) => f.code === 'validator:missing'), []);
+  for (const x of r.rows) assert.ok(x.validator, `${x.kind}: ${x.validatorNote}`);
+});
+
+// The five packages that own document, checkpoint, hdsop with workflow-catalog, recurrent and
+// tile-app, run for real: each prints its own JSON shape, and every finding comes back naming
+// the record by its workspace path and under the kind it is about.
+test('the document, checkpoint, workflow, recurrent and tile-app packages report workspace paths', async () => {
+  const ws = mayaWorkspace({ 'checkpoints/2032-01-05-090000-bare.md': md('kind: checkpoint') });
+  const r = await check(ws, { kinds: ['document', 'checkpoint', 'hdsop', 'workflow-catalog', 'recurrent', 'tile-app'], packagesDir: '' });
+  const at = (kind, code) => r.findings.filter((f) => f.kind === kind && f.code === code).map((f) => f.path);
+  assert.deepEqual(at('document', 'header:missing'), ['documents/2031-12-01-legacy-note.md']);
+  assert.deepEqual(at('checkpoint', 'summary:missing'), ['checkpoints/2032-01-05-090000-bare.md']);
+  assert.deepEqual(at('hdsop', 'map:uncatalogued'), ['workflows/water-the-beds.md']);
+  assert.deepEqual(at('workflow-catalog', 'catalog:not-writable'), ['workflows/CATALOG.md']);
+  assert.deepEqual(at('recurrent', 'method:missing'), ['recurrents/sunday-dinner.md']);
+  assert.deepEqual(at('tile-app', 'summary:missing'), ['helm/tile-apps/poems/app.json']);
+  for (const k of ['document', 'checkpoint', 'hdsop', 'recurrent', 'tile-app']) assert.match(row(r, k).validator, /^@supersuit\/[a-z-]+@\d/, k);
+  assert.equal(row(r, 'workflow-catalog').validatorNote, 'checked with hdsop');
+  // the package's own self-doc finding is dropped; the shared judgement counts it once
+  assert.equal(r.findings.filter((f) => f.code === 'self-doc:missing' && f.path === 'checkpoints/2032-01-04-120000-save.md').length, 1);
+  for (const f of r.findings) assert.ok(!f.path.startsWith('/'), `${f.kind} ${f.code}: ${f.path}`);
+});
+
+test('a catalog with no maps beside it is still checked by the maps\' package', async () => {
+  const ws = mayaWorkspace();
+  const { rmSync } = await import('node:fs');
+  rmSync(join(ws, 'workflows/water-the-beds.md'));
+  const r = await check(ws, { kinds: ['hdsop', 'workflow-catalog'], packagesDir: '' });
+  assert.ok(r.findings.some((f) => f.kind === 'workflow-catalog' && f.code === 'catalog:not-writable'));
 });
 
 test('a package that is not installed is a warning naming it', async () => {

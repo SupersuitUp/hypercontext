@@ -9,7 +9,7 @@ A hypercontext record is a file that names the version of the standard it follow
 | folder | npm package | standards it owns | version |
 |---|---|---|---|
 | [packages/core](packages/core) | `@supersuit/hypercontext-core` | none: the shared header codec, the versioned-standard rule and its stamp, the manifest validator | 0.1.0 |
-| [packages/hypercontext](packages/hypercontext) | `@supersuit/hypercontext` | the umbrella check over a whole workspace, plus `document`, `checkpoint`, `hdsop`, `workflow-catalog`, `recurrent`, `tile-app` (kinds with no package of their own) | 0.1.0 |
+| [packages/hypercontext](packages/hypercontext) | `@supersuit/hypercontext` | none: the umbrella check over a whole workspace, which asks each kind's package | 0.2.0 |
 | [packages/friend-md](packages/friend-md) | `@supersuit/friend-md` | `friend` | 0.3.0 |
 | [packages/group-md](packages/group-md) | `@supersuit/group-md` | `group` | 0.2.0 |
 | [packages/self-md](packages/self-md) | `@supersuit/self-md` | `self` | 0.2.0 |
@@ -17,10 +17,15 @@ A hypercontext record is a file that names the version of the standard it follow
 | [packages/transcript-md](packages/transcript-md) | `@supersuit/transcript-md` | `conversation` | 0.2.0 |
 | [packages/piece-md](packages/piece-md) | `@supersuit/piece-md` | `piece` | 0.3.0 |
 | [packages/superobjective](packages/superobjective) | `@supersuit/superobjective` | `superobjective` | 0.1.0 |
+| [packages/document-md](packages/document-md) | `@supersuit/document-md` | `document` | 0.1.0 |
+| [packages/checkpoint-md](packages/checkpoint-md) | `@supersuit/checkpoint-md` | `checkpoint` | 0.1.0 |
+| [packages/hdsop-md](packages/hdsop-md) | `@supersuit/hdsop-md` | `hdsop`, `workflow-catalog` | 0.1.0 |
+| [packages/recurrent-md](packages/recurrent-md) | `@supersuit/recurrent-md` | `recurrent` | 0.1.0 |
+| [packages/tile-app-md](packages/tile-app-md) | `@supersuit/tile-app-md` | `tile-app` | 0.1.0 |
 
-Fifteen kinds in all. Each package ships its manifests at `standards/<kind>/v<N>.json`, and the wiki publishes those files unchanged (`npx @supersuit/hypercontext manifests --out <dir>`).
+Fifteen kinds in all, each owned by exactly one package. Each package ships its manifests at `standards/<kind>/v<N>.json`, and the wiki publishes those files unchanged (`npx @supersuit/hypercontext manifests --out <dir>`).
 
-group-md, self-md, piece-md, superobjective and hypercontext read headers through core. friend-md (`src/yaml.mjs`), superprojects (`src/frontmatter/`) and transcript-md (`lib/frontmatter/`) keep their own codecs because their formats differ; folding those in is a separate decision.
+group-md, self-md, piece-md, superobjective, document-md, checkpoint-md, hdsop-md, recurrent-md, tile-app-md and hypercontext read headers through core. friend-md (`src/yaml.mjs`), superprojects (`src/frontmatter/`) and transcript-md (`lib/frontmatter/`) keep their own codecs because their formats differ; folding those in is a separate decision.
 
 Each package's history came with it: `git log -- packages/<folder>` reads back to that package's first commit.
 

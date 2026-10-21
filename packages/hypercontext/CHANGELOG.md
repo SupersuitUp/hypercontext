@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0
+
+Every kind is now checked by its own package, so `check` reports more findings on the same workspace: a minor version, because it changes what is checked.
+
+- `document` is checked and stamped by `@supersuit/document-md`, `checkpoint` by `@supersuit/checkpoint-md`, `hdsop` and `workflow-catalog` by `@supersuit/hdsop-md` (one run covers both, each finding filed under the kind it is about), `recurrent` by `@supersuit/recurrent-md`, `tile-app` by `@supersuit/tile-app-md`. None of the six raises `validator:missing` any more.
+- This package no longer ships manifests: each kind's comes from its package. A kind with no package and no manifest is listed as missing rather than crashing `check`.
+- `recurrent` and `tile-app` are stamped. A recurrent goes through `recurrent-md migrate`, which moves its body labels into the header as it names the standard; a tile app through `tile-app-md stamp`.
+- `stamp` repeats each package's closing count and every record it skipped, with the reason, so a catalog with no header or a headerless document is named in the report rather than lost.
+- A kind whose package run also checks another (hdsop checks the catalog) runs when only the other kind has records.
+
 ## 0.1.0
 
 - The header codec, `versionOf`, `bareStandard` and the byte-preserving `stampStandard` now come from `@supersuit/hypercontext-core`, a dependency at `^0.1.0`; they are re-exported here unchanged.

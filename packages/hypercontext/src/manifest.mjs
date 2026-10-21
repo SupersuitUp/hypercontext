@@ -23,7 +23,9 @@ export function manifestHome(kind, { packagesDir } = {}) {
     if (dir && existsSync(join(dir, 'standards', kind.kind))) return { dir: join(dir, 'standards', kind.kind), owner: kind.pkg.name };
     return { dir: null, owner: kind.pkg.name };
   }
-  return { dir: join(OWN, kind.kind), owner: '@supersuit/hypercontext' };
+  // A kind with no package and no manifest here has none at all: missing, never a crash.
+  const own = join(OWN, kind.kind);
+  return { dir: existsSync(own) ? own : null, owner: '@supersuit/hypercontext' };
 }
 
 /** Every version a kind's owner ships a manifest for; [current] when none can be read. */

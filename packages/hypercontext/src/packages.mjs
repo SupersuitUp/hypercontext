@@ -122,6 +122,34 @@ export const LINTS = {
     }
     return { ran: true, findings };
   },
+  // document-md takes every documents home in one call and names each finding by its home plus
+  // the document's path under it.
+  document: (dir, bin, ws, { homes }) => {
+    if (!homes.length) return { ran: true, findings: [] };
+    const r = runJson(dir, bin, ['lint', ...homes.map((h) => join(ws, h))]);
+    return r.ok
+      ? { ran: true, findings: findingsOf(r.json).map((f) => normalize({ ...f, path: f.home && f.document ? relative(ws, join(f.home, f.document)) : f.document })) }
+      : { ran: false, note: r.error };
+  },
+  checkpoint: (dir, bin, ws) => {
+    const r = runJson(dir, bin, ['lint', join(ws, 'checkpoints')]);
+    return r.ok ? { ran: true, findings: findingsOf(r.json).map((f) => normalize(f, (s) => `checkpoints/${s}`)) } : { ran: false, note: r.error };
+  },
+  // One hdsop-md run checks the maps and the catalog; each finding says which kind it is about.
+  hdsop: (dir, bin, ws) => {
+    const r = runJson(dir, bin, ['lint', join(ws, 'workflows')]);
+    if (!r.ok) return { ran: false, note: r.error };
+    return { ran: true, findings: findingsOf(r.json).map((f) => ({ ...normalize(f, (s) => `workflows/${s}`), kind: f.kind === 'workflow-catalog' ? 'workflow-catalog' : 'hdsop' })) };
+  },
+  recurrent: (dir, bin, ws) => {
+    const r = runJson(dir, bin, ['lint', join(ws, 'recurrents')]);
+    return r.ok ? { ran: true, findings: findingsOf(r.json).map((f) => normalize({ ...f, path: f.recurrent ?? f.path }, (s) => `recurrents/${s}`)) } : { ran: false, note: r.error };
+  },
+  // tile-app-md finds the apps itself from the workspace, and names each by its absolute path.
+  'tile-app': (dir, bin, ws) => {
+    const r = runJson(dir, bin, ['lint', ws]);
+    return r.ok ? { ran: true, findings: findingsOf(r.json).map((f) => normalize(f, (s) => (s.startsWith('/') ? relative(ws, s) : s))) } : { ran: false, note: r.error };
+  },
   // A conversation is checked in-process through the package's codec: one process per file
   // would cost minutes on a workspace that holds thousands.
   conversation: async (dir, _bin, ws, { records, read }) => {

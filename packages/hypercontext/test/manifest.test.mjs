@@ -20,16 +20,14 @@ const friendManifest = (extra = {}) => ({
 });
 const pkgs = (extra = {}) => stubPackages({ 'friend-md': { name: '@supersuit/friend-md', bin: 'bin/friend-md.mjs', json: [], manifests: { 'standards/friend/v1.json': friendManifest(), ...extra } } });
 
-test('every kind this package owns ships a well-formed manifest for its current version', () => {
-  for (const k of KINDS.filter((x) => !x.pkg)) {
-    const m = readManifest(k);
+test('every kind is owned by its package, which ships a well-formed manifest naming itself as validator', () => {
+  for (const k of KINDS) {
+    assert.ok(k.pkg, `${k.kind} has no package`);
+    const m = readManifest(k, 1, { packagesDir: '' });
     assert.ok(m, k.kind);
     assert.equal(m.standard, k.standard);
     assert.equal(m.kind, k.kind);
-    assert.equal(m.version, 1);
-    assert.equal(m.validator, null);
-    assert.deepEqual(m.codes.map((c) => c.code).sort(), ['self-doc:missing', 'self-doc:version']);
-    assert.equal(m.header.keys.standard.const, k.standard);
+    assert.equal(m.validator?.package, k.pkg.name, k.kind);
     assert.deepEqual(validateManifest(m).problems, [], k.kind);
   }
 });
@@ -80,7 +78,7 @@ test('export copies each owner\'s bytes, and lists an owner that is not installe
   const out = mkdtempSync(join(tmpdir(), 'hc-man-'));
   const index = exportManifests(out, { packagesDir: dir });
   assert.equal(readFileSync(join(out, 'friend/v1.json'), 'utf8'), readFileSync(join(dir, 'friend-md/standards/friend/v1.json'), 'utf8'));
-  assert.ok(existsSync(join(out, 'document/v1.json')));
+  assert.equal(index.find((x) => x.kind === 'document').missing, true);
   assert.equal(index.find((x) => x.kind === 'group').missing, true);
   assert.ok(!existsSync(join(out, 'group')));
   assert.deepEqual(JSON.parse(readFileSync(join(out, 'index.json'), 'utf8')).standards.find((x) => x.kind === 'friend').versions, [STD('friend')]);

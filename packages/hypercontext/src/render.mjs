@@ -41,6 +41,10 @@ export function renderStamp(s) {
     if (!k.missing) continue;
     const n = k.changed != null ? `${k.changed} of ${k.missing}` : `${k.missing}`;
     lines.push(`  ${k.kind}: ${n} via ${k.via}${k.note ? `; ${k.note}` : ''}${k.reasons ? `; skipped ${Object.entries(k.reasons).map(([r, c]) => `${c} (${r})`).join(', ')}` : ''}`);
+    // What the kind's own package said: its count, and each record it would not touch and why.
+    for (const l of k.said ?? []) lines.push(`      ${l}`);
+    for (const l of (k.skippedLines ?? []).slice(0, 10)) lines.push(`      ${l}`);
+    if ((k.skippedLines?.length ?? 0) > 10) lines.push(`      ... and ${k.skippedLines.length - 10} more skipped (--json lists every one)`);
   }
   if (lines.length === 1) lines.push('  nothing: every record already names its standard.');
   return lines.join('\n');

@@ -8,9 +8,9 @@
 // rules (Gary, 2026-10-17: "AMNESIAC AIS need to be able to refer the standard a file/folder is
 // supposed to uphold"; 2026-10-20: "every instance ... needs to be self documenting").
 //
-// A kind with `pkg: null` has no package yet. It is still checked for the shared property, and
-// the report says in one line that nothing checks its shape, so the gap is visible from the
-// same command that would close it.
+// Every kind has its package (since 0.2.0). A kind added with `pkg: null` would still be checked
+// for the shared property, and the report would say in one line that nothing checks its shape,
+// so the gap is visible from the same command that would close it.
 
 // The URL shapes and how a URL reads back as a version are shared by every record package, so they
 // live in @supersuit/hypercontext-core and are re-exported here unchanged.
@@ -37,6 +37,8 @@ const url = (slug, v = CURRENT_VERSION) => standardUrl(slug, v);
 
 const CONTEXT = Object.freeze(['id', 'summary', 'read_when', 'as_of', 'keep']);
 const SUPERPROJECTS = Object.freeze({ name: '@supersuit/superprojects', repo: 'superprojects', bin: 'bin/superprojects.mjs' });
+// One package owns both the workflow maps and the catalog that scores them; one run checks both.
+const HDSOP = Object.freeze({ name: '@supersuit/hdsop-md', repo: 'hdsop-md', bin: 'bin/hdsop-md.mjs' });
 
 /** @type {readonly Kind[]} */
 export const KINDS = Object.freeze([
@@ -58,14 +60,18 @@ export const KINDS = Object.freeze([
     pkg: { name: '@supersuit/piece-md', repo: 'piece-md', bin: 'bin/piece-md.mjs' } },
   { kind: 'conversation', label: 'conversations, transcript.md', standard: url('conversation'), format: 'md', context: [],
     pkg: { name: '@supersuit/transcript-md', repo: 'transcript-md', bin: 'lib/freedom-conversations-cli.mjs' } },
-  { kind: 'document', label: 'documents, documents/*.md', standard: url('document'), format: 'md', context: [], pkg: null },
-  { kind: 'checkpoint', label: 'checkpoints, checkpoints/*.md', standard: url('checkpoint'), format: 'md', context: [], pkg: null },
-  { kind: 'hdsop', label: 'workflow maps, workflows/*.md', standard: url('hdsop'), format: 'md', context: [], pkg: null },
-  { kind: 'workflow-catalog', label: 'the workflow catalog, workflows/CATALOG.md', standard: url('workflow-catalog'), format: 'md', context: [], pkg: null },
-  { kind: 'recurrent', label: 'recurrents, recurrents/*.md', standard: url('recurrent'), format: 'md', context: [], pkg: null,
-    stampable: false, why: 'a recurrent keeps its fields as bold labels in the body; a header added beside them would hold a second last run that drifts, so its own writer converts it' },
-  { kind: 'tile-app', label: 'tile apps, <app>/app.json', standard: url('tile-app'), format: 'json', context: [], pkg: null,
-    stampable: false, why: 'the Helm host reads app.json, and a key it does not know waits until the host accepts one' },
+  { kind: 'document', label: 'documents, documents/*.md', standard: url('document'), format: 'md', context: [],
+    pkg: { name: '@supersuit/document-md', repo: 'document-md', bin: 'bin/document-md.mjs' } },
+  { kind: 'checkpoint', label: 'checkpoints, checkpoints/*.md', standard: url('checkpoint'), format: 'md', context: [],
+    pkg: { name: '@supersuit/checkpoint-md', repo: 'checkpoint-md', bin: 'bin/checkpoint-md.mjs' } },
+  { kind: 'hdsop', label: 'workflow maps, workflows/*.md', standard: url('hdsop'), format: 'md', context: [],
+    pkg: HDSOP },
+  { kind: 'workflow-catalog', label: 'the workflow catalog, workflows/CATALOG.md', standard: url('workflow-catalog'), format: 'md', context: [],
+    pkg: HDSOP, sharesLint: 'hdsop' },
+  { kind: 'recurrent', label: 'recurrents, recurrents/*.md', standard: url('recurrent'), format: 'md', context: [],
+    pkg: { name: '@supersuit/recurrent-md', repo: 'recurrent-md', bin: 'bin/recurrent-md.mjs' } },
+  { kind: 'tile-app', label: 'tile apps, <app>/app.json', standard: url('tile-app'), format: 'json', context: [],
+    pkg: { name: '@supersuit/tile-app-md', repo: 'tile-app-md', bin: 'bin/tile-app-md.mjs' } },
 ]);
 
 export const byKind = (k) => KINDS.find((x) => x.kind === k);

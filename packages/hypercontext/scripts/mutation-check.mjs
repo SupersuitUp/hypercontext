@@ -3,7 +3,7 @@
 // A test that stays green when its rule is removed was never checking the rule.
 //
 // Each case: [what the rule is, file under the package root, test file, the text as written, the text broken].
-import { mkdtempSync, cpSync, readFileSync, writeFileSync, rmSync, mkdirSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, cpSync, readFileSync, writeFileSync, rmSync, mkdirSync, symlinkSync, readdirSync, existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -13,11 +13,18 @@ import { spawnSync } from 'node:child_process';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
 // The copy lives outside the repository, where node cannot find the shared codec this package
-// depends on, so the copy is handed the installed @supersuit/hypercontext-core by a link.
+// depends on, nor the record packages whose real output some tests read. The copy is handed the
+// installed @supersuit/hypercontext-core, and every sibling package of the repository, by links.
 const coreDir = dirname(createRequire(join(root, 'package.json')).resolve('@supersuit/hypercontext-core/package.json'));
+const siblings = readdirSync(dirname(root))
+  .map((d) => join(dirname(root), d))
+  .filter((d) => d !== root && existsSync(join(d, 'package.json')))
+  .map((d) => ({ dir: d, name: JSON.parse(readFileSync(join(d, 'package.json'), 'utf8')).name }))
+  .filter((x) => x.name?.startsWith('@supersuit/') && x.name !== '@supersuit/hypercontext-core');
 function linkCore(dir) {
   mkdirSync(join(dir, 'node_modules', '@supersuit'), { recursive: true });
   symlinkSync(coreDir, join(dir, 'node_modules', '@supersuit', 'hypercontext-core'), 'dir');
+  for (const s of siblings) symlinkSync(s.dir, join(dir, 'node_modules', s.name), 'dir');
 }
 
 const cases = [
@@ -53,6 +60,16 @@ const cases = [
   ['ok findings are dropped', 'src/check.mjs', 'check.test.mjs', "|| f.level === 'ok' ", ''],
   ['superproject findings point at the folder', 'src/packages.mjs', 'check.test.mjs', ": `${root}/${s}`);", ": s);"],
   ['a nested superproject\'s absolute path is made relative', 'src/packages.mjs', 'check.test.mjs', "(s.startsWith('/') ? relative(ws, s)", "(false ? relative(ws, s)"],
+  ['document-md findings are named by home and path', 'src/packages.mjs', 'check.test.mjs', 'f.home && f.document ? relative(ws, join(f.home, f.document))', 'false ? relative(ws, join(f.home, f.document))'],
+  ['checkpoint-md findings are under checkpoints/', 'src/packages.mjs', 'check.test.mjs', '(s) => `checkpoints/${s}`', '(s) => s'],
+  ['hdsop-md findings are under workflows/', 'src/packages.mjs', 'check.test.mjs', '(s) => `workflows/${s}`', '(s) => s'],
+  ['hdsop-md findings keep the kind they are about', 'src/packages.mjs', 'check.test.mjs', "kind: f.kind === 'workflow-catalog' ? 'workflow-catalog' : 'hdsop'", "kind: 'hdsop'"],
+  ['recurrent-md findings are under recurrents/', 'src/packages.mjs', 'check.test.mjs', '(s) => `recurrents/${s}`', '(s) => s'],
+  ['tile-app-md\'s absolute paths are made relative', 'src/packages.mjs', 'check.test.mjs', "normalize(f, (s) => (s.startsWith('/') ? relative(ws, s) : s))", 'normalize(f)'],
+  ['a lead kind runs when only its sharer has records', 'src/check.mjs', 'check.test.mjs', ' && !registry.some((x) => x.sharesLint === k.kind && findRecords(workspace, x.kind, fs).length)', ''],
+  ['a kind with no manifest anywhere is missing, not a crash', 'src/manifest.mjs', 'check.test.mjs', 'dir: existsSync(own) ? own : null', 'dir: own'],
+  ['a package\'s skipped records are reported', 'src/stamp.mjs', 'stamp.test.mjs', '...(skipped.length ? { skippedLines: skipped } : {})', ''],
+  ['recurrents are stamped by migrate', 'src/stamp.mjs', 'stamp.test.mjs', "recurrent: (ws, apply) => [['migrate'", "recurrent: (ws, apply) => [['stamp'"],
   ['a new error fails the baseline', 'src/baseline.mjs', 'baseline.test.mjs', 'ok: fresh === 0', 'ok: true'],
   ['the baseline only shrinks', 'src/baseline.mjs', 'baseline.test.mjs', 'const known = prior && !accept ? now.filter((k) => prior.known.has(k)) : now;', 'const known = now;'],
   ['a not-stampable kind is never touched', 'src/stamp.mjs', 'stamp.test.mjs', 'if (k.stampable === false) {', 'if (false) {'],

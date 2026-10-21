@@ -25,21 +25,39 @@ export const PACKAGE_STAMPS = {
   piece: (ws, apply, { homes }) => homes.map((h) => ['stamp', join(ws, h), ...(apply ? ['--apply'] : [])]),
   conversation: (ws, apply) => [['stamp-standard', '--workspace', ws, ...(apply ? ['--apply'] : [])]],
   superproject: (ws, apply, { roots }) => roots.map((r) => ['migrate', '--root', join(ws, r), '--stamp-standard', ...(apply ? ['--apply'] : [])]),
+  document: (ws, apply, { homes }) => (homes.length ? [['stamp', ...homes.map((h) => join(ws, h)), ...(apply ? ['--apply'] : [])]] : []),
+  checkpoint: (ws, apply) => [['stamp', join(ws, 'checkpoints'), ...(apply ? ['--apply'] : [])]],
+  // One run stamps the maps and the catalog; it skips a catalog with no header and says why.
+  hdsop: (ws, apply) => [['stamp', join(ws, 'workflows'), ...(apply ? ['--apply'] : [])]],
+  // A recurrent's fields move from body labels into its header in the same edit that names its
+  // standard, so there is never a second copy of a field.
+  recurrent: (ws, apply) => [['migrate', join(ws, 'recurrents'), ...(apply ? ['--apply'] : [])]],
+  'tile-app': (ws, apply) => [['stamp', ws, ...(apply ? ['--apply'] : [])]],
 };
+
+// What a package's stamp printed that a person needs: every line naming a record it skipped
+// (with its reason) and its closing count. Paths are made workspace-relative.
+function said(stdout, ws) {
+  const lines = (stdout ?? '').split('\n').map((l) => l.trimEnd()).filter(Boolean);
+  if (!lines.length || lines[0].startsWith('{') || lines[0].startsWith('[')) return { skipped: [], summary: '' };
+  const rel = (l) => l.split(`${ws}/`).join('');
+  return { skipped: lines.filter((l) => /^skipped\s/.test(l)).map(rel), summary: rel(lines.at(-1)) };
+}
 
 /**
  * @returns {Promise<{apply: boolean, kinds: Array<{kind, missing, via, changed?, skipped?, note?}>}>}
  */
-export async function stamp(workspace, { kinds, apply = false, packagesDir, fs = fsDefault } = {}) {
+export async function stamp(workspace, { kinds, apply = false, packagesDir, fs = fsDefault, registry = KINDS } = {}) {
   const out = [];
   const roots = superprojectRoots(workspace, fs);
   const done = new Set();
-  for (const k of KINDS.filter((x) => !kinds || kinds.includes(x.kind))) {
+  const missingOf = (k, records) => records.filter((rel) => {
+    const text = readFileSync(join(workspace, rel), 'utf8');
+    return !judge(text, k, { alsoAccept: acceptedFor(k.kind, standardOf(text, k.format).data, STANDARDS) }).selfDocumenting;
+  });
+  for (const k of registry.filter((x) => !kinds || kinds.includes(x.kind))) {
     const records = findRecords(workspace, k.kind, fs);
-    const missing = records.filter((rel) => {
-      const text = readFileSync(join(workspace, rel), 'utf8');
-      return !judge(text, k, { alsoAccept: acceptedFor(k.kind, standardOf(text, k.format).data, STANDARDS) }).selfDocumenting;
-    });
+    const missing = missingOf(k, records);
     const row = { kind: k.kind, records: records.length, missing: missing.length };
     if (!missing.length) { out.push({ ...row, via: 'nothing to do' }); continue; }
     if (k.stampable === false) { out.push({ ...row, via: 'not stamped', note: k.why }); continue; }
@@ -52,12 +70,15 @@ export async function stamp(workspace, { kinds, apply = false, packagesDir, fs =
       if (!dir) { out.push({ ...row, via: 'not stamped', note: `${k.pkg.name} is not installed` }); continue; }
       const runs = PACKAGE_STAMPS[lead](workspace, apply, { roots, homes: documentHomes(workspace, fs) }).map((args) => {
         const r = spawnSync(process.execPath, [join(dir, k.pkg.bin), ...args], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-        return { args: args.join(' '), status: r.status, stderr: (r.stderr ?? '').trim().split('\n')[0] ?? '' };
+        return { args: args.join(' '), status: r.status, stderr: (r.stderr ?? '').trim().split('\n')[0] ?? '', ...said(r.stdout, workspace) };
       });
       // Exit 2 is a usage error in every one of these packages: the command this file names is
       // not one that version knows, which is a version mismatch, never a record problem.
       const failed = runs.filter((r) => r.status === 2 || r.status === null);
-      out.push({ ...row, via: `${k.pkg.name}@${packageVersion(dir)}`, ...(failed.length ? { note: `did not run: ${failed.map((f) => `${f.args} (${f.stderr})`).join('; ')}` } : {}) });
+      const skipped = runs.flatMap((r) => r.skipped);
+      const summary = runs.map((r) => r.summary).filter(Boolean);
+      out.push({ ...row, via: `${k.pkg.name}@${packageVersion(dir)}`, ...(failed.length ? { note: `did not run: ${failed.map((f) => `${f.args} (${f.stderr})`).join('; ')}` } : {}),
+        ...(summary.length ? { said: summary } : {}), ...(skipped.length ? { skippedLines: skipped } : {}) });
       continue;
     }
     if (k.pkg) { out.push({ ...row, via: 'not stamped', note: `${k.pkg.name} ships no stamp this package knows how to call` }); continue; }
