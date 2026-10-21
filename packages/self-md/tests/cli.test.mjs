@@ -13,7 +13,7 @@ function tree(files) {
   for (const [p, t] of Object.entries(files)) { mkdirSync(dirname(join(root, p)), { recursive: true }); writeFileSync(join(root, p), t); }
   return root;
 }
-const SELF = "---\nkind: self\nstandard: https://hypercontext.wiki/standards/self\nid: ann-lee\nname: Ann Lee\nsummary: Ann, on one screen.\nread_when: every session\nas_of: 2026-10-08\nkeep: home\n---\n\n# Ann Lee\n";
+const SELF = "---\nkind: self\nstandard: https://hypercontext.wiki/standards/self/v1\nid: ann-lee\nname: Ann Lee\nsummary: Ann, on one screen.\nread_when: every session\nas_of: 2026-10-08\nkeep: home\n---\n\n# Ann Lee\n";
 
 test("--help prints usage and exits 0; no command or an unknown one exits 2", () => {
   const h = run(["--help"]);
@@ -145,12 +145,12 @@ test("a generated block is refreshed when a reader's use changes", async () => {
 });
 
 test("stamp-standard: dry run by default, --write stamps byte-preservingly, rerun is a no-op", () => {
-  const raw = SELF.replace("standard: https://hypercontext.wiki/standards/self\n", "");
+  const raw = SELF.replace("standard: https://hypercontext.wiki/standards/self/v1\n", "");
   const w = tree({ "self/self.md": raw });
   const p = join(w, "self", "self.md");
   const dry = run(["stamp-standard", "--workspace", w, "--json"]);
   assert.equal(dry.status, 1);
-  assert.deepEqual(JSON.parse(dry.stdout), { file: "self/self.md", standard: "https://hypercontext.wiki/standards/self", status: "would-stamp", write: false });
+  assert.deepEqual(JSON.parse(dry.stdout), { file: "self/self.md", standard: "https://hypercontext.wiki/standards/self/v1", status: "would-stamp", write: false });
   assert.equal(readFileSync(p, "utf8"), raw);
   const wr = run(["stamp-standard", "--workspace", w, "--write"]);
   assert.equal(wr.status, 0);
@@ -159,6 +159,16 @@ test("stamp-standard: dry run by default, --write stamps byte-preservingly, reru
   const again = run(["stamp-standard", "--workspace", w, "--write", "--json"]);
   assert.equal(again.status, 0);
   assert.equal(JSON.parse(again.stdout).status, "already");
+  assert.equal(run(["lint", "--workspace", w]).status, 0);
+});
+test("stamp-standard upgrades a bare-URL self.md to v1 and lint goes from refused to clean", () => {
+  const old = SELF.replace("standards/self/v1\n", "standards/self\n");
+  const w = tree({ "self/self.md": old });
+  const lint = run(["lint", "--workspace", w, "--json"]);
+  assert.equal(lint.status, 1);
+  assert.deepEqual(JSON.parse(lint.stdout).findings.map((f) => f.rule), ["self-doc:missing"]);
+  assert.equal(run(["stamp-standard", "--workspace", w, "--write"]).status, 0);
+  assert.equal(readFileSync(join(w, "self", "self.md"), "utf8"), SELF);
   assert.equal(run(["lint", "--workspace", w]).status, 0);
 });
 test("stamp-standard refuses a self.md with no header and a workspace with no self.md", () => {

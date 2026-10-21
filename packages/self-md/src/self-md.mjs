@@ -6,6 +6,7 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { readHeader } from "./header.mjs";
 
 /** The default facets: each is a folder under self/ and the question it answers. */
@@ -35,18 +36,60 @@ export const PERSON_COLLECTIONS = {
 export const REQUIRED_KEYS = ["kind", "id", "name", "summary", "read_when", "as_of", "keep"];
 /** Keys self.md's header must not carry. */
 export const REFUSED_KEYS = ["title", "last_verified"];
+/** The unversioned URL of the self standard: always the latest version, listing every version. */
+export const STANDARD_LATEST = "https://hypercontext.wiki/standards/self";
+/** The versions of the self standard this package implements. */
+export const IMPLEMENTED_VERSIONS = [1];
 /**
- * The URL of the rules self.md follows. self.md's header names it in `standard:`, directly after
- * `kind:`, so an agent that has never seen this package can open the file and find its rules.
+ * The URL of the rules self.md follows, pinned to the version this package writes. self.md's header
+ * names it in `standard:`, directly after `kind:`, so an agent that has never seen this package can
+ * open the file and find its rules. A published version's meaning never changes.
  */
-export const STANDARD = "https://hypercontext.wiki/standards/self";
-/** The command that backfills `standard:`, named in every self-doc:missing finding. */
+export const STANDARD = `${STANDARD_LATEST}/v1`;
+/** The command that backfills or upgrades `standard:`, named in every self-doc:missing finding. */
 export const STAMP_COMMAND = "self-md stamp-standard --workspace DIR --write";
+
+/**
+ * Every rule lintSelf can report, with its level, what it means and how to fix it. Lint takes each
+ * finding's severity from here, and the shipped manifest's `codes` must equal this table (a test
+ * proves it), so the published standard and the checker cannot drift.
+ */
+export const RULES = {
+  "self-missing": { level: "error", means: "the workspace has no self/self.md, the one screen read first every session", fix: "create self/self.md with a header carrying every required key" },
+  "self-header": { level: "error", means: "self.md's header is missing a required key or leaves one empty, has kind other than self, or carries a refused key (title, last_verified)", fix: "add the missing key, set kind: self, and move a title: into name:" },
+  "self-length": { level: "error", means: "self.md's body is longer than one screen (60 non-empty lines)", fix: "move detail into the facet folders under self/ and keep self.md to one screen" },
+  "self-undeclared": { level: "error", means: "a folder or file at the root of self/ is neither a default facet or root file nor declared in self/README.md, or is unreadable", fix: "declare it in self/README.md under ## Facets or ## Root files, or move or remove it" },
+  "self-outside": { level: "error", means: "a collection about the person was left in documents/collections/ instead of under its facet in self/", fix: "move the collection to self/<facet>/<name>/" },
+  "self-doc:missing": { level: "error", means: "self.md names no standard, the bare unversioned URL written before versions existed, or another kind's standard", fix: "npx -y @supersuit/self-md@^0.2.0 stamp-standard --workspace . --write" },
+  "self-doc:version": { level: "error", means: "self.md names a version of the self standard this validator does not implement", fix: "install a @supersuit/self-md that implements that version, or name https://hypercontext.wiki/standards/self/v1" },
+};
+
+/** The machine-readable manifest of this version of the standard, as shipped in standards/self/v1.json. */
+export const MANIFEST = JSON.parse(readFileSync(fileURLToPath(new URL("../standards/self/v1.json", import.meta.url)), "utf8"));
+
+/**
+ * What a `standard:` value says about the record: `ok`, `none`, `bare` (the unversioned URL,
+ * written before versions), `version` (a self version not implemented, with `v`), or `other`
+ * (another kind's standard or any other URL).
+ * @param {unknown} value The header's `standard` value.
+ * @returns {{state: "ok"|"none"|"bare"|"version"|"other", v?: number}}
+ */
+export function classifyStandard(value) {
+  const s = value === undefined || value === null ? "" : String(value).trim();
+  if (s === "") return { state: "none" };
+  if (s.replace(/\/$/, "") === STANDARD_LATEST) return { state: "bare" };
+  const m = s.match(/^https:\/\/hypercontext\.wiki\/standards\/self\/v(\d+)\/?$/);
+  if (!m) return { state: "other" };
+  const v = Number(m[1]);
+  return IMPLEMENTED_VERSIONS.includes(v) && s === `${STANDARD_LATEST}/v${v}` ? { state: "ok", v } : { state: "version", v };
+}
 
 /**
  * Return `text` with `standard: <STANDARD>` in its header, every other byte unchanged.
  * Inserted directly after the first `kind:` line (first in the header when there is none); a
- * `standard:` line naming another URL is corrected in place. Idempotent. The file's line ending
+ * `standard:` line naming the bare unversioned URL is upgraded in place to STANDARD, and one naming
+ * any other URL is corrected in place. Idempotent. Refuses (throws) to rewrite a self version this
+ * package does not implement, since that would downgrade a newer record. The file's line ending
  * (LF or CRLF) is kept. Throws when the text has no closed `---` header.
  * @param {string} text The whole file.
  * @returns {string}
@@ -64,7 +107,9 @@ export function stampStandard(text) {
   const line = `standard: ${STANDARD}`;
   const has = head.match(/^standard:[^\r\n]*/m);
   if (has) {
-    if (has[0].replace(/\s+#.*$/, "").trim() === line || readHeader(src).standard === STANDARD) return src;
+    const c = classifyStandard(readHeader(src).standard);
+    if (c.state === "ok" && c.v === 1) return src;
+    if (c.state === "version") throw new Error(`standard names self v${c.v}, which this self-md does not implement (it implements v${IMPLEMENTED_VERSIONS.join(", v")}); refusing to rewrite it`);
     const at = start + has.index;
     return src.slice(0, at) + line + src.slice(at + has[0].length);
   }
@@ -108,7 +153,8 @@ export function declaredExtras(root) {
  * `self`, a refused key present), self-length (body over one screen), self-undeclared (a folder or
  * file at the root of self/ that is neither a default nor declared in self/README.md),
  * self-outside (a person collection left in documents/collections/), self-doc:missing (the header
- * has no `standard:` or names a URL other than STANDARD).
+ * names no standard, the bare unversioned URL, or another kind's), self-doc:version (a self version
+ * this package does not implement). Every rule and its level is in RULES.
  *
  * @param {string} root The workspace folder.
  * @param {object} [options] Every option defaults to the standard.
@@ -124,7 +170,7 @@ export function lintSelf(root, {
   collectionsDir = "documents/collections", screenLines = SCREEN_LINES,
 } = {}) {
   const f = [];
-  const add = (rule, path, message, severity = "error") => f.push({ rule, path, message, severity });
+  const add = (rule, path, message) => f.push({ rule, path, message, severity: RULES[rule].level });
   const selfMd = join(root, "self", "self.md");
   if (!existsSync(selfMd)) { add("self-missing", "self/self.md", "no self/self.md: the one screen read first every session"); return f; }
   const text = readFileSync(selfMd, "utf8");
@@ -132,10 +178,15 @@ export function lintSelf(root, {
   for (const k of REQUIRED_KEYS) if (head[k] === undefined || String(head[k]).trim() === "") add("self-header", "self/self.md", `missing or empty ${k}`);
   if (head.kind !== undefined && head.kind !== "self") add("self-header", "self/self.md", `kind is ${head.kind}, not self`);
   for (const k of REFUSED_KEYS) if (head[k] !== undefined) add("self-header", "self/self.md", `${k}: is not part of self.md (the name is name:)`);
-  if (head.standard === undefined || String(head.standard).trim() === "")
+  const std = classifyStandard(head.standard);
+  if (std.state === "none")
     add("self-doc:missing", "self/self.md", `no standard: in the header, so the file does not name the rules it follows (${STANDARD}); run ${STAMP_COMMAND}`);
-  else if (head.standard !== STANDARD)
+  else if (std.state === "bare")
+    add("self-doc:missing", "self/self.md", `standard is the bare ${STANDARD_LATEST}, which predates versions; run ${STAMP_COMMAND} to upgrade it to ${STANDARD}`);
+  else if (std.state === "other")
     add("self-doc:missing", "self/self.md", `standard is ${head.standard}, not ${STANDARD}; run ${STAMP_COMMAND}`);
+  else if (std.state === "version")
+    add("self-doc:version", "self/self.md", `standard is ${head.standard}, a version of the self standard this self-md does not implement (it implements v${IMPLEMENTED_VERSIONS.join(", v")}); install a self-md that does, or name ${STANDARD}`);
   const body = text.replace(/^---\n[\s\S]*?\n---\n?/, "");
   const lines = body.split("\n").filter((l) => l.trim()).length;
   if (lines > screenLines) add("self-length", "self/self.md", `${lines} lines; self.md fits on one screen (${screenLines})`);

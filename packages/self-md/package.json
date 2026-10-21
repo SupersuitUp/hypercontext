@@ -8,11 +8,13 @@
   },
   "exports": {
     ".": "./src/index.mjs",
+    "./standards/self/v1.json": "./standards/self/v1.json",
     "./package.json": "./package.json"
   },
   "files": [
     "bin/",
     "src/",
+    "standards/",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
