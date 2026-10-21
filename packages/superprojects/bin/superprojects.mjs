@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {readFileSync,writeFileSync,existsSync} from 'node:fs';
 import {join,resolve,dirname,basename,relative} from 'node:path';
-import {createProjectEngine,readContext,validateContext,contextGraph,verifyContext,exportContext,assertCanClose,assertSafeConfig,validDate,parsePlan,lintPlan,planStatus,schedulePlan,proposeBlocks,NAMES,recordFileOf,mapFileOf,planMigration,applyMigration,stampStandard,standardForFile,recordSession,sessionsOf,touchedSuperprojects,SESSIONS_FILE} from '../src/index.mjs';
+import {createProjectEngine,readContext,validateContext,contextGraph,verifyContext,exportContext,assertCanClose,assertSafeConfig,validDate,parsePlan,lintPlan,planStatus,schedulePlan,proposeBlocks,NAMES,recordFileOf,mapFileOf,planMigration,applyMigration,stampStandard,standardForFile,standardKindForFile,judgeStandard,readStandard,SELF_DOC_VERSION_CHECK,levelOf,recordSession,sessionsOf,touchedSuperprojects,SESSIONS_FILE} from '../src/index.mjs';
 
 const HELP=`superprojects <command> [options]
 
@@ -30,8 +30,9 @@ migrate      Convert a tree to the new names (--root <dir>). A dry run unless --
              nothing changed) when a destination already exists. Never commits.
              --stamp-standard: instead of renaming, set standard: on every SUPERPROJECT.md,
              PROJECT.md, STATE.md, ATOMIC-ACTION-MAP.md and PLAN.md under the root, nested
-             and done/ included, to the standard that file follows. Byte-preserving and
-             idempotent; a file with no header is skipped and listed. A dry run unless --apply.
+             and done/ included, to the v1 standard that file follows, upgrading a bare
+             unversioned URL in place. Byte-preserving and idempotent; a file with no header,
+             or naming a newer version, is skipped and listed. A dry run unless --apply.
 session      Record that a session checkpointed a superproject (--project <dir> --id <session id>
              [--landed <what landed>] [--harness <name>]). Appends one line to its
              sessions.jsonl; a repeat with nothing new writes nothing.
@@ -104,7 +105,9 @@ function main(args){
     requireKeys(a,['date','by','source','origin']);const file=onlyFile(a);
     const url=standardForFile(file);
     const verified=verifyContext(readFileSync(file,'utf8'),{date:a.date,by:a.by,source:a.source,origin:a.origin,rev:a.rev,snapshot:a.snapshot});
-    const text=url?stampStandard(verified,url):verified;
+    // A record written to a newer version of its standard is never stamped back to this one.
+    const newer=url&&judgeStandard(standardKindForFile(file),readStandard(verified).value).check===SELF_DOC_VERSION_CHECK;
+    const text=url&&!newer?stampStandard(verified,url):verified;
     const findings=validateContext(text,{file}).filter(f=>f.level==='error');
     if(findings.length)throw new Error(findings.map(f=>f.message).join('; '));
     if(a.write)writeFileSync(file,text);
@@ -196,8 +199,8 @@ function main(args){
   const findings=engine.lintRoot(P.projects),records=[];
   for(const dir of engine.projectDirs(P.projects)){
     const project=engine.recordFileOf(dir)??join(dir,NAMES.record),state=join(dir,NAMES.state);
-    for(const file of [project,state]){try{const text=readFileSync(file,'utf8');records.push({path:file,text});findings.push(...validateContext(text,{file}).map(f=>({...f,file})));}catch(error){findings.push({level:'error',code:'unreadable-record',message:error.message,file});}}
-    try{findings.push(...engine.resumability(readFileSync(state,'utf8'),{projectText:readFileSync(project,'utf8'),today:a.date}).map(message=>({level:'error',code:'state-integrity',message,file:state})));}catch{/* unreadable file already reported */}
+    for(const file of [project,state]){try{const text=readFileSync(file,'utf8');records.push({path:file,text});findings.push(...validateContext(text,{file}).map(f=>({...f,file})));}catch(error){findings.push({level:levelOf('unreadable-record','error'),code:'unreadable-record',message:error.message,file});}}
+    try{findings.push(...engine.resumability(readFileSync(state,'utf8'),{projectText:readFileSync(project,'utf8'),today:a.date}).map(message=>({level:levelOf('state-integrity','error'),code:'state-integrity',message,file:state})));}catch{/* unreadable file already reported */}
   }
   findings.push(...contextGraph(records).findings);
   emit({findings},a.json);return findings.some(f=>f.level!=='ok')?1:0;

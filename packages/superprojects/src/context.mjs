@@ -3,6 +3,7 @@
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { split, join } from './frontmatter/index.mjs';
+import { levelOf } from './codes.mjs';
 
 export const KEEP = Object.freeze(['keep', 'home', 'share']);
 const REQUIRED = ['id', 'summary', 'read_when', 'as_of', 'keep', 'audience'];
@@ -10,7 +11,7 @@ const TYPES = ['decision', 'reversal', 'constraint', 'claim'];
 const ORIGINS = ['human', 'agent', 'capture'];
 const nonempty = v => typeof v === 'string' && Boolean(v.trim());
 const remote = s => /^https?:\/\//i.test(s);
-const finding = (level, code, message, extra = {}) => ({ level, code, message, ...extra });
+const finding = (level, code, message, extra = {}) => ({ level: levelOf(code, level), code, message, ...extra });
 export function validDate(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00Z`);

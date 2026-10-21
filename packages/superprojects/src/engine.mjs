@@ -32,11 +32,15 @@ import { parsePlan, lintPlan, renderActionMapMd } from "./plan.mjs";
 import {
   STANDARDS,
   SELF_DOC_CHECK,
+  SELF_DOC_VERSION_CHECK,
   standardForFile,
+  standardKindForFile,
+  judgeStandard,
   readStandard,
   stampStandard,
   withStandard,
 } from "./standard.mjs";
+import { levelOf } from "./codes.mjs";
 import {
   namesOf,
   recordFileOf as recordFileIn,
@@ -512,7 +516,7 @@ export function createProjectEngine(options = {}) {
     const slug = dir.split("/").filter(Boolean).pop();
     const out = [];
     const add = (level, check, line, fix = null) =>
-      out.push({ level, check, slug, line, fix });
+      out.push({ level: levelOf(check, level), check, slug, line, fix });
     // Both names at once means two records that can disagree; the new one is read, and the
     // other is a merge a person has to do, because no rule can say which lines still hold.
     for (const [check, current, legacy, what] of [
@@ -536,15 +540,29 @@ export function createProjectEngine(options = {}) {
       if (!existsSync(f)) continue;
       const url = standardForFile(f, N);
       const said = readStandard(f === file && text !== null ? src : readFileSync(f, "utf8"));
-      if (said.value === url) continue;
+      const judged = judgeStandard(standardKindForFile(f, N), said.value);
+      if (judged.ok) continue;
+      if (judged.check === SELF_DOC_VERSION_CHECK) {
+        add(
+          ERROR,
+          SELF_DOC_VERSION_CHECK,
+          `${slug}/${name} says standard: ${said.value}, version ${judged.version} of its standard; this version of @supersuit/superprojects implements only ${url}.`,
+          `Upgrade @supersuit/superprojects to a version that implements v${judged.version} of the standard. Do not stamp the file back to ${url}: it was written to the newer rules.`,
+        );
+        continue;
+      }
       add(
         ERROR,
         SELF_DOC_CHECK,
-        said.value
-          ? `${slug}/${name} says standard: ${said.value}; a ${name} follows ${url}.`
-          : `${slug}/${name} names no standard; it follows ${url}, and a reader who has never seen Supersuit cannot find its rules without it.`,
+        judged.why === "unversioned"
+          ? `${slug}/${name} says standard: ${said.value}, the unversioned URL; it predates versions, and a ${name} follows ${url}.`
+          : said.value
+            ? `${slug}/${name} says standard: ${said.value}; a ${name} follows ${url}.`
+            : `${slug}/${name} names no standard; it follows ${url}, and a reader who has never seen Supersuit cannot find its rules without it.`,
         said.header
-          ? `Run ${stampCmd}, which sets standard: ${url} and changes nothing else.`
+          ? judged.why === "unversioned"
+            ? `Run ${stampCmd}, which upgrades it to ${url} in place and changes nothing else.`
+            : `Run ${stampCmd}, which sets standard: ${url} and changes nothing else.`
           : `${join(dir, name)} has no header block; give it one with any write through the package, or run ${stampCmd} once it has one.`,
       );
     }
@@ -1181,7 +1199,12 @@ export function createProjectEngine(options = {}) {
           skipped.push({ file, why: "no header block" });
           continue;
         }
-        if (said.value === url) continue;
+        const judged = judgeStandard(standardKindForFile(file, N), said.value);
+        if (judged.ok) continue;
+        if (judged.check === SELF_DOC_VERSION_CHECK) {
+          skipped.push({ file, why: `names v${judged.version} of its standard, which this version of the package does not implement; never stamped back` });
+          continue;
+        }
         stamps.push({ file, from: said.value, to: url });
         if (doWrite) writeFileSync(file, stampStandard(before, url));
       }

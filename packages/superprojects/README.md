@@ -192,24 +192,35 @@ A repeat checkpoint by the same session with nothing new writes nothing. `record
 
 ## Self-documenting
 
-**Every record file names the standard it follows**, so an agent that has never seen Supersuit can open the file and find its rules. The header's `standard:` key holds one URL per file:
+**Every record file names the version of the standard it follows**, so an agent that has never seen Supersuit can open the file and find its rules. The header's `standard:` key holds one URL per file:
 
-| File | `standard:` |
-|---|---|
-| SUPERPROJECT.md (or legacy PROJECT.md) | `https://hypercontext.wiki/standards/superproject` |
-| STATE.md | `https://hypercontext.wiki/standards/state` |
-| ATOMIC-ACTION-MAP.md (or legacy PLAN.md) | `https://hypercontext.wiki/standards/atomic-action-map` |
+| File | `standard:` | Manifest in the package |
+|---|---|---|
+| SUPERPROJECT.md (or legacy PROJECT.md) | `https://hypercontext.wiki/standards/superproject/v1` | `standards/superproject/v1.json` |
+| STATE.md | `https://hypercontext.wiki/standards/state/v1` | `standards/state/v1.json` |
+| ATOMIC-ACTION-MAP.md (or legacy PLAN.md) | `https://hypercontext.wiki/standards/atomic-action-map/v1` | `standards/atomic-action-map/v1.json` |
 
-`scaffold` writes it as the first header key, and every write through the package's frontmatter writer puts the right one first. `lint` refuses a file that has no `standard:` or names another file's URL, as `self-doc:missing` at level error, one finding per file. The exported `STANDARDS` object holds the three URLs.
+A version's meaning never changes once published; the unversioned `https://hypercontext.wiki/standards/<kind>` is the page that always shows the latest. `scaffold` writes the v1 URL as the first header key, and every write through the package's frontmatter writer puts it first. `lint` reports, at level error, one finding per file:
 
-To stamp a tree that predates this:
+- `self-doc:missing` for a file with no `standard:`, the bare unversioned URL of its kind (written before versions; the stamp below upgrades it), or another kind's standard;
+- `self-doc:version` for a version of its own standard this package does not implement (anything but v1). The fix is a newer package; the stamp never writes a newer record back to v1.
+
+The exported `STANDARDS` object holds the three v1 URLs, `LATEST_STANDARDS` the bare ones, and `judgeStandard(kind, value)` is the rule lint applies.
+
+### Manifests
+
+Each version ships beside the code as `standards/<kind>/v1.json` (exported as `MANIFESTS`, keyed like `STANDARDS`; also importable as `@supersuit/superprojects/standards/<kind>/v1.json`). A manifest says, as data, what a reader needs to validate a record without installing anything: the record path, the required header keys and the constraints on each (taken from the frontmatter schemas, and for the map from the keys the map parser reads), the validator and the exact commands, and every code lint can report about that file with its level, meaning and fix. The check for all three is `npx -y @supersuit/superprojects@^0.7.0 lint --root superprojects --json`: it runs the map lint inside every superproject and checks each map's standard line, which `map lint` alone does not.
+
+The codes come from one table, `src/codes.mjs` (export `CODES`). Every lint emitter goes through `levelOf(code, level)`, which throws for a code not in the table or a level the code does not allow, and `npm run manifests` rebuilds the three files from the table and the schemas. A test fails if the shipped files differ from what the code builds, so the manifests and the lint cannot drift.
+
+To stamp a tree that predates this, or upgrade one stamped with the unversioned URLs:
 
 ```sh
 npx superprojects migrate --root superprojects --stamp-standard            # dry run: lists every file it would stamp
 npx superprojects migrate --root superprojects --stamp-standard --apply    # does it
 ```
 
-It reaches every superproject the package walks, nested children and `done/` included, and renames nothing. It is byte-preserving: it inserts one `standard:` line after the opening `---` (or corrects a wrong value where it stands), keeps the file's own line endings, CRLF included, and changes no other byte. Running it again finds nothing. A file with no header block is skipped and listed; lint still names it. `--json` prints `{root, stamps:[{file,from,to}], skipped:[{file,why}], applied}`. As library calls: `stampStandard(text, url)` (pure), `readStandard(text)`, and `engine.stampRoot(root, { write })`.
+It reaches every superproject the package walks, nested children and `done/` included, and renames nothing. It is byte-preserving: it inserts one `standard:` line after the opening `---`, or replaces a bare or wrong value where it stands and inside its own quotes, so upgrading `https://hypercontext.wiki/standards/state` changes only the URL's bytes; it keeps the file's own line endings, CRLF included, and changes no other byte. Running it again finds nothing. A file with no header block, or one naming a newer version of its standard, is skipped and listed; lint still names it. `--json` prints `{root, stamps:[{file,from,to}], skipped:[{file,why}], applied}`. As library calls: `stampStandard(text, url)` (pure), `readStandard(text)`, and `engine.stampRoot(root, { write })`.
 
 ## Moving a tree to the new names
 

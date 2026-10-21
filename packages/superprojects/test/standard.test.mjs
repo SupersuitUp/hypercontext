@@ -11,6 +11,7 @@ import {
   stampStandard,
   readStandard,
   defaultFrontmatter,
+  renderActionMapMd,
 } from "../src/index.mjs";
 
 const bin = fileURLToPath(new URL("../bin/superprojects.mjs", import.meta.url));
@@ -36,11 +37,94 @@ const selfDoc = (findings) => findings.filter((f) => f.check === "self-doc:missi
 
 test("STANDARDS names the three record standards and is frozen", () => {
   assert.deepEqual(STANDARDS, {
-    superproject: "https://hypercontext.wiki/standards/superproject",
-    state: "https://hypercontext.wiki/standards/state",
-    atomicActionMap: "https://hypercontext.wiki/standards/atomic-action-map",
+    superproject: "https://hypercontext.wiki/standards/superproject/v1",
+    state: "https://hypercontext.wiki/standards/state/v1",
+    atomicActionMap: "https://hypercontext.wiki/standards/atomic-action-map/v1",
   });
   assert.ok(Object.isFrozen(STANDARDS));
+});
+
+const BARE = {
+  superproject: "https://hypercontext.wiki/standards/superproject",
+  state: "https://hypercontext.wiki/standards/state",
+  atomicActionMap: "https://hypercontext.wiki/standards/atomic-action-map",
+};
+const selfDocAll = (findings) => findings.filter((f) => f.check.startsWith("self-doc:"));
+
+test("lint refuses the bare unversioned URL as self-doc:missing and says the stamp upgrades it", (t) => {
+  const E = createProjectEngine(), { root } = workspace(t);
+  const { dir } = E.scaffoldProject({ root, slug: "demo", today: DAY, ...spec });
+  const state = join(dir, "STATE.md");
+  writeFileSync(state, readFileSync(state, "utf8").replace(STANDARDS.state, BARE.state));
+  const found = selfDocAll(E.lintProject({ dir }));
+  assert.equal(found.length, 1);
+  assert.equal(found[0].check, "self-doc:missing");
+  assert.equal(found[0].level, "error");
+  assert.match(found[0].line, /predates versions/);
+  assert.match(found[0].fix, /migrate --root .* --stamp-standard --apply/);
+  assert.ok(found[0].fix.includes(STANDARDS.state));
+});
+
+test("lint refuses an unimplemented version as self-doc:version, and another kind's v1 as self-doc:missing", (t) => {
+  const E = createProjectEngine(), { root } = workspace(t);
+  const { dir } = E.scaffoldProject({ root, slug: "demo", today: DAY, ...spec });
+  const state = join(dir, "STATE.md"), map = join(dir, "ATOMIC-ACTION-MAP.md"), rec = join(dir, "SUPERPROJECT.md");
+  writeFileSync(state, readFileSync(state, "utf8").replace(STANDARDS.state, `${BARE.state}/v2`));
+  writeFileSync(map, readFileSync(map, "utf8").replace(STANDARDS.atomicActionMap, STANDARDS.state));
+  const found = selfDocAll(E.lintProject({ dir }));
+  assert.deepEqual(found.map((f) => [f.check, f.line.split(" ")[0].split("/")[1]]).sort(), [
+    ["self-doc:missing", "ATOMIC-ACTION-MAP.md"],
+    ["self-doc:version", "STATE.md"],
+  ]);
+  const v = found.find((f) => f.check === "self-doc:version");
+  assert.equal(v.level, "error");
+  assert.match(v.line, /v2/);
+  assert.doesNotMatch(v.fix, /stamp-standard/, "a newer record is never stamped back");
+  // v1 of its own kind passes; v0 and v3 do not.
+  for (const bad of [`${BARE.superproject}/v3`, `${BARE.superproject}/v0`]) {
+    writeFileSync(rec, readFileSync(rec, "utf8").replace(/^standard: .*$/m, `standard: ${bad}`));
+    assert.ok(selfDocAll(E.lintProject({ dir })).some((f) => f.line.includes("SUPERPROJECT.md")), bad);
+  }
+});
+
+test("migrate --stamp-standard upgrades bare URLs to v1 byte for byte, keeps quotes, and leaves a newer version alone", (t) => {
+  const E = createProjectEngine(), { root } = workspace(t);
+  const parent = E.scaffoldProject({ root, slug: "parent", today: DAY, ...spec });
+  const child = E.scaffoldProject({ root, slug: "child", today: DAY, ...spec, parent: parent.folder });
+  const closed = join(root, "done", "2026-01-01-closed");
+  mkdirSync(closed, { recursive: true });
+  const legacy = `---\r\nstandard: "${BARE.superproject}"\r\nkind: ongoing\r\nstatus: done\r\n---\r\n# Closed\r\n`;
+  writeFileSync(join(closed, "PROJECT.md"), legacy);
+  const future = `---\nstandard: ${BARE.state}/v2\n---\n# State\n`;
+  writeFileSync(join(closed, "STATE.md"), future);
+  const childMap = join(child.dir, "ATOMIC-ACTION-MAP.md");
+  writeFileSync(childMap, readFileSync(childMap, "utf8").replace(STANDARDS.atomicActionMap, BARE.atomicActionMap));
+  const mapBefore = readFileSync(childMap, "utf8");
+
+  const r = JSON.parse(cli("migrate", "--root", root, "--stamp-standard", "--apply", "--json").stdout);
+  assert.deepEqual(r.stamps.map((s) => [s.file, s.from, s.to]).sort(), [
+    [childMap, BARE.atomicActionMap, STANDARDS.atomicActionMap],
+    [join(closed, "PROJECT.md"), BARE.superproject, STANDARDS.superproject],
+  ].sort());
+  assert.deepEqual(r.skipped.map((s) => s.file), [join(closed, "STATE.md")]);
+  assert.match(r.skipped[0].why, /v2/);
+  assert.equal(readFileSync(childMap, "utf8"), mapBefore.replace(BARE.atomicActionMap, STANDARDS.atomicActionMap));
+  assert.equal(readFileSync(join(closed, "PROJECT.md"), "utf8"), legacy.replace(BARE.superproject, STANDARDS.superproject));
+  assert.equal(readFileSync(join(closed, "STATE.md"), "utf8"), future, "never stamped back");
+  const again = JSON.parse(cli("migrate", "--root", root, "--stamp-standard", "--apply", "--json").stdout);
+  assert.deepEqual(again.stamps, [], "idempotent");
+});
+
+test("stampStandard upgrades a quoted bare URL inside its quotes", () => {
+  const single = `---\nstandard: '${BARE.state}'  \nphase: p\n---\n`;
+  assert.equal(stampStandard(single, STANDARDS.state), single.replace(BARE.state, STANDARDS.state));
+  const dbl = `---\r\nstandard: "${BARE.state}"\r\n---\r\n`;
+  assert.equal(stampStandard(dbl, STANDARDS.state), dbl.replace(BARE.state, STANDARDS.state));
+});
+
+test("the atomic action map skeleton is born with its v1 standard", () => {
+  const text = renderActionMapMd({ today: DAY, nextAction: "a", deliverable: "b", owner: "alex-example" });
+  assert.equal(readStandard(text).value, STANDARDS.atomicActionMap);
 });
 
 test("scaffold stamps all three files with standard: as the first header key", (t) => {

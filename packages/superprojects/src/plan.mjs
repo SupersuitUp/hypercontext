@@ -7,11 +7,14 @@
 import { parseFlat } from './frontmatter/yaml.mjs';
 import { validDate } from './context.mjs';
 import { STANDARDS } from './standard.mjs';
+import { levelOf } from './codes.mjs';
 
 const UNIT = { m: 1, h: 60, d: 1440, w: 10080 };
 const DAY_MS = 86400000;
 export const STEP_KINDS = Object.freeze(['work', 'wait', 'gate', 'milestone']);
 export const MAX_HUMAN_EFFORT_MINUTES = 240;
+// Every header key this module reads from (or writes into) an atomic action map, in that order.
+export const MAP_HEADER_KEYS = Object.freeze(['standard', 'plan_version', 'baseline', 'baseline_finish', 'buffer_days', 'capacity']);
 const ID_RE = /^[a-z][a-z0-9]*$/;
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 const DATE_RE = /\d{4}-\d{2}-\d{2}/;
@@ -196,8 +199,8 @@ export function findCycle(steps) {
 
 export function lintPlan(plan, { team = null, kind = 'finite', maxHumanEffort = MAX_HUMAN_EFFORT_MINUTES } = {}) {
   const out = [];
-  const add = (level, code, message, step = null) => out.push({ level, code, message, step: step?.id ?? null, line: step?.line ?? null });
-  for (const p of plan.problems) out.push({ level: 'error', code: 'plan:parse', message: p.message, step: null, line: p.line });
+  const add = (level, code, message, step = null) => out.push({ level: levelOf(code, level), code, message, step: step?.id ?? null, line: step?.line ?? null });
+  for (const p of plan.problems) out.push({ level: levelOf('plan:parse', 'error'), code: 'plan:parse', message: p.message, step: null, line: p.line });
   const ids = new Map();
   for (const s of plan.steps) {
     if (ids.has(s.id)) add('error', 'plan:step:duplicate-id', `${s.id} is used by two steps`, s);

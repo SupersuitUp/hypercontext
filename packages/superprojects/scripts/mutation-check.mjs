@@ -48,11 +48,23 @@ const cases=[
   ['Today opening a sentence is a date','engine.mjs','engine.test.mjs','if (!SENTENCE_OPEN.test(line)) continue;','continue;'],
   ['lowercase today is always a date','engine.mjs','engine.test.mjs','if (word === "Today") {','if (/^today$/i.test(word)) {'],
   ['migrate leaves code alone','migrate.mjs','migrate.test.mjs','const masked = line.replace(/(`+)[^`]*?\\1/g, (m) => " ".repeat(m.length));','const masked = line;'],
-  ['lint refuses a record with no standard','engine.mjs','standard.test.mjs','if (said.value === url) continue;','continue;'],
+  ['lint refuses a record with no standard','engine.mjs','standard.test.mjs','      if (judged.ok) continue;\n      if (judged.check === SELF_DOC_VERSION_CHECK) {\n        add(','      continue;\n      if (judged.check === SELF_DOC_VERSION_CHECK) {\n        add('],
+  ['lint refuses the unversioned URL','standard.mjs','standard.test.mjs','if (!m[2]) return { ok: false, check: SELF_DOC_CHECK, why: "unversioned" };','if (!m[2]) return { ok: true };'],
+  ['lint refuses an unimplemented version','standard.mjs','standard.test.mjs','if (!IMPLEMENTED_VERSIONS.includes(version)) return','if (false) return'],
+  ['stamp leaves a newer version alone','engine.mjs','standard.test.mjs','        if (judged.check === SELF_DOC_VERSION_CHECK) {\n          skipped.push(','        if (false) {\n          skipped.push('],
+  ['stamp upgrades inside the quotes','standard.mjs','standard.test.mjs','key + quote + url + quote + trail','key + url + trail'],
+  ['writers stamp v1','standard.mjs','standard.test.mjs','`${BASE}${slug}/v${CURRENT}`','`${BASE}${slug}`'],
+  ['lint codes must be in the table','codes.mjs','manifests.test.mjs','if (!entry) throw new Error(','if (false) throw new Error('],
+  ['lint levels must be allowed','codes.mjs','manifests.test.mjs','if (!entry.levels.includes(level))','if (false)'],
+  ['manifest codes come from the table','manifests.mjs','manifests.test.mjs','.filter(([, e]) => e.about.includes(kind))','.filter(() => true)'],
+  ['manifest names its version','manifests.mjs','manifests.test.mjs','    standard: STANDARDS[kind],','    standard: LATEST_STANDARDS[kind],'],
   ['scaffold stamps the record standard','engine.mjs','standard.test.mjs','const data = { standard: STANDARDS.superproject, kind, status, goal, repo };','const data = { kind, status, goal, repo };'],
   ['a write stamps the standard','frontmatter/index.mjs','standard.test.mjs','if (standard?.length === 1) next = withStandard(next, standard[0]);','/* not stamped */'],
   ['stamp keeps the line ending','standard.mjs','standard.test.mjs','`standard: ${url}${h.eol}`','`standard: ${url}\\n`'],
-  ['stamp is idempotent','standard.mjs','standard.test.mjs','if (unquote(STANDARD_LINE.exec(line.content)[1]) === url) return src;','/* always rewrites */'],
+  // stampStandard rewriting an already-right line is byte-identical since values are replaced
+  // inside their own quotes, so idempotency is guarded where it can fail: the walk listing a
+  // file that already names its standard.
+  ['stamp is idempotent','engine.mjs','standard.test.mjs','        if (judged.ok) continue;\n        if (judged.check === SELF_DOC_VERSION_CHECK) {','        if (judged.check === SELF_DOC_VERSION_CHECK) {'],
   ['stamp reaches nested and done/','engine.mjs','standard.test.mjs','    for (const dir of projectDirs(root))\n      for (const name of [N.record','    for (const dir of projectDirs(root).filter((d) => !d.includes("/done/") && !d.includes("/superprojects/2")))\n      for (const name of [N.record'],
 ];
 let caught=0;
@@ -62,6 +74,8 @@ for(const [name,source,suite,before,after] of cases){
     cpSync(join(root,'src'),join(dir,'src'),{recursive:true});
     cpSync(join(root,'test'),join(dir,'test'),{recursive:true});
     cpSync(join(root,'bin'),join(dir,'bin'),{recursive:true});
+    cpSync(join(root,'standards'),join(dir,'standards'),{recursive:true});
+    cpSync(join(root,'package.json'),join(dir,'package.json'));
     const file=join(dir,'src',source),text=readFileSync(file,'utf8');
     if(!text.includes(before))throw new Error(`Mutation anchor missing: ${name}`);
     writeFileSync(file,text.replace(before,after));
