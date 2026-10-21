@@ -26,6 +26,7 @@ capacity: "alex 5h/week"
 - kind: work
 - effort: 3h (estimate, Alex, 2026-10-05)
 - after: s01
+- part: show-up
 - status: todo
 
 ### s03 Letters in transit
@@ -33,11 +34,13 @@ capacity: "alex 5h/week"
 - kind: wait
 - lead: 5d (estimate, Alex, 2026-10-05)
 - after: s02
+- part: none
 
 ### s04 Decide on wave two
 - actor: alex
 - kind: gate
 - after: s03
+- part: pick
 - target: 2026-10-20 (provisional)
 
 ### m1 Wave two decided
@@ -190,7 +193,7 @@ test('the four verdicts', () => {
   assert.equal(status({}, edit('- target: 2026-10-30 (provisional)\n', '')).verdict, 'no-deadline');
 });
 test('an open critical step past its date is behind, and names itself', () => {
-  const dated = edit('- after: s01\n- status: todo', '- after: s01\n- target: 2026-10-07 (provisional)\n- status: todo');
+  const dated = edit('- after: s01\n- part: show-up\n- status: todo', '- after: s01\n- part: show-up\n- target: 2026-10-07 (provisional)\n- status: todo');
   const r = planStatus(plan(dated), { today: '2026-10-21', team: ['alex'] });
   assert.equal(r.verdict, 'behind');
   assert.equal(r.driver, 's02');
@@ -266,4 +269,16 @@ test('booked steps are skipped, tight calendars report what did not fit, actor i
   const tight = proposeBlocks(plan(), { today: '2026-10-06', freeSlots: [{ start: '2026-10-06T14:00:00Z', end: '2026-10-06T15:00:00Z' }], actor: 'alex' });
   assert.deepEqual(tight.unplaced.map((u) => u.step), ['s02']);
   assert.throws(() => proposeBlocks(plan(), { today: '2026-10-06' }), /actor is required/);
+});
+
+// A STEP SAYS WHAT LAUNCHING IT ASKS OF THE OPERATOR (2026-10-21). Every open step is a session the
+// product can start now: \`part\` is none, pick (they choose first), approve (a draft that reaches a
+// person waits for their yes) or show-up (only they can do it; the session books the time).
+test('part is a step field with four values; an open step without one is warned, a done one is not', () => {
+  const p = plan();
+  assert.deepEqual(p.steps.map((s) => s.part), [null, 'show-up', 'none', 'pick', null]);
+  assert.ok(parsePlan(edit('- part: pick', '- part: maybe')).problems.some((x) => /part "maybe" is not none, pick, approve or show-up/.test(x.message)));
+  assert.ok(codes(edit('- part: show-up\n', '')).includes('plan:step:no-part'));
+  assert.ok(!codes(FIX).includes('plan:step:no-part'), 'the done step and the milestone need none');
+  assert.ok(codes(edit('- part: pick', '- part: none')).includes('plan:gate:part'), 'a gate always asks something of a person');
 });

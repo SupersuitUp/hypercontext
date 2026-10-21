@@ -130,6 +130,7 @@ Each step is a `### <id> <title>` heading under `## Steps` (the id is a lowercas
 - `fallback`: what happens if that answer is no or late.
 - `skill`: the skill that runs the step, or `by hand`.
 - `done-when`: how to tell it is finished.
+- `part`: what launching the step as a session asks of the operator: `none`, `pick` (they choose first), `approve` (a draft that reaches a person waits for their yes) or `show-up` (only they can do it, and the session books the time). Every open step is something the product can start now; lint warns `plan:step:no-part` on an open step without one, and `plan:gate:part` on a gate marked `none`.
 - `status`: `todo`, `doing`, `done <date>`, `skipped` or `blocked: <why>`.
 - `booked`: when its calendar block is, written back by the product after a yes.
 

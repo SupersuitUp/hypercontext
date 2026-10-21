@@ -376,6 +376,18 @@ const table = {
     means: "a step asks a person for more than four hours of effort",
     fix: "split it into atomic actions of at most four hours",
   },
+  "plan:step:no-part": {
+    levels: ["warn"],
+    about: [MAP],
+    means: "an open step does not say what launching it asks of the operator",
+    fix: "add part: none, pick, approve or show-up",
+  },
+  "plan:gate:part": {
+    levels: ["warn"],
+    about: [MAP],
+    means: "a gate says it asks nothing of anyone, and a gate always asks a person for something",
+    fix: "set part: pick or show-up",
+  },
   "plan:target:missing": {
     levels: ["warn"],
     about: [MAP],
