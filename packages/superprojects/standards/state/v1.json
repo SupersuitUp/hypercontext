@@ -1,0 +1,242 @@
+{
+  "manifest_version": 1,
+  "standard": "https://hypercontext.wiki/standards/state/v1",
+  "kind": "state",
+  "version": 1,
+  "title": "Where a superproject stands",
+  "status": "current",
+  "superseded_by": null,
+  "latest": "https://hypercontext.wiki/standards/state",
+  "record": {
+    "path": "superprojects/<slug>/STATE.md",
+    "format": "md"
+  },
+  "header": {
+    "required": [
+      "standard"
+    ],
+    "keys": {
+      "standard": {
+        "const": "https://hypercontext.wiki/standards/state/v1"
+      },
+      "context_version": {
+        "const": "1"
+      },
+      "id": {
+        "type": "string"
+      },
+      "summary": {
+        "type": "string"
+      },
+      "read_when": {
+        "type": "string"
+      },
+      "as_of": {
+        "type": "string",
+        "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+      },
+      "keep": {
+        "enum": [
+          "keep",
+          "home",
+          "share"
+        ]
+      },
+      "audience": {
+        "type": "string"
+      },
+      "evidence": {
+        "type": "string"
+      },
+      "relations": {
+        "type": "string"
+      },
+      "next_actor": {
+        "type": "string"
+      },
+      "dependency": {
+        "type": "string"
+      },
+      "phase": {
+        "type": "string"
+      },
+      "last_worked": {
+        "type": "string",
+        "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+      },
+      "snooze_until": {
+        "type": "string",
+        "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+      },
+      "last_run": {
+        "type": "string",
+        "pattern": "^(\\d{4}-\\d{2}-\\d{2}|never)?$"
+      },
+      "cadence": {
+        "type": "string"
+      },
+      "booked": {
+        "type": "string"
+      }
+    }
+  },
+  "validator": {
+    "package": "@supersuit/superprojects",
+    "implements_since": "0.7.0",
+    "check": "npx -y @supersuit/superprojects@^0.7.0 lint --root superprojects --json",
+    "backfill": "npx -y @supersuit/superprojects@^0.7.0 migrate --root superprojects --stamp-standard --apply"
+  },
+  "codes": [
+    {
+      "code": "duplicate-id",
+      "level": "error",
+      "means": "two records carry the same context id",
+      "fix": "give each record its own id"
+    },
+    {
+      "code": "evidence-drift",
+      "level": "warn",
+      "means": "the evidence source changed since it was pinned",
+      "fix": "recheck the claim and verify the record again"
+    },
+    {
+      "code": "future-context",
+      "level": "error",
+      "means": "as_of is later than the date the check was run for",
+      "fix": "set as_of to the date it was actually verified"
+    },
+    {
+      "code": "invalid-date",
+      "level": "error",
+      "means": "as_of, or an evidence item's date, is not a real calendar date",
+      "fix": "write a real date as YYYY-MM-DD"
+    },
+    {
+      "code": "invalid-evidence",
+      "level": "error",
+      "means": "the evidence or relations key is not a JSON list of objects",
+      "fix": "rewrite it as a JSON list of objects"
+    },
+    {
+      "code": "invalid-evidence-type",
+      "level": "error",
+      "means": "an evidence item's type is not decision, reversal, constraint or claim",
+      "fix": "set its type to one of those"
+    },
+    {
+      "code": "invalid-origin",
+      "level": "error",
+      "means": "an evidence item's origin is not human, agent or capture",
+      "fix": "set its origin to one of those"
+    },
+    {
+      "code": "invalid-permission",
+      "level": "error",
+      "means": "keep is not keep, home or share",
+      "fix": "set keep to keep, home or share"
+    },
+    {
+      "code": "invalid-record",
+      "level": "error",
+      "means": "the record could not be read into the context graph",
+      "fix": "fix the header the finding names"
+    },
+    {
+      "code": "invalid-relation",
+      "level": "error",
+      "means": "a relation has no type or no target",
+      "fix": "give every relation a type and a target"
+    },
+    {
+      "code": "legacy-context",
+      "level": "warn",
+      "means": "the record has no context_version, so it carries no verification, sharing or evidence contract",
+      "fix": "declare context_version 1 and its required keys"
+    },
+    {
+      "code": "missing-actor",
+      "level": "error",
+      "means": "a ## Next action section exists and next_actor is empty",
+      "fix": "set next_actor to who takes the next action"
+    },
+    {
+      "code": "missing-attribution",
+      "level": "error",
+      "means": "an evidence item does not name who supplied it",
+      "fix": "set its by"
+    },
+    {
+      "code": "missing-context",
+      "level": "error",
+      "means": "context version 1 requires id, summary, read_when, as_of, keep and audience; one is empty",
+      "fix": "set the key the finding names"
+    },
+    {
+      "code": "missing-source",
+      "level": "error",
+      "means": "an evidence item names no source, or a local source that does not exist",
+      "fix": "point its source at a file or URL that exists"
+    },
+    {
+      "code": "missing-target",
+      "level": "error",
+      "means": "a relation has no target, or names one no record has",
+      "fix": "point the relation at an existing record's id or path"
+    },
+    {
+      "code": "self-doc:missing",
+      "level": "error",
+      "means": "the file names no standard, the unversioned URL of its kind (written before standards had versions), or another kind's standard",
+      "fix": "superprojects migrate --root superprojects --stamp-standard --apply"
+    },
+    {
+      "code": "self-doc:version",
+      "level": "error",
+      "means": "the file names a version of its standard that this version of @supersuit/superprojects does not implement",
+      "fix": "upgrade @supersuit/superprojects to a version that implements it; never stamp a newer record back"
+    },
+    {
+      "code": "stale-context",
+      "level": "warn",
+      "means": "as_of is earlier than the date the check was run for",
+      "fix": "recheck the record and verify it with superprojects verify"
+    },
+    {
+      "code": "state-integrity",
+      "level": "error",
+      "means": "STATE.md cannot be resumed from: a required section or date is missing or wrong",
+      "fix": "fill in what the finding names"
+    },
+    {
+      "code": "unpinned-evidence",
+      "level": "warn",
+      "means": "an evidence item has no revision or snapshot, so its historical contents are unknown",
+      "fix": "add rev or snapshot to the evidence item"
+    },
+    {
+      "code": "unreadable-record",
+      "level": "error",
+      "means": "the file could not be read",
+      "fix": "restore the file, or remove the folder if the superproject is gone"
+    },
+    {
+      "code": "unresolved-source",
+      "level": "warn",
+      "means": "a local evidence source could not be resolved because no record path was supplied",
+      "fix": "check the record by its path"
+    },
+    {
+      "code": "unsupported-context",
+      "level": "error",
+      "means": "context_version is not 1",
+      "fix": "set context_version to 1"
+    },
+    {
+      "code": "unverifiable-evidence",
+      "level": "warn",
+      "means": "an evidence pin could not be checked against a stable source",
+      "fix": "supply a revision checker, or pin a committed revision"
+    }
+  ],
+  "umbrella": "npx -y @supersuit/hypercontext check <workspace>"
+}

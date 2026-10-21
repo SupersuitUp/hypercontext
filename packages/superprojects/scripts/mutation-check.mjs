@@ -1,0 +1,88 @@
+#!/usr/bin/env node
+// Deliberately break controls in disposable copies. A mutation must be caught.
+import {mkdtempSync,cpSync,readFileSync,writeFileSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {spawnSync} from 'node:child_process';
+const root=dirname(dirname(fileURLToPath(import.meta.url)));
+const cases=[
+  ['sharing permission','context.mjs','context.test.mjs','const keep = readContext(record.text).metadata.keep;', 'const keep = "share";'],
+  ['parent close','context.mjs','context.test.mjs','if (active.length) throw new Error(', 'if (false) throw new Error('],
+  ['verification date','context.mjs','context.test.mjs','as_of:date, evidence:', 'as_of:context.metadata.as_of, evidence:'],
+  ['frontmatter precedence','frontmatter/index.mjs','codec.test.mjs','const merged = { ...labels, ...(data ?? {}) };','const merged = { ...(data ?? {}), ...labels };'],
+  ['one owner','engine.mjs','engine.test.mjs','if (owners.length !== 1)', 'if (false)'],
+  ['no clobber','engine.mjs','engine.test.mjs','if (taken)', 'if (false)'],
+  ['nested discovery','engine.mjs','nesting.test.mjs','for (const nested of rootsOf(dir)) walk(nested, depth + 1);', '{ /* nested roots not walked */ }'],
+  ['subproject inside parent','engine.mjs','nesting.test.mjs','dir = join(pd, NESTED_ROOT, folder);', '/* scaffolded beside the parent */'],
+  ['parent location lint','engine.mjs','nesting.test.mjs','} else if (physical && parentSlug !== basename(physical)) {', '} else if (false) {'],
+  ['nesting plan parents first','engine.mjs','nesting.test.mjs','moves.sort((a, b) => depth(a.to) - depth(b.to) || (a.to < b.to ? -1 : 1));', 'moves.sort((a, b) => depth(b.to) - depth(a.to));'],
+  ['lint graph','../bin/superprojects.mjs','cli.test.mjs','findings.push(...contextGraph(records).findings);','/* graph check deliberately removed */'],
+  ['reference definitions','context.mjs','context.test.mjs','links.push(...[...body.matchAll(/\\]:[ \\t\\r\\n]*(?:<([^>]+)>|([^ \\t\\r\\n]+))/g)].map(m=>m[1]||m[2]));','/* reference definition check deliberately removed */'],
+  ['ambiguous destinations','context.mjs','context.test.mjs',"throw new Error('Unsupported Markdown destination syntax; use a plain or percent-encoded path');","{}"],
+  ['plan lint reads both header shapes','engine.mjs','engine.test.mjs','const d = facts(src) ?? {};','const d = split(src).data ?? {};'],
+  ['gate refuses the agent','plan.mjs','plan.test.mjs',"if (s.kind === 'gate' && s.actors.some(isAgent))","if (false)"],
+  ['behind on negative slack','plan.mjs','plan.test.mjs','verdict = overdueOnPath.length || slackDays < 0 ?','verdict = overdueOnPath.length ?'],
+  ['targets are not-before','plan.mjs','plan.test.mjs','Math.max(earliest, target ? dayOf(target) : earliest)','earliest'],
+  ['weekly hours bind','plan.mjs','plan.test.mjs','const take = Math.min(caps[a.slug] - (used.get(key) ?? 0), left);','const take = left;'],
+  ['sessions refuse a non-superproject','sessions.mjs','sessions.test.mjs','if (!recordFileOf(dir, names)) throw','if (false) throw'],
+  ['sessions skip a repeat','sessions.mjs','sessions.test.mjs','    return { written: false, file, entry: prior };','    {}'],
+  ['touched reads nested superprojects','sessions.mjs','sessions.test.mjs','      superprojectDirs(dir, names, out, seen);','      /* nested not walked */'],
+  ['legacy record read-through','names.mjs','names.test.mjs','firstExisting(dir, [names.record, names.legacyRecord]);','firstExisting(dir, [names.record]);'],
+  ['new record preferred','names.mjs','names.test.mjs','firstExisting(dir, [names.record, names.legacyRecord]);','firstExisting(dir, [names.legacyRecord, names.record]);'],
+  ['legacy map read-through','names.mjs','names.test.mjs','firstExisting(dir, [names.map, names.legacyMap]);','firstExisting(dir, [names.map]);'],
+  ['symlinked root read once','names.mjs','names.test.mjs','if (!r || seen.has(r)) continue;','if (!r) continue;'],
+  ['legacy root by default','names.mjs','names.test.mjs','for (const name of [names.root, names.legacyRoot]) {','for (const name of [names.root]) {'],
+  ['both records is an error','engine.mjs','names.test.mjs','if (existsSync(join(dir, current)) && existsSync(join(dir, legacy)))','if (false)'],
+  ['scaffold writes the new record','engine.mjs','names.test.mjs','writeFileSync(join(dir, N.record), project);','writeFileSync(join(dir, N.legacyRecord), project);'],
+  ['nested subprojects match the kind','frontmatter/kinds.mjs','names.test.mjs','file: /(^|\\/)(super)?projects\\/(done\\/)?[^/]+\\/(SUPER)?PROJECT\\.md$/,','file: /(^|\\/)projects\\/(done\\/)?[^/]+\\/PROJECT\\.md$/,'],
+  ['migrate refuses a taken destination','migrate.mjs','migrate.test.mjs','} else if (lexists(join(to, name))) {','} else if (false) {'],
+  ['migrate is a dry run until applied','../bin/superprojects.mjs','migrate.test.mjs','if(a.apply&&!refused)applyMigration(plan);','if(!refused)applyMigration(plan);'],
+  ['migrate relinks broken links','migrate.mjs','migrate.test.mjs','if (resolve(newDir, decoded) === goal) return null;','return null;'],
+  ['own record carries no slug','engine.mjs','engine.test.mjs','if (OWN_RECORD.test(link.replace(/[#?].*$/, "")))','if (false)'],
+  ['dry run names the written owner','engine.mjs','engine.test.mjs','changes.push(`Owner: ${patch.owner}`);','changes.push(`Owner: ${owners[0].name}`);'],
+  ['dry run reports the refusal','engine.mjs','engine.test.mjs','if (!doWrite && refusals.length)','if (false)'],
+  ['a path segment is not a date','engine.mjs','engine.test.mjs','if (src[at - 1] === "/") continue;','/* path segments not skipped */'],
+  ['Today before an app noun is a name','engine.mjs','engine.test.mjs','if (APP_NOUN.test(src.slice(at + word.length))) continue;','/* app noun not read */'],
+  ['Today mid-sentence is a name','engine.mjs','engine.test.mjs','if (!SENTENCE_OPEN.test(line)) continue;','/* mid-sentence not skipped */'],
+  ['Today opening a sentence is a date','engine.mjs','engine.test.mjs','if (!SENTENCE_OPEN.test(line)) continue;','continue;'],
+  ['lowercase today is always a date','engine.mjs','engine.test.mjs','if (word === "Today") {','if (/^today$/i.test(word)) {'],
+  ['migrate leaves code alone','migrate.mjs','migrate.test.mjs','const masked = line.replace(/(`+)[^`]*?\\1/g, (m) => " ".repeat(m.length));','const masked = line;'],
+  ['lint refuses a record with no standard','engine.mjs','standard.test.mjs','      if (judged.ok) continue;\n      if (judged.check === SELF_DOC_VERSION_CHECK) {\n        add(','      continue;\n      if (judged.check === SELF_DOC_VERSION_CHECK) {\n        add('],
+  ['lint refuses the unversioned URL','standard.mjs','standard.test.mjs','if (!m[2]) return { ok: false, check: SELF_DOC_CHECK, why: "unversioned" };','if (!m[2]) return { ok: true };'],
+  ['lint refuses an unimplemented version','standard.mjs','standard.test.mjs','if (!IMPLEMENTED_VERSIONS.includes(version)) return','if (false) return'],
+  ['stamp leaves a newer version alone','engine.mjs','standard.test.mjs','        if (judged.check === SELF_DOC_VERSION_CHECK) {\n          skipped.push(','        if (false) {\n          skipped.push('],
+  ['stamp upgrades inside the quotes','standard.mjs','standard.test.mjs','key + quote + url + quote + trail','key + url + trail'],
+  ['writers stamp v1','standard.mjs','standard.test.mjs','`${BASE}${slug}/v${CURRENT}`','`${BASE}${slug}`'],
+  ['lint codes must be in the table','codes.mjs','manifests.test.mjs','if (!entry) throw new Error(','if (false) throw new Error('],
+  ['lint levels must be allowed','codes.mjs','manifests.test.mjs','if (!entry.levels.includes(level))','if (false)'],
+  ['manifest codes come from the table','manifests.mjs','manifests.test.mjs','.filter(([, e]) => e.about.includes(kind))','.filter(() => true)'],
+  ['manifest names its version','manifests.mjs','manifests.test.mjs','    standard: STANDARDS[kind],','    standard: LATEST_STANDARDS[kind],'],
+  ['scaffold stamps the record standard','engine.mjs','standard.test.mjs','const data = { standard: STANDARDS.superproject, kind, status, goal, repo };','const data = { kind, status, goal, repo };'],
+  ['a write stamps the standard','frontmatter/index.mjs','standard.test.mjs','if (standard?.length === 1) next = withStandard(next, standard[0]);','/* not stamped */'],
+  ['stamp keeps the line ending','standard.mjs','standard.test.mjs','`standard: ${url}${h.eol}`','`standard: ${url}\\n`'],
+  // stampStandard rewriting an already-right line is byte-identical since values are replaced
+  // inside their own quotes, so idempotency is guarded where it can fail: the walk listing a
+  // file that already names its standard.
+  ['stamp is idempotent','engine.mjs','standard.test.mjs','        if (judged.ok) continue;\n        if (judged.check === SELF_DOC_VERSION_CHECK) {','        if (judged.check === SELF_DOC_VERSION_CHECK) {'],
+  ['stamp reaches nested and done/','engine.mjs','standard.test.mjs','    for (const dir of projectDirs(root))\n      for (const name of [N.record','    for (const dir of projectDirs(root).filter((d) => !d.includes("/done/") && !d.includes("/superprojects/2")))\n      for (const name of [N.record'],
+];
+let caught=0;
+for(const [name,source,suite,before,after] of cases){
+  const dir=mkdtempSync(join(tmpdir(),'project-mutation-'));
+  try{
+    cpSync(join(root,'src'),join(dir,'src'),{recursive:true});
+    cpSync(join(root,'test'),join(dir,'test'),{recursive:true});
+    cpSync(join(root,'bin'),join(dir,'bin'),{recursive:true});
+    cpSync(join(root,'standards'),join(dir,'standards'),{recursive:true});
+    cpSync(join(root,'package.json'),join(dir,'package.json'));
+    const file=join(dir,'src',source),text=readFileSync(file,'utf8');
+    if(!text.includes(before))throw new Error(`Mutation anchor missing: ${name}`);
+    writeFileSync(file,text.replace(before,after));
+    const result=spawnSync(process.execPath,['--test',join(dir,'test',suite)],{encoding:'utf8'});
+    if(result.status===0)throw new Error(`Mutation survived: ${name}`);
+    if(!result.stdout.includes('ERR_ASSERTION'))throw new Error(`Mutation failed without an assertion: ${name}\n${result.stderr}`);
+    console.log(`caught: ${name}`);caught++;
+  }finally{rmSync(dir,{recursive:true,force:true});}
+}
+console.log(`${caught}/${cases.length} mutations caught`);

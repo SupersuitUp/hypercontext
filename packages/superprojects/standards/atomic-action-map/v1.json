@@ -1,0 +1,168 @@
+{
+  "manifest_version": 1,
+  "standard": "https://hypercontext.wiki/standards/atomic-action-map/v1",
+  "kind": "atomic-action-map",
+  "version": 1,
+  "title": "How a superproject gets done",
+  "status": "current",
+  "superseded_by": null,
+  "latest": "https://hypercontext.wiki/standards/atomic-action-map",
+  "record": {
+    "path": "superprojects/<slug>/ATOMIC-ACTION-MAP.md",
+    "format": "md"
+  },
+  "header": {
+    "required": [
+      "standard"
+    ],
+    "keys": {
+      "standard": {
+        "const": "https://hypercontext.wiki/standards/atomic-action-map/v1"
+      },
+      "plan_version": {
+        "type": "string"
+      },
+      "baseline": {
+        "type": "string"
+      },
+      "baseline_finish": {
+        "type": "string"
+      },
+      "buffer_days": {
+        "type": "string"
+      },
+      "capacity": {
+        "type": "string"
+      }
+    }
+  },
+  "validator": {
+    "package": "@supersuit/superprojects",
+    "implements_since": "0.7.0",
+    "check": "npx -y @supersuit/superprojects@^0.7.0 lint --root superprojects --json",
+    "backfill": "npx -y @supersuit/superprojects@^0.7.0 migrate --root superprojects --stamp-standard --apply"
+  },
+  "codes": [
+    {
+      "code": "plan:after:cycle",
+      "level": "error",
+      "means": "steps wait on each other in a circle",
+      "fix": "break the cycle in the after lists"
+    },
+    {
+      "code": "plan:after:unknown",
+      "level": "error",
+      "means": "a step waits on an id that is not a step",
+      "fix": "fix the after list"
+    },
+    {
+      "code": "plan:duration:no-source",
+      "level": "warn",
+      "means": "an effort or lead says neither estimate nor measured",
+      "fix": "write (estimate, <who>, <YYYY-MM-DD>) or (measured, <run>) after it"
+    },
+    {
+      "code": "plan:duration:thin-source",
+      "level": "warn",
+      "means": "an estimate does not say whose and when, or a measurement does not name its run",
+      "fix": "complete the source: (estimate, <who>, <YYYY-MM-DD>) or (measured, <run>)"
+    },
+    {
+      "code": "plan:gate:agent",
+      "level": "error",
+      "means": "a gate names an agent; an agent can never pass a gate",
+      "fix": "make a person the gate's actor"
+    },
+    {
+      "code": "plan:human:too-long",
+      "level": "warn",
+      "means": "a step asks a person for more than four hours of effort",
+      "fix": "split it into atomic actions of at most four hours"
+    },
+    {
+      "code": "plan:milestone:missing",
+      "level": "warn",
+      "means": "a finite superproject's map does not end in a milestone",
+      "fix": "add the deliverable as a milestone"
+    },
+    {
+      "code": "plan:outside:no-fallback",
+      "level": "warn",
+      "means": "an open step asked of someone outside the team has no fallback",
+      "fix": "add fallback: what happens if they do not answer"
+    },
+    {
+      "code": "plan:outside:no-window",
+      "level": "warn",
+      "means": "an open step asked of someone outside the team has no window",
+      "fix": "add window: <YYYY-MM-DD>..<YYYY-MM-DD>"
+    },
+    {
+      "code": "plan:parse",
+      "level": "error",
+      "means": "the map does not parse: an unclosed header, unreadable YAML or a malformed step",
+      "fix": "fix the line the finding names"
+    },
+    {
+      "code": "plan:scenario:unknown-step",
+      "level": "warn",
+      "means": "a scenario moves an id that is not a step",
+      "fix": "fix the scenario, or add the step"
+    },
+    {
+      "code": "plan:scenario:working",
+      "level": "warn",
+      "means": "scenarios exist and not exactly one is marked working",
+      "fix": "mark exactly one scenario working"
+    },
+    {
+      "code": "plan:step:actor",
+      "level": "error",
+      "means": "an actor is not agent, a person slug or outside: <name>",
+      "fix": "rewrite the actor in one of those forms"
+    },
+    {
+      "code": "plan:step:duplicate-id",
+      "level": "error",
+      "means": "two steps share an id",
+      "fix": "give each step its own id"
+    },
+    {
+      "code": "plan:step:kind",
+      "level": "error",
+      "means": "a step's kind is not work, wait, gate or milestone",
+      "fix": "set kind to one of those"
+    },
+    {
+      "code": "plan:step:no-actor",
+      "level": "error",
+      "means": "a step other than a milestone names no actor",
+      "fix": "set actor to agent, a person slug or outside: <name>"
+    },
+    {
+      "code": "plan:target:missing",
+      "level": "warn",
+      "means": "an open gate or milestone has no provisional date",
+      "fix": "add target: <YYYY-MM-DD> (provisional)"
+    },
+    {
+      "code": "projects:plan:both",
+      "level": "error",
+      "means": "the folder holds both ATOMIC-ACTION-MAP.md and the legacy PLAN.md; only ATOMIC-ACTION-MAP.md is read",
+      "fix": "merge anything PLAN.md still says into ATOMIC-ACTION-MAP.md, then delete PLAN.md"
+    },
+    {
+      "code": "self-doc:missing",
+      "level": "error",
+      "means": "the file names no standard, the unversioned URL of its kind (written before standards had versions), or another kind's standard",
+      "fix": "superprojects migrate --root superprojects --stamp-standard --apply"
+    },
+    {
+      "code": "self-doc:version",
+      "level": "error",
+      "means": "the file names a version of its standard that this version of @supersuit/superprojects does not implement",
+      "fix": "upgrade @supersuit/superprojects to a version that implements it; never stamp a newer record back"
+    }
+  ],
+  "umbrella": "npx -y @supersuit/hypercontext check <workspace>"
+}

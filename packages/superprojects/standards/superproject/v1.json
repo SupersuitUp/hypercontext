@@ -1,0 +1,418 @@
+{
+  "manifest_version": 1,
+  "standard": "https://hypercontext.wiki/standards/superproject/v1",
+  "kind": "superproject",
+  "version": 1,
+  "title": "A superproject",
+  "status": "current",
+  "superseded_by": null,
+  "latest": "https://hypercontext.wiki/standards/superproject",
+  "record": {
+    "path": "superprojects/<slug>/SUPERPROJECT.md",
+    "format": "md"
+  },
+  "header": {
+    "required": [
+      "standard"
+    ],
+    "keys": {
+      "standard": {
+        "const": "https://hypercontext.wiki/standards/superproject/v1"
+      },
+      "context_version": {
+        "const": "1"
+      },
+      "id": {
+        "type": "string"
+      },
+      "summary": {
+        "type": "string"
+      },
+      "read_when": {
+        "type": "string"
+      },
+      "as_of": {
+        "type": "string",
+        "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+      },
+      "keep": {
+        "enum": [
+          "keep",
+          "home",
+          "share"
+        ]
+      },
+      "audience": {
+        "type": "string"
+      },
+      "evidence": {
+        "type": "string"
+      },
+      "relations": {
+        "type": "string"
+      },
+      "next_actor": {
+        "type": "string"
+      },
+      "dependency": {
+        "type": "string"
+      },
+      "kind": {
+        "enum": [
+          "finite",
+          "ongoing"
+        ]
+      },
+      "status": {
+        "enum": [
+          "active",
+          "done",
+          "parked",
+          "paused"
+        ]
+      },
+      "status_note": {
+        "type": "string"
+      },
+      "goal": {
+        "type": "string"
+      },
+      "repo": {
+        "type": "string"
+      },
+      "source_of_truth": {
+        "type": "string"
+      },
+      "deliverable": {
+        "type": "string"
+      },
+      "deadline": {
+        "type": "string",
+        "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+      },
+      "owner": {
+        "type": "string",
+        "pattern": "^([a-z0-9][a-z0-9-]*)?$"
+      },
+      "co_leads": {
+        "type": "array"
+      },
+      "operators": {
+        "type": "array"
+      },
+      "contributors": {
+        "type": "array"
+      },
+      "visible": {
+        "type": "array"
+      },
+      "subjects": {
+        "type": "array"
+      },
+      "practice": {
+        "type": "string"
+      },
+      "method": {
+        "type": "string"
+      },
+      "cadence": {
+        "type": "string"
+      },
+      "clock": {
+        "type": "array"
+      },
+      "off_switch": {
+        "type": "string"
+      },
+      "paths": {
+        "type": "array"
+      },
+      "shared_repo": {
+        "type": "string"
+      },
+      "handle": {
+        "type": "string"
+      },
+      "nickname": {
+        "type": "string"
+      },
+      "parent": {
+        "type": "string",
+        "pattern": "^([a-z0-9][a-z0-9-]*)?$"
+      }
+    }
+  },
+  "validator": {
+    "package": "@supersuit/superprojects",
+    "implements_since": "0.7.0",
+    "check": "npx -y @supersuit/superprojects@^0.7.0 lint --root superprojects --json",
+    "backfill": "npx -y @supersuit/superprojects@^0.7.0 migrate --root superprojects --stamp-standard --apply"
+  },
+  "codes": [
+    {
+      "code": "duplicate-id",
+      "level": "error",
+      "means": "two records carry the same context id",
+      "fix": "give each record its own id"
+    },
+    {
+      "code": "evidence-drift",
+      "level": "warn",
+      "means": "the evidence source changed since it was pinned",
+      "fix": "recheck the claim and verify the record again"
+    },
+    {
+      "code": "future-context",
+      "level": "error",
+      "means": "as_of is later than the date the check was run for",
+      "fix": "set as_of to the date it was actually verified"
+    },
+    {
+      "code": "invalid-date",
+      "level": "error",
+      "means": "as_of, or an evidence item's date, is not a real calendar date",
+      "fix": "write a real date as YYYY-MM-DD"
+    },
+    {
+      "code": "invalid-evidence",
+      "level": "error",
+      "means": "the evidence or relations key is not a JSON list of objects",
+      "fix": "rewrite it as a JSON list of objects"
+    },
+    {
+      "code": "invalid-evidence-type",
+      "level": "error",
+      "means": "an evidence item's type is not decision, reversal, constraint or claim",
+      "fix": "set its type to one of those"
+    },
+    {
+      "code": "invalid-origin",
+      "level": "error",
+      "means": "an evidence item's origin is not human, agent or capture",
+      "fix": "set its origin to one of those"
+    },
+    {
+      "code": "invalid-permission",
+      "level": "error",
+      "means": "keep is not keep, home or share",
+      "fix": "set keep to keep, home or share"
+    },
+    {
+      "code": "invalid-record",
+      "level": "error",
+      "means": "the record could not be read into the context graph",
+      "fix": "fix the header the finding names"
+    },
+    {
+      "code": "invalid-relation",
+      "level": "error",
+      "means": "a relation has no type or no target",
+      "fix": "give every relation a type and a target"
+    },
+    {
+      "code": "legacy-context",
+      "level": "warn",
+      "means": "the record has no context_version, so it carries no verification, sharing or evidence contract",
+      "fix": "declare context_version 1 and its required keys"
+    },
+    {
+      "code": "missing-actor",
+      "level": "error",
+      "means": "a ## Next action section exists and next_actor is empty",
+      "fix": "set next_actor to who takes the next action"
+    },
+    {
+      "code": "missing-attribution",
+      "level": "error",
+      "means": "an evidence item does not name who supplied it",
+      "fix": "set its by"
+    },
+    {
+      "code": "missing-context",
+      "level": "error",
+      "means": "context version 1 requires id, summary, read_when, as_of, keep and audience; one is empty",
+      "fix": "set the key the finding names"
+    },
+    {
+      "code": "missing-source",
+      "level": "error",
+      "means": "an evidence item names no source, or a local source that does not exist",
+      "fix": "point its source at a file or URL that exists"
+    },
+    {
+      "code": "missing-target",
+      "level": "error",
+      "means": "a relation has no target, or names one no record has",
+      "fix": "point the relation at an existing record's id or path"
+    },
+    {
+      "code": "projects:header:frontmatter",
+      "level": "error",
+      "means": "the record's frontmatter block does not parse, so nothing in its header can be read",
+      "fix": "fix the header block; the finding names the line"
+    },
+    {
+      "code": "projects:header:operators-mismatch",
+      "level": "error",
+      "means": "a typed **Operators:** line disagrees with the operators the People roles derive",
+      "fix": "delete the Operators line; it is derived from People"
+    },
+    {
+      "code": "projects:header:owner",
+      "level": "warn",
+      "means": "the record declares no owner (ok: it declares one, linked and listed under People)",
+      "fix": "set owner to a person slug and list them under ## People with the owner role"
+    },
+    {
+      "code": "projects:header:owner-link",
+      "level": "error",
+      "means": "the owner does not resolve to a person record (warn: named as bare text rather than a slug or link)",
+      "fix": "set owner to a slug that has a record in people/, or fix the link"
+    },
+    {
+      "code": "projects:header:owner-not-in-people",
+      "level": "error",
+      "means": "the owner is not on the ## People list",
+      "fix": "add them to ## People with the owner role"
+    },
+    {
+      "code": "projects:header:parent-cycle",
+      "level": "error",
+      "means": "the parent chain comes back to this superproject",
+      "fix": "break the cycle: one of these is not a subproject of the next"
+    },
+    {
+      "code": "projects:header:parent-location",
+      "level": "error",
+      "means": "the folder sits inside another superproject and its parent key names no parent, or a different one",
+      "fix": "set parent to the enclosing superproject's folder name, or move the folder"
+    },
+    {
+      "code": "projects:header:parent-missing",
+      "level": "warn",
+      "means": "the parent names no superproject folder, live or done",
+      "fix": "set parent to an existing superproject's folder name, or remove it"
+    },
+    {
+      "code": "projects:header:parent-not-nested",
+      "level": "warn",
+      "means": "a subproject sits beside its parent rather than inside the parent's superprojects/ folder",
+      "fix": "superprojects nest-plan lists the move; the product moves it and relinks"
+    },
+    {
+      "code": "projects:header:parent-self",
+      "level": "error",
+      "means": "the record names itself as its parent",
+      "fix": "remove parent, or set it to the superproject this one serves"
+    },
+    {
+      "code": "projects:header:people",
+      "level": "warn",
+      "means": "the record has no ## People list",
+      "fix": "add one, owner first"
+    },
+    {
+      "code": "projects:header:person-link",
+      "level": "error",
+      "means": "a person under ## People links to a record that does not exist (warn: is bare text rather than a link)",
+      "fix": "link them to their record in people/, or create it"
+    },
+    {
+      "code": "projects:header:role",
+      "level": "warn",
+      "means": "a person under ## People has no role from the vocabulary",
+      "fix": "rewrite the line as - [Name](link) — <role>: how they are involved"
+    },
+    {
+      "code": "projects:header:role-mismatch",
+      "level": "error",
+      "means": "the header block and the People list give a person different roles",
+      "fix": "make the two agree; roles are the source"
+    },
+    {
+      "code": "projects:header:role-not-in-people",
+      "level": "warn",
+      "means": "a person has a role in the header block and no line under ## People",
+      "fix": "add their People line with the link and how they are involved"
+    },
+    {
+      "code": "projects:header:source-of-truth",
+      "level": "warn",
+      "means": "the record declares no source of truth (ok: it declares one that agrees with its repository)",
+      "fix": "set source_of_truth to org/repo"
+    },
+    {
+      "code": "projects:header:source-of-truth-mismatch",
+      "level": "error",
+      "means": "the declared source of truth differs from the remote of the repository the record sits in",
+      "fix": "fix whichever is stale, or move the record"
+    },
+    {
+      "code": "projects:header:two-owners",
+      "level": "error",
+      "means": "more than one person is tagged owner; exactly one is answerable",
+      "fix": "make the others co-lead"
+    },
+    {
+      "code": "projects:plan:missing",
+      "level": "warn",
+      "means": "a finite superproject has no ATOMIC-ACTION-MAP.md",
+      "fix": "draft its atomic action map backwards from the deliverable"
+    },
+    {
+      "code": "projects:record:both",
+      "level": "error",
+      "means": "the folder holds both SUPERPROJECT.md and the legacy PROJECT.md; only SUPERPROJECT.md is read",
+      "fix": "merge anything PROJECT.md still says into SUPERPROJECT.md, then delete PROJECT.md"
+    },
+    {
+      "code": "self-doc:missing",
+      "level": "error",
+      "means": "the file names no standard, the unversioned URL of its kind (written before standards had versions), or another kind's standard",
+      "fix": "superprojects migrate --root superprojects --stamp-standard --apply"
+    },
+    {
+      "code": "self-doc:version",
+      "level": "error",
+      "means": "the file names a version of its standard that this version of @supersuit/superprojects does not implement",
+      "fix": "upgrade @supersuit/superprojects to a version that implements it; never stamp a newer record back"
+    },
+    {
+      "code": "stale-context",
+      "level": "warn",
+      "means": "as_of is earlier than the date the check was run for",
+      "fix": "recheck the record and verify it with superprojects verify"
+    },
+    {
+      "code": "unpinned-evidence",
+      "level": "warn",
+      "means": "an evidence item has no revision or snapshot, so its historical contents are unknown",
+      "fix": "add rev or snapshot to the evidence item"
+    },
+    {
+      "code": "unreadable-record",
+      "level": "error",
+      "means": "the file could not be read",
+      "fix": "restore the file, or remove the folder if the superproject is gone"
+    },
+    {
+      "code": "unresolved-source",
+      "level": "warn",
+      "means": "a local evidence source could not be resolved because no record path was supplied",
+      "fix": "check the record by its path"
+    },
+    {
+      "code": "unsupported-context",
+      "level": "error",
+      "means": "context_version is not 1",
+      "fix": "set context_version to 1"
+    },
+    {
+      "code": "unverifiable-evidence",
+      "level": "warn",
+      "means": "an evidence pin could not be checked against a stable source",
+      "fix": "supply a revision checker, or pin a committed revision"
+    }
+  ],
+  "umbrella": "npx -y @supersuit/hypercontext check <workspace>"
+}

@@ -1,0 +1,572 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+  existsSync,
+  rmSync,
+} from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+const mod = await import("../src/engine.mjs").catch(() => ({}));
+const factory = () => {
+  assert.equal(
+    typeof mod.createProjectEngine,
+    "function",
+    "portable project engine exists",
+  );
+  return mod.createProjectEngine();
+};
+const fixture = (t) => {
+  const root = mkdtempSync(join(tmpdir(), "project-core-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  return root;
+};
+const spec = {
+  name: "Example",
+  goal: "Ship a portable engine",
+  owner: "Example Owner",
+  nextAction: "Read the release proof",
+  deliverable: "An installable package",
+};
+test("frontmatter takes precedence over legacy labels and operator roles derive from lists", () => {
+  const E = factory();
+  const text =
+    "---\nowner: example-owner\noperators:\n  - example-peer\ngoal: Typed goal\n---\n# Example\n\n**Goal:** Old goal\n**Owner:** Wrong Owner\n\n## People\n\n- [Example Owner](../../people/example-owner.md) — owner: owns it\n- [Example Peer](../../people/example-peer.md) — operator: works\n";
+  assert.equal(E.parseHeader(text).goal, "Typed goal");
+  assert.equal(E.ownerOf(text), "Example Owner");
+  assert.deepEqual(E.operatorsOf(text), ["Example Owner", "Example Peer"]);
+});
+test("render refuses zero owners, two owners and unknown roles", () => {
+  const E = factory();
+  assert.throws(
+    () => E.renderProjectMd({ ...spec, owner: null }),
+    /exactly one owner/,
+  );
+  assert.throws(
+    () =>
+      E.renderProjectMd({
+        ...spec,
+        owner: null,
+        people: [
+          { name: "One", role: "owner" },
+          { name: "Two", role: "owner" },
+        ],
+      }),
+    /exactly one owner/,
+  );
+  assert.throws(
+    () =>
+      E.renderProjectMd({
+        ...spec,
+        people: [{ name: "One", role: "unknown" }],
+      }),
+    /unknown role/,
+  );
+});
+test("scaffold validates before creating and never clobbers existing state", (t) => {
+  const E = factory(),
+    root = fixture(t);
+  assert.throws(
+    () =>
+      E.scaffoldProject({
+        root,
+        slug: "bad",
+        today: "2026-10-04",
+        ...spec,
+        goal: null,
+      }),
+    /name and goal/,
+  );
+  assert.deepEqual(readdirSync(root), []);
+  const r = E.scaffoldProject({
+    root,
+    slug: "example",
+    today: "2026-10-04",
+    ...spec,
+  });
+  assert.equal(r.folder, "2026-10-04-example");
+  assert.deepEqual(readdirSync(r.dir).sort(), ["ATOMIC-ACTION-MAP.md", "STATE.md", "SUPERPROJECT.md"]);
+  const before = readFileSync(join(r.dir, "STATE.md"), "utf8");
+  assert.throws(
+    () =>
+      E.scaffoldProject({
+        root,
+        slug: "example",
+        today: "2026-10-04",
+        ...spec,
+      }),
+    /already exists/,
+  );
+  assert.equal(readFileSync(join(r.dir, "STATE.md"), "utf8"), before);
+});
+test("malformed records are isolated, active projects inside done remain visible, nested projects do not", (t) => {
+  const E = factory(),
+    root = fixture(t),
+    projects = join(root, "projects");
+  mkdirSync(projects);
+  const active = E.scaffoldProject({
+    root: projects,
+    slug: "active",
+    today: "2026-10-04",
+    ...spec,
+  });
+  const doneRoot = join(projects, "done");
+  mkdirSync(doneRoot);
+  const moved = E.scaffoldProject({
+    root: doneRoot,
+    slug: "moved",
+    today: "2026-10-04",
+    ...spec,
+  });
+  const bad = join(projects, "bad");
+  mkdirSync(bad);
+  writeFileSync(join(bad, "PROJECT.md"), "---\nowner:\n  nested: bad\n---\n");
+  E.scaffoldProject({
+    root: active.dir,
+    slug: "nested",
+    today: "2026-10-04",
+    ...spec,
+  });
+  const rows = E.openProjects({
+    paths: { root, projects },
+    now: new Date("2026-10-04T12:00:00"),
+  });
+  assert.equal(rows.length, 2);
+  assert.equal(rows.problems.length, 1);
+  assert.equal(Object.keys(rows).includes("problems"), false);
+  assert.equal(Object.keys(rows).includes("snoozed"), false);
+  assert.equal(
+    E.query("project", { workspace: root, paths: { projects } }).problems
+      .length,
+    1,
+  );
+  assert.equal(E.projectDirs(projects).includes(moved.dir), true);
+});
+test("duplicate roots are reported and snoozed projects stay off the open list", (t) => {
+  const E = factory(),
+    root = fixture(t);
+  const a = join(root, "a"),
+    b = join(root, "b");
+  mkdirSync(a);
+  mkdirSync(b);
+  for (const r of [a, b])
+    E.scaffoldProject({ root: r, slug: "same", today: "2026-10-04", ...spec });
+  const snooze = E.scaffoldProject({
+    root: a,
+    slug: "later",
+    today: "2026-10-04",
+    ...spec,
+  });
+  writeFileSync(
+    join(snooze.dir, "STATE.md"),
+    "---\nsnooze_until: 2026-11-01\n---\n",
+  );
+  const rows = E.openProjects({
+    paths: { root, projectsRoots: [a, b] },
+    now: new Date("2026-10-04T12:00:00"),
+  });
+  assert.equal(rows.length, 2);
+  assert.ok(rows.some((x) => x.collidesWith));
+  assert.equal(rows.snoozed.length, 1);
+});
+test("parent scaffolding refuses absent and closed parents, lint catches cycles", (t) => {
+  const E = factory(),
+    root = fixture(t);
+  assert.throws(
+    () =>
+      E.scaffoldProject({
+        root,
+        slug: "child",
+        today: "2026-10-04",
+        ...spec,
+        parent: "missing",
+      }),
+    /names no superproject/,
+  );
+  const p = E.scaffoldProject({
+    root,
+    slug: "parent",
+    today: "2026-10-04",
+    ...spec,
+    status: "done",
+  });
+  assert.throws(
+    () =>
+      E.scaffoldProject({
+        root,
+        slug: "child",
+        today: "2026-10-04",
+        ...spec,
+        parent: p.folder,
+      }),
+    /is done/,
+  );
+  const text = "---\nparent: " + p.folder + "\n---\n# Parent\n";
+  assert.ok(
+    E.lintProject({ dir: p.dir, text }).some(
+      (f) => f.check === "projects:header:parent-self",
+    ),
+  );
+});
+test("resumability rejects vague action and relative dates while recurrent cadence remains distinct", () => {
+  const E = factory();
+  assert.deepEqual(
+    E.resumability(
+      E.renderStateMd({
+        today: "2026-10-04",
+        phase: "Release ready",
+        nextAction: "Read the release proof",
+      }),
+      { today: "2026-10-04" },
+    ),
+    [],
+  );
+  assert.ok(
+    E.resumability(
+      E.renderStateMd({ today: "2026-10-04", nextAction: "Continue tomorrow" }),
+      { today: "2026-10-04" },
+    ).length >= 2,
+  );
+  assert.deepEqual(
+    E.resumability("---\ncadence: weekly\nlast_run: never\n---\n", {
+      today: "2026-10-04",
+      projectText: "---\nkind: ongoing\n---\n",
+    }),
+    [],
+  );
+  assert.ok(
+    E.resumability("---\ncadence: continuous\n---\n", {
+      today: "2026-10-04",
+      projectText: "---\nkind: ongoing\n---\n",
+    }).length > 0,
+  );
+  assert.equal(E.cadenceDays("every 2 weeks"), 14);
+  assert.equal(E.cadenceDays("continuous"), null);
+});
+test("explicit context scaffold validates both records before creating either and retains legacy output", (t) => {
+  const E = factory(),
+    root = fixture(t),
+    context = {
+      context_version: "1",
+      id: "example",
+      summary: "Portable engine",
+      read_when: "Before starting",
+      as_of: "2026-10-04",
+      keep: "keep",
+      audience: "self",
+      next_actor: "human",
+    };
+  assert.throws(
+    () =>
+      E.scaffoldProject({
+        root,
+        slug: "invalid",
+        today: "2026-10-04",
+        ...spec,
+        context: { context_version: "1" },
+        stateContext: context,
+      }),
+    /requires/,
+  );
+  assert.deepEqual(readdirSync(root), []);
+  assert.throws(
+    () =>
+      E.scaffoldProject({
+        root,
+        slug: "invalid-state",
+        today: "2026-10-04",
+        ...spec,
+        context,
+        stateContext: { context_version: "1" },
+      }),
+    /requires/,
+  );
+  assert.deepEqual(readdirSync(root), []);
+  const r = E.scaffoldProject({
+    root,
+    slug: "context",
+    today: "2026-10-04",
+    ...spec,
+    context,
+    stateContext: { ...context, id: "example:state" },
+  });
+  assert.equal(
+    E.query("project", { workspace: root, paths: { projects: root } }).rows[0]
+      .data.id,
+    "example",
+  );
+  assert.equal(
+    E.query("state", { workspace: root, paths: { projects: root } }).rows[0]
+      .data.id,
+    "example:state",
+  );
+});
+test("engine configuration refuses nested literal secrets", () => {
+  factory();
+  assert.throws(
+    () => mod.createProjectEngine({ adapter: { apiKey: "literal" } }),
+    /configuration/,
+  );
+});
+
+test("factory paths configure openProjects and query without per-call paths", (t) => {
+  factory();
+  const root = fixture(t);
+  const paths = { root, projects: join(root, "projects") };
+  mkdirSync(paths.projects);
+  const E = mod.createProjectEngine({ paths });
+  const created = E.scaffoldProject({
+    root: paths.projects,
+    slug: "configured",
+    today: "2026-10-04",
+    ...spec,
+  });
+  assert.equal(E.openProjects().length, 1);
+  assert.equal(E.query("project").rows[0].dir, created.dir);
+});
+
+test("context scaffold refuses duplicate identities and missing relationship targets before creation", (t) => {
+  const E = factory(),
+    root = fixture(t),
+    context = {
+      context_version: "1",
+      id: "same",
+      summary: "Example",
+      read_when: "Before work",
+      as_of: "2026-10-04",
+      keep: "keep",
+      audience: "self",
+      next_actor: "human",
+    };
+  E.scaffoldProject({
+    root,
+    slug: "existing",
+    today: "2026-10-04",
+    ...spec,
+    context,
+    stateContext: { ...context, id: "same:state" },
+  });
+  assert.throws(
+    () =>
+      E.scaffoldProject({
+        root,
+        slug: "duplicate",
+        today: "2026-10-04",
+        ...spec,
+        context,
+      }),
+    /Duplicate context identity/,
+  );
+  assert.equal(existsSync(join(root, "2026-10-04-duplicate")), false);
+  assert.throws(
+    () =>
+      E.scaffoldProject({
+        root,
+        slug: "missing",
+        today: "2026-10-04",
+        ...spec,
+        context: {
+          ...context,
+          id: "different",
+          relations: JSON.stringify([
+            { type: "depends-on", target: "missing" },
+          ]),
+        },
+      }),
+    /missing target/,
+  );
+  assert.equal(existsSync(join(root, "2026-10-04-missing")), false);
+});
+test("finite projects are born with a plan; ongoing ones and --no-plan are not", (t) => {
+  const E = factory(), root = fixture(t);
+  const r = E.scaffoldProject({ root, slug: "planned", today: "2026-10-04", ...spec });
+  assert.equal(r.plan, true);
+  const text = readFileSync(join(r.dir, "ATOMIC-ACTION-MAP.md"), "utf8");
+  assert.match(text, /### s01 Read the release proof/);
+  assert.match(text, /### m1 An installable package\n- kind: milestone\n- after: s01/);
+  assert.deepEqual(E.lintProject({ dir: r.dir }).filter((f) => f.check.startsWith("plan:") && f.level === "error"), []);
+  const bare = E.scaffoldProject({ root, slug: "bare", today: "2026-10-04", ...spec, plan: false });
+  assert.equal(existsSync(join(bare.dir, "ATOMIC-ACTION-MAP.md")), false);
+  assert.ok(E.lintProject({ dir: bare.dir }).some((f) => f.check === "projects:plan:missing" && f.level === "warn"));
+  const ongoing = E.scaffoldProject({ root, slug: "weekly", today: "2026-10-04", ...spec, kind: "ongoing", cadence: "weekly" });
+  assert.equal(existsSync(join(ongoing.dir, "ATOMIC-ACTION-MAP.md")), false);
+  assert.ok(!E.lintProject({ dir: ongoing.dir }).some((f) => f.check === "projects:plan:missing"));
+});
+test("plan errors surface in project lint", (t) => {
+  const E = factory(), root = fixture(t);
+  const r = E.scaffoldProject({ root, slug: "gated", today: "2026-10-04", ...spec });
+  const file = join(r.dir, "ATOMIC-ACTION-MAP.md");
+  writeFileSync(file, readFileSync(file, "utf8").replace("- kind: milestone", "- kind: gate\n- actor: agent"));
+  assert.ok(E.lintProject({ dir: r.dir }).some((f) => f.check === "plan:gate:agent" && f.level === "error"));
+});
+
+test("plan lint reads label-shaped headers: an ongoing project needs no plan, a co-lead is on the team", (t) => {
+  const E = factory(),
+    root = fixture(t);
+  const ongoing = join(root, "2026-10-01-weekly");
+  mkdirSync(ongoing, { recursive: true });
+  writeFileSync(join(ongoing, "PROJECT.md"), "# Weekly review\n\n**Kind:** ongoing\n**Owner:** [Alex Example](../../people/alex-example.md)\n**Cadence:** weekly\n");
+  writeFileSync(join(ongoing, "STATE.md"), "# State\n\n**Last worked:** 2026-10-01\n\n## Next action\n\nReview.\n");
+  assert.ok(!E.lintProject({ dir: ongoing }).some((f) => f.check === "projects:plan:missing"));
+  const letters = join(root, "2026-10-01-letters");
+  mkdirSync(letters, { recursive: true });
+  writeFileSync(join(letters, "PROJECT.md"), "# Letters\n\n**Kind:** finite\n**Owner:** [Alex Example](../../people/alex-example.md)\n\n## People\n\n- [Alex Example](../../people/alex-example.md) — owner: decides\n- [Sam Lee](../../people/sam-lee.md) — co-lead: drives the mailing\n");
+  writeFileSync(join(letters, "STATE.md"), "# State\n\n**Last worked:** 2026-10-01\n\n## Next action\n\nSam mails.\n");
+  writeFileSync(join(letters, "PLAN.md"), "---\nplan_version: \"1\"\nbaseline: 2026-10-01\n---\n# Plan\n\n## Steps\n\n### s01 Sam mails the letters\n- actor: sam-lee\n- kind: work\n- effort: 1h (estimate)\n\n### m1 Letters out\n- kind: milestone\n- after: s01\n- target: 2026-10-20 (provisional)\n");
+  const codes = E.lintProject({ dir: letters }).map((f) => f.check);
+  assert.ok(!codes.includes("plan:outside:no-window"), "a co-lead named in the People list is on the team");
+  assert.ok(!codes.includes("projects:plan:missing"));
+});
+const ownRecordFixture = (t, people = []) => {
+  const root = fixture(t);
+  const dir = join(root, "superprojects", "example");
+  mkdirSync(dir, { recursive: true });
+  mkdirSync(join(root, "self"));
+  mkdirSync(join(root, "people"));
+  writeFileSync(join(root, "self", "self.md"), "# Me\n");
+  for (const slug of people)
+    writeFileSync(join(root, "people", `${slug}.md`), `# ${slug}\n`);
+  const file = join(dir, "SUPERPROJECT.md");
+  writeFileSync(
+    file,
+    "---\ngoal: A goal\nsource_of_truth: local\n---\n# Example\n\n## People\n\n- [Example Owner](../../self/self.md) — owner\n",
+  );
+  // The strict lookup a product supplies: a slug exists only when people/ holds its file.
+  const E = mod.createProjectEngine({
+    personExists: () => (slug) =>
+      existsSync(join(root, "people", `${slug}.md`)),
+  });
+  return { root, dir, file, E };
+};
+test("a link to the operator's own record carries no slug, and other links keep theirs", () => {
+  const E = factory();
+  for (const link of [
+    "../../self/self.md",
+    "self/self.md",
+    "../../../../self/self.md",
+    "../../user/USER.md",
+    "../../self/self.md#top",
+  ]) {
+    const ref = E.personRef(`[example-owner](${link})`);
+    assert.equal(ref.name, "example-owner", link);
+    assert.equal(ref.slug, null, link);
+    assert.equal(ref.link, link, link);
+  }
+  // The filename and folder fallbacks still answer for a real people record, one named self included.
+  assert.equal(
+    E.personRef("[Example Owner](../../people/example-owner.md)").slug,
+    "example-owner",
+  );
+  assert.equal(
+    E.personRef("[Example Owner](../../people/example-owner/friend.md)").slug,
+    "example-owner",
+  );
+  assert.equal(E.personRef("[Self](../../people/self.md)").slug, "self");
+});
+test("backfill writes the owner slug its dry run names when the owner links to self/self.md", (t) => {
+  const { dir, file, E } = ownRecordFixture(t, ["example-owner"]);
+  const before = readFileSync(file, "utf8");
+  const dry = E.backfillProject({ dir });
+  assert.deepEqual(dry.changes, ["Owner: example-owner"]);
+  assert.deepEqual(dry.unresolved, []);
+  assert.equal(dry.written, false);
+  assert.equal(readFileSync(file, "utf8"), before, "a dry run writes nothing");
+  const wrote = E.backfillProject({ dir, write: true });
+  assert.deepEqual(wrote.changes, dry.changes);
+  assert.deepEqual(wrote.unresolved, []);
+  assert.equal(wrote.written, true);
+  const named = dry.changes[0].replace(/^Owner: /, "");
+  assert.equal(E.parseHeader(readFileSync(file, "utf8")).owner.slug, named);
+  assert.match(readFileSync(file, "utf8"), /^owner: example-owner$/m);
+});
+test("a backfill dry run reports the refusal the write would hit", (t) => {
+  const { dir, file, E } = ownRecordFixture(t); // people/ holds no record for the owner
+  const before = readFileSync(file, "utf8");
+  const dry = E.backfillProject({ dir });
+  const wrote = E.backfillProject({ dir, write: true });
+  assert.equal(wrote.written, false);
+  assert.equal(wrote.unresolved.length, 1);
+  assert.match(
+    wrote.unresolved[0],
+    /^frontmatter: refused to write \(owner="example-owner" /,
+  );
+  assert.deepEqual(dry.changes, []);
+  assert.deepEqual(
+    dry.unresolved,
+    wrote.unresolved.map((u) => u.replace("refused", "would refuse")),
+  );
+  assert.equal(readFileSync(file, "utf8"), before);
+});
+const stateSaying = (E, phase, nextAction = "Read the release proof") =>
+  E.resumability(E.renderStateMd({ today: "2026-10-04", phase, nextAction }), {
+    today: "2026-10-04",
+  });
+test("the Today app and a /today path are names, and a relative today is still refused", () => {
+  const E = factory();
+  const ROTS = /wrong on every day but one/;
+  const names = [
+    "waiting on phone approval of Reviews and Today",
+    "the Today tile app is in review",
+    "Today tile app is in review",
+    "Reviews, Today and Liberty are live",
+    "the Today screen loads in a second",
+    "the day screen is served at /today",
+    "open app.example.com/today on the phone",
+  ];
+  const dates = [
+    "ship it today",
+    "due today",
+    "Today I will ship it",
+    "Today, ship it",
+    "Shipped the fix. Today we verify it",
+    "TODAY we ship",
+    "Today and Reviews are waiting",
+    "the Today tile app ships today",
+    "Tomorrow tile app is in review",
+    "ship it tomorrow",
+  ];
+  for (const phase of names)
+    assert.deepEqual(stateSaying(E, phase), [], `a name: ${phase}`);
+  for (const next of names)
+    assert.deepEqual(stateSaying(E, "Release ready", next), [], `a name: ${next}`);
+  for (const phase of dates) {
+    const problems = stateSaying(E, phase);
+    assert.equal(problems.length, 1, `a date: ${phase}`);
+    assert.match(problems[0], ROTS, phase);
+  }
+  for (const next of dates) {
+    const problems = stateSaying(E, "Release ready", next);
+    assert.equal(problems.length, 1, `a date: ${next}`);
+    assert.match(problems[0], ROTS, next);
+  }
+  // The refusal quotes the word that rots, not the name beside it.
+  assert.match(stateSaying(E, "the Today tile app ships today")[0], /says "today"/);
+  assert.equal(E.rottingDate("the Today tile app, served at /today"), null);
+  assert.equal(E.rottingDate("- Today we ship"), "Today");
+});
+
+// `section()` ended its lookahead with `\z`, which JavaScript reads as a literal z. A section was
+// cut at its first z, so the save gate judged only the words before it, and a last section with
+// no z in it and no heading after it read as missing.
+test("the save gate reads a whole section, past a letter z and up to the end of the file", () => {
+  const E = factory();
+  const state = (next) => `# State\n\n## Phase\n\nBuilding\n\n## Next action\n\n${next}\n`;
+  // Sanity: the same relative date is refused when no z comes before it.
+  assert.ok(
+    E.resumability(state("Ship the page tomorrow"), { today: "2026-10-04" }).some((p) => /tomorrow/i.test(p)),
+    "the gate refuses a relative date at all",
+  );
+  assert.ok(
+    E.resumability(state("Organize the files, then ship the page tomorrow"), { today: "2026-10-04" })
+      .some((p) => /tomorrow/i.test(p)),
+    "a relative date after a z is still read",
+  );
+  assert.ok(
+    !E.resumability(state("Read the release proof"), { today: "2026-10-04" }).some((p) => /next action/i.test(p)),
+    "a last section with no z in it and nothing after it is found",
+  );
+});
