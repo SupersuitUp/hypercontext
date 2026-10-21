@@ -18,7 +18,8 @@ const coreDir = mkdtempSync(join(tmpdir(), 'hypercontext-core-pack-'));
 const show = process.argv.includes('--show');
 
 function run(command, args, expected = 0, cwd = dir) {
-  const result = spawnSync(command, args, { cwd, encoding: 'utf8' });
+  // No Supersuit is beside this fixture, and one installed on the machine running the proof never decides.
+  const result = spawnSync(command, args, { cwd, encoding: 'utf8', env: { ...process.env, HDSOP_MD_SUPERSUIT: 'none' } });
   assert.equal(result.status, expected, `${command} ${args.join(' ')}\n${result.stdout}\n${result.stderr}`);
   return result;
 }
@@ -98,17 +99,19 @@ try {
   assert.match(dirty, /4 errors, 0 warnings, 2 maps, a catalog of 2 rows\n$/);
   assert.deepEqual(json(['lint', 'workflows'], 1).findings.map((f) => f.kind), ['workflow-catalog', 'workflow-catalog', 'hdsop', 'hdsop']);
 
-  assert.match(cli(['stamp'], 1).stdout, /^skipped  CATALOG\.md  no-header: .*\nwould upgrade  book-the-venue\.md\n1 to stamp, 1 already current, 1 skipped\n$/);
-  assert.match(cli(['stamp', 'workflows', '--apply'], 1).stdout, /1 stamped, 1 already current, 1 skipped/);
+  // No Supersuit here (HDSOP_MD_SUPERSUIT=none), so nothing refuses a catalog header and stamp adds one.
+  const bare = readFileSync(join(dir, 'workflows/CATALOG.md'), 'utf8');
+  assert.match(cli(['stamp'], 1).stdout, /^would add  CATALOG\.md\nwould upgrade  book-the-venue\.md\n2 to stamp, 1 already current, 0 skipped\n$/);
+  assert.match(cli(['stamp', 'workflows', '--apply'], 0).stdout, /2 stamped, 1 already current, 0 skipped/);
   assert.equal(readFileSync(join(dir, 'workflows/book-the-venue.md'), 'utf8'), VENUE.replace('standards/hdsop"', 'standards/hdsop/v1"'));
-  assert.ok(!readFileSync(join(dir, 'workflows/CATALOG.md'), 'utf8').startsWith('---'), 'the catalog is never given a header');
+  assert.equal(readFileSync(join(dir, 'workflows/CATALOG.md'), 'utf8'), `---\nkind: workflow-catalog\nstandard: https://hypercontext.wiki/standards/workflow-catalog/v1\n---\n\n${bare}`, 'the catalog is given the minimal header');
 
   put('workflows/CATALOG.md', `---\nstandard: "https://hypercontext.wiki/standards/workflow-catalog/v1"\n---\n${CATALOG([row('Send the monthly invoice', 'send-the-invoice.md'), row('Book the venue', 'book-the-venue.md')])}`);
-  assert.match(cli(['lint', 'workflows']).stdout, /^warn   catalog:not-writable  CATALOG\.md  .*\n0 errors, 1 warning, 2 maps, a catalog of 2 rows\n$/);
+  assert.equal(cli(['lint', 'workflows']).stdout, 'clean: 2 maps, a catalog of 2 rows\n');
   assert.deepEqual(json(['stamp', 'workflows']), { applied: false, changed: [], current: ['CATALOG.md', 'book-the-venue.md', 'send-the-invoice.md'], skipped: [] });
 
   // 4. The library, imported by its package name.
-  const script = "import { lint, stampPlan, checkMap, parseCatalog, checkRows, catalogLosses, renderCatalog, scan, readHeader, MANIFESTS, CODES, STANDARDS, KINDS } from '@supersuit/hdsop-md'; const r = lint('workflows'); if (r.maps !== 2 || r.catalog.rows !== 2 || STANDARDS.hdsop !== 'https://hypercontext.wiki/standards/hdsop/v1' || MANIFESTS['workflow-catalog'].standard !== STANDARDS['workflow-catalog'] || KINDS.some((k) => MANIFESTS[k].codes.length !== Object.keys(CODES[k]).length) || stampPlan('# x\\n', 'workflow-catalog').status !== 'no-header' || parseCatalog(renderCatalog({ rows: [], note: '' })).rows.length !== 0 || catalogLosses('') .length !== 0 || [checkMap, checkRows, scan, readHeader].some((f) => typeof f !== 'function')) process.exit(1);";
+  const script = "import { lint, stampPlan, catalogHeaderAllowed, checkMap, parseCatalog, checkRows, catalogLosses, renderCatalog, scan, readHeader, MANIFESTS, CODES, STANDARDS, KINDS } from '@supersuit/hdsop-md'; const r = lint('workflows'); if (r.maps !== 2 || r.catalog.rows !== 2 || STANDARDS.hdsop !== 'https://hypercontext.wiki/standards/hdsop/v1' || MANIFESTS['workflow-catalog'].standard !== STANDARDS['workflow-catalog'] || KINDS.some((k) => MANIFESTS[k].codes.length !== Object.keys(CODES[k]).length) || stampPlan('# x\\n', 'workflow-catalog').status !== 'no-header' || parseCatalog(renderCatalog({ rows: [], note: '' })).rows.length !== 0 || catalogLosses('') .length !== 0 || [checkMap, checkRows, scan, readHeader, catalogHeaderAllowed].some((f) => typeof f !== 'function')) process.exit(1);";
   run(process.execPath, ['--input-type=module', '-e', script]);
 
   console.log(`Installed ${pack.filename} with ${corePack.filename} outside the source checkout; every documented command and the library import pass; ${pack.files.length} payload files audited`);

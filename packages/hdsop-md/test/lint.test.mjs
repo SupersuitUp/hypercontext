@@ -19,10 +19,17 @@ test('a clean folder: one map, one catalog row, and the headerless catalog is it
   assert.match(r.findings[0].message, /no header/);
 });
 
-test('a catalog with a header naming its standard is clean, and the writer refusal is a warning', (t) => {
+test('a catalog with a header naming its standard is clean: the writer keeps a header', (t) => {
   const { dir } = tmpWorkflows(t);
   map(dir, 'send-the-invoice');
   catalog(dir, [row({ workflow: 'Send the monthly invoice', map: 'send-the-invoice.md' })], { header: `---\nstandard: "${CATALOG_STANDARD}"\n---\n` });
+  assert.deepEqual(found(dir), []);
+});
+
+test('prose the writer would drop is a catalog:not-writable warning', (t) => {
+  const { dir } = tmpWorkflows(t);
+  map(dir, 'send-the-invoice');
+  catalog(dir, [row({ workflow: 'Send the monthly invoice', map: 'send-the-invoice.md' })], { header: `---\nstandard: "${CATALOG_STANDARD}"\n---\nAn intro a person wrote.\n` });
   assert.deepEqual(found(dir), ['workflow-catalog catalog:not-writable CATALOG.md']);
   assert.equal(lint(dir).findings[0].level, 'warn');
 });

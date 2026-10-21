@@ -43,7 +43,7 @@ test('each manifest has the shape core validates, and names this package', () =>
   }
   assert.equal(MANIFESTS.hdsop.record.path, 'workflows/<slug>.md');
   assert.equal(MANIFESTS['workflow-catalog'].record.path, 'workflows/CATALOG.md');
-  assert.equal(pkg.version, '0.1.0');
+  assert.equal(pkg.version, '0.1.1');
 });
 
 test('each manifest\'s codes are exactly that kind\'s table, in order, at the table\'s levels', () => {
@@ -66,7 +66,8 @@ test('every code in each table can be emitted, at its table level, under its kin
   map(dir, 'a');
   map(dir, 'b');
   for (const f of lint(dir).findings) note(f.kind, [f]); // no catalog yet
-  catalog(dir, [row({ workflow: 'A', map: 'a.md' })], { header: '---\nstandard: "https://hypercontext.wiki/standards/workflow-catalog/v2"\n---\n' });
+  // An unimplemented version, and prose the writer would drop after the header it keeps.
+  catalog(dir, [row({ workflow: 'A', map: 'a.md' })], { header: '---\nstandard: "https://hypercontext.wiki/standards/workflow-catalog/v2"\n---\nAn intro.\n' });
   for (const f of lint(dir).findings) note(f.kind, [f]);
   file(dir, 'CATALOG.md', catalogText([]));
   for (const f of lint(dir).findings) note(f.kind, [f]);

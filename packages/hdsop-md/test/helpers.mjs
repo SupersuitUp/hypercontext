@@ -95,3 +95,20 @@ export function cleanFolder(dir) {
   map(dir, 'send-the-invoice');
   catalog(dir, [row({ workflow: 'Send the monthly invoice', map: 'send-the-invoice.md' })]);
 }
+
+/**
+ * A made-up Supersuit root whose catalog writer keeps a header (`keeps`) or refuses one, the way
+ * freedom-dev's did before 885ae79f3: its loss check counts every non-table line it would not write.
+ */
+export function fakeSupersuit(t, { keeps }) {
+  const root = mkdtempSync(join(tmpdir(), 'hdsop-md-fake-supersuit-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  file(root, '.agents/lib/freedom-workflows.mjs', `
+export const renderCatalog = () => '# Workflow catalog\\n';
+export const lossOnRewrite = (text) => {
+  const body = ${keeps} ? String(text).replace(/^---\\n[\\s\\S]*?\\n---\\n\\n?/, '') : String(text);
+  return body.split('\\n').filter((l) => l.trim() && l !== '# Workflow catalog').map((l) => 'drops ' + l);
+};
+`);
+  return root;
+}

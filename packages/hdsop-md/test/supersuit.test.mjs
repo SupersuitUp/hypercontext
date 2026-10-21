@@ -3,13 +3,10 @@
 //
 // 1. Would giving CATALOG.md a minimal header (kind + standard) change what Supersuit READS from it?
 //    It would not: the rows and the note come back identical.
-// 2. Would it change what Supersuit WRITES? It would: the catalog writer regenerates the file from
-//    its rows, refuses any file whose regeneration would drop a line, and the header is three such
-//    lines, so every later write (map-a-workflow's new-map, a row upsert, a skill install recording
-//    its workflow) throws CATALOG_NOT_OURS and the catalog stops updating.
-//
-// That second answer is why `stamp` never creates a catalog header. When Supersuit's writer keeps a
-// header, the second test here goes red, and that is the signal to let stamp create one.
+// 2. Would it change what Supersuit WRITES? Since freedom-dev 885ae79f3 it does not: the writer keeps
+//    a header byte for byte on every rewrite and creates a catalog with one. Before that it counted
+//    the header as lines it would drop and threw CATALOG_NOT_OURS on every write, which is why
+//    `stamp` asks the Supersuit beside a folder before giving a headerless catalog a header.
 //
 // Also proven here: this package's port of the reader and of the loss check agrees with the original.
 //
@@ -22,7 +19,7 @@ import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { parseCatalog, catalogLosses, renderCatalog, DOC_STATUS, AUTOMATION_STATUS, HEADER_KEYS } from '../src/index.mjs';
+import { parseCatalog, catalogLosses, renderCatalog, DOC_STATUS, AUTOMATION_STATUS, HEADER_KEYS, stampPlan, lint, CATALOG_HEADER, catalogHeaderAllowed, writerKeepsHeader } from '../src/index.mjs';
 import { catalogText, row, CATALOG_STANDARD } from './helpers.mjs';
 
 const devRoot = process.env.HDSOP_MD_FREEDOM_DEV || fileURLToPath(new URL('../../../../../freedom-dev/', import.meta.url));
@@ -59,18 +56,40 @@ test('Supersuit reads a catalog with a minimal header exactly as it reads one wi
   } finally { rmSync(ws, { recursive: true, force: true }); }
 });
 
-test('Supersuit\'s catalog writer refuses a catalog with a header, so stamp must not create one', { skip }, async () => {
+test('Supersuit\'s catalog writer keeps a catalog\'s header, so stamp gives a headerless catalog one', { skip }, async () => {
   const w = await load();
+  assert.equal(await writerKeepsHeader(libFile), true, 'the probe stamp asks says yes');
   const ws = mkdtempSync(join(tmpdir(), 'hdsop-md-supersuit-'));
   try {
     mkdirSync(join(ws, 'workflows'));
     const file = join(ws, 'workflows/CATALOG.md');
+    writeFileSync(join(ws, 'workflows/send-the-invoice.md'), '---\ntitle: "Send the monthly invoice"\nid: HDSOP-OPS-001\n---\n');
     writeFileSync(file, w.renderCatalog({ rows: w.parseCatalog(catalogText(ROWS)).rows, note: 'Keep it short.' }));
     w.upsert(ws, { workflow: 'Book the venue', doc: 'drafting' });
+    // A header written by hand: kept byte for byte through a row update.
     const headed = HEADER + readFileSync(file, 'utf8');
     writeFileSync(file, headed);
-    assert.throws(() => w.upsert(ws, { workflow: 'Book the venue', doc: 'proven', map: 'x.md' }), (e) => e.code === 'CATALOG_NOT_OURS');
-    assert.equal(readFileSync(file, 'utf8'), headed, 'the refusal changed nothing');
+    w.upsert(ws, { workflow: 'Book the venue', doc: 'proven', map: 'send-the-invoice.md' });
+    assert.ok(readFileSync(file, 'utf8').startsWith(HEADER), 'the header survives the rewrite');
+    assert.equal(w.parseCatalog(readFileSync(file, 'utf8')).rows.find((r) => r.workflow === 'Book the venue').doc, 'proven');
+
+    // A headerless catalog: stamp, asked of this Supersuit, adds the minimal header, and the writer keeps taking rows.
+    writeFileSync(file, readFileSync(file, 'utf8').slice(HEADER.length));
+    assert.deepEqual(await catalogHeaderAllowed(join(ws, 'workflows'), { HDSOP_MD_SUPERSUIT: devRoot }), { allowed: true, writers: [libFile], refusing: [] });
+    const plan = stampPlan(readFileSync(file, 'utf8'), 'workflow-catalog', { catalogHeader: true });
+    assert.equal(plan.status, 'added');
+    writeFileSync(file, plan.text);
+    w.upsert(ws, { workflow: 'Water the plants', frequency: 'weekly' });
+    const after = readFileSync(file, 'utf8');
+    assert.ok(after.startsWith(CATALOG_HEADER), after.slice(0, 200));
+    assert.ok(after.includes('| Water the plants |'));
+    assert.deepEqual(lint(join(ws, 'workflows')).findings.filter((f) => f.kind === 'workflow-catalog'), [], 'and hdsop-md lints it clean');
+
+    // A catalog Supersuit creates is born with the same header, and lints clean.
+    rmSync(file);
+    w.upsert(ws, { workflow: 'Send the monthly invoice', doc: 'proven', map: 'send-the-invoice.md' });
+    assert.ok(readFileSync(file, 'utf8').startsWith(CATALOG_HEADER));
+    assert.deepEqual(lint(join(ws, 'workflows')).findings.filter((f) => f.kind === 'workflow-catalog'), []);
   } finally { rmSync(ws, { recursive: true, force: true }); }
 });
 
