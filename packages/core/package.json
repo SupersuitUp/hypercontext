@@ -1,0 +1,25 @@
+{
+  "name": "@supersuit/hypercontext-core",
+  "version": "0.1.0",
+  "description": "What every hypercontext record package shares, in one copy: the YAML header codec, the versioned-standard rule and its byte-preserving stamp, and the validator for a standard's manifest.",
+  "keywords": ["hypercontext", "records", "markdown", "frontmatter", "yaml", "manifest", "self-documenting", "supersuit"],
+  "type": "module",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./header": "./src/header.mjs",
+    "./flat-header": "./src/flat-header.mjs",
+    "./selfdoc": "./src/selfdoc.mjs",
+    "./manifest": "./src/manifest.mjs",
+    "./package.json": "./package.json"
+  },
+  "files": ["src/", "README.md", "CHANGELOG.md", "LICENSE"],
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "mutation-check": "node scripts/mutation-check.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "license": "MIT",
+  "publishConfig": { "access": "public" },
+  "repository": { "type": "git", "url": "git+https://github.com/SupersuitUp/hypercontext.git", "directory": "packages/core" },
+  "dependencies": {}
+}
