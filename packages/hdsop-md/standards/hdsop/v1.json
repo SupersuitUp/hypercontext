@@ -1,0 +1,171 @@
+{
+  "manifest_version": 1,
+  "standard": "https://hypercontext.wiki/standards/hdsop/v1",
+  "kind": "hdsop",
+  "version": 1,
+  "title": "A workflow map (HDSOP)",
+  "status": "current",
+  "superseded_by": null,
+  "latest": "https://hypercontext.wiki/standards/hdsop",
+  "record": {
+    "path": "workflows/<slug>.md",
+    "format": "md"
+  },
+  "header": {
+    "required": [
+      "standard",
+      "title"
+    ],
+    "keys": {
+      "standard": {
+        "const": "https://hypercontext.wiki/standards/hdsop/v1"
+      },
+      "title": {
+        "type": "string",
+        "maxLength": 400
+      },
+      "id": {
+        "type": "string",
+        "maxLength": 400
+      },
+      "skill": {
+        "type": "string",
+        "maxLength": 400
+      },
+      "version": {
+        "type": "string",
+        "maxLength": 400
+      },
+      "doc_status": {
+        "enum": [
+          "unmapped",
+          "drafting",
+          "proven"
+        ]
+      },
+      "tags": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "concepts": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "frequency": {
+        "type": "string",
+        "maxLength": 400
+      },
+      "est_time_per_run": {
+        "type": "string",
+        "maxLength": 400
+      },
+      "automation_potential": {
+        "type": "string",
+        "maxLength": 400
+      },
+      "related_skills": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "related_workflows": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "owner": {
+        "type": "string",
+        "maxLength": 400
+      },
+      "updated": {
+        "type": "string",
+        "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+      },
+      "last_run": {
+        "type": "string",
+        "pattern": "^(\\d{4}-\\d{2}-\\d{2}|never)?$"
+      }
+    }
+  },
+  "validator": {
+    "package": "@supersuit/hdsop-md",
+    "implements_since": "0.1.0",
+    "check": "npx -y @supersuit/hdsop-md@^0.1.0 lint workflows --json",
+    "backfill": "npx -y @supersuit/hdsop-md@^0.1.0 stamp workflows --apply"
+  },
+  "codes": [
+    {
+      "code": "header:missing",
+      "level": "error",
+      "means": "a markdown file in the workflows folder has no YAML header, so it is no map and cannot name its standard",
+      "fix": "write the header from map-a-workflow's template (its new-map writes one), or move the file out of the workflows folder"
+    },
+    {
+      "code": "self-doc:missing",
+      "level": "error",
+      "means": "the map names no standard, the bare unversioned hdsop URL written before versions, or another kind's standard",
+      "fix": "hdsop-md stamp <workflows-dir> --apply adds or upgrades it; a record naming another kind's standard is not a map, so move or fix it by hand"
+    },
+    {
+      "code": "self-doc:version",
+      "level": "error",
+      "means": "the map names a version of the hdsop standard this validator does not implement",
+      "fix": "install the hdsop-md version that implements it, or rewrite the map to https://hypercontext.wiki/standards/hdsop/v1"
+    },
+    {
+      "code": "title:missing",
+      "level": "error",
+      "means": "the header has no title or an empty one; with none, Supersuit's catalog does not count the file as a map and never scores it",
+      "fix": "set title to the workflow's name"
+    },
+    {
+      "code": "key:unknown",
+      "level": "error",
+      "means": "the header carries a key the workflow schema does not define (kind: included)",
+      "fix": "remove the key, or move what it says into the body under a heading"
+    },
+    {
+      "code": "value:type",
+      "level": "error",
+      "means": "a value is the wrong shape: a nested map, a list where one value belongs, or one value where a list belongs",
+      "fix": "write lists as [a, b] or one item per line, every other key as a single value"
+    },
+    {
+      "code": "value:line",
+      "level": "error",
+      "means": "a single value spans lines or runs past 400 characters",
+      "fix": "keep it to one line; a paragraph belongs in the body under a heading"
+    },
+    {
+      "code": "doc_status:value",
+      "level": "error",
+      "means": "doc_status is not unmapped, drafting or proven",
+      "fix": "set doc_status to unmapped, drafting or proven"
+    },
+    {
+      "code": "date:value",
+      "level": "error",
+      "means": "updated is not a real YYYY-MM-DD date, or last_run is neither a real date nor never",
+      "fix": "write the date as YYYY-MM-DD; last_run may also be never"
+    },
+    {
+      "code": "id:duplicate",
+      "level": "error",
+      "means": "two maps in the folder claim the same HDSOP id",
+      "fix": "give one of them the next free id in its domain (map-a-workflow's new-map allocates one)"
+    },
+    {
+      "code": "map:uncatalogued",
+      "level": "error",
+      "means": "a map has no row in CATALOG.md, so it is written and never scored",
+      "fix": "add a row for it to the catalog (map-a-workflow's catalog.mjs add, then set --map)"
+    }
+  ],
+  "umbrella": "npx -y @supersuit/hypercontext check <workspace>"
+}
