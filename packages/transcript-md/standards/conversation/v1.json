@@ -36,16 +36,75 @@
     ],
     "keys": {
       "schema_version": {
+        "type": "integer",
         "const": 1
       },
       "kind": {
         "const": "conversation"
+      },
+      "id": {
+        "type": "string"
+      },
+      "read_when": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "keep": {
+        "type": "object"
+      },
+      "participants": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      },
+      "sources": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      },
+      "setting": {
+        "enum": [
+          "in-person",
+          "remote",
+          "hybrid",
+          "unknown"
+        ]
+      },
+      "on_behalf_of": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "connections": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      },
+      "aliases": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      },
+      "review": {
+        "type": "object"
       },
       "body_format": {
         "enum": [
           "turns-v1",
           "legacy"
         ]
+      },
+      "extensions": {
+        "type": "object"
       },
       "standard": {
         "const": "https://hypercontext.wiki/standards/conversation/v1"

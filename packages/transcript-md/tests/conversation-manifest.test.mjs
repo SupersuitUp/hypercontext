@@ -42,17 +42,23 @@ test('the manifest is the shipped, exported twin of version 1',()=>{
  assert.equal(createRequire(import.meta.url).resolve('@supersuit/transcript-md/standards/conversation/v1.json'),fileURLToPath(new URL('standards/conversation/v1.json',repo)));
 });
 
-test('header keys come from the schema: its required keys plus standard, and its real consts and enums',()=>{
+test('header keys come from the schema: its required keys plus standard, and its real types, consts and enums',()=>{
  const schema=api.conversationSchema;
  assert.deepEqual(manifest.header.required,[...schema.required.slice(0,2),'standard',...schema.required.slice(2)]);
  const keys={};
  for(const [key,rule] of Object.entries(schema.properties)){
   if(key==='standard')continue;
-  if(Object.hasOwn(rule,'const'))keys[key]={const:rule.const};
-  else if(rule.enum)keys[key]={enum:rule.enum};
+  // The constraints a reader can check without the package: type, const, enum, pattern, and for
+  // an array its item type and minLength (on_behalf_of: non-empty strings).
+  const k={};
+  for(const c of ['type','const','enum','pattern'])if(Object.hasOwn(rule,c))k[c]=rule[c];
+  if(rule.type==='array'&&rule.items?.type){k.items={type:rule.items.type};if(rule.items.minLength!==undefined)k.items.minLength=rule.items.minLength;}
+  if(Object.keys(k).length)keys[key]=k;
  }
  keys.standard={const:api.STANDARD};
  assert.deepEqual(manifest.header.keys,keys);
+ assert.deepEqual(manifest.header.keys.on_behalf_of,{type:'array',items:{type:'string',minLength:1}});
+ assert.deepEqual(manifest.header.keys.setting,{enum:['in-person','remote','hybrid','unknown']});
  // The schema still reads the bare URL so older records parse; the standard itself is v1.
  assert.deepEqual(schema.properties.standard.enum,[api.STANDARD,'https://hypercontext.wiki/standards/conversation']);
 });

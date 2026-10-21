@@ -185,3 +185,14 @@ test('numeric offsets keep calendar range grammar and local-start agreement chec
  for(const instant of ['2026-02-30T10:20:00-05:00','2026-10-04T25:20:00+01:00','2026-10-04T10:20:00+24:00','2026-10-04T10:20:00-01:60','2026-10-04T10:20+01:00','2026-10-04T10:20:00'])assert.ok(errors(header({start:{local:null,timezone:null,instant,precision:'second',evidence:[]}})).length,instant);
  const start={local:'09:10',timezone:'America/Chicago',instant:'2026-10-04T09:10:11-05:00',precision:'minute',evidence:[]};assert.deepEqual(errors(header({date:'2026-10-04',start})),[]);assert.ok(has(header({date:'2026-10-04',start:{...start,local:'10:10'}}),'START_CONTRADICTION'));
 });
+test('on_behalf_of and setting, as Supersuit writes them, validate clean',()=>{
+ const h=header({on_behalf_of:['example-person'],setting:'remote'});
+ assert.deepEqual(errors(h),[]);
+ assert.ok(!validateConversation(h).some(d=>d.code==='UNKNOWN_KEY'));
+ const parsed=parseConversationHeader(bytes(h));assert.deepEqual(parsed.header.on_behalf_of,['example-person']);
+ for(const setting of ['in-person','remote','hybrid','unknown'])assert.deepEqual(errors(header({setting})),[]);
+ assert.ok(has(header({setting:'online'}),'SCHEMA_INVALID'));
+ for(const bad of [[''],'example-person',[7]])assert.ok(has(header({on_behalf_of:bad}),'SCHEMA_INVALID'),JSON.stringify(bad));
+ // Both are optional: a record without them stays clean.
+ assert.deepEqual(errors(header()),[]);
+});
