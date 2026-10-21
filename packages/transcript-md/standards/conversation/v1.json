@@ -1,0 +1,676 @@
+{
+  "manifest_version": 1,
+  "standard": "https://hypercontext.wiki/standards/conversation/v1",
+  "kind": "conversation",
+  "version": 1,
+  "title": "A conversation",
+  "status": "current",
+  "superseded_by": null,
+  "latest": "https://hypercontext.wiki/standards/conversation",
+  "record": {
+    "path": "<transcripts>/<id>/transcript.md",
+    "format": "md"
+  },
+  "header": {
+    "required": [
+      "schema_version",
+      "kind",
+      "standard",
+      "id",
+      "title",
+      "description",
+      "read_when",
+      "date",
+      "start",
+      "as_of",
+      "audience",
+      "keep",
+      "participants",
+      "sources",
+      "connections",
+      "aliases",
+      "review",
+      "body_format",
+      "legacy",
+      "extensions"
+    ],
+    "keys": {
+      "schema_version": {
+        "type": "integer",
+        "const": 1
+      },
+      "kind": {
+        "const": "conversation"
+      },
+      "id": {
+        "type": "string"
+      },
+      "read_when": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "keep": {
+        "type": "object"
+      },
+      "participants": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      },
+      "sources": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      },
+      "setting": {
+        "enum": [
+          "in-person",
+          "remote",
+          "hybrid",
+          "unknown"
+        ]
+      },
+      "on_behalf_of": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "connections": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      },
+      "aliases": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      },
+      "review": {
+        "type": "object"
+      },
+      "body_format": {
+        "enum": [
+          "turns-v1",
+          "legacy"
+        ]
+      },
+      "extensions": {
+        "type": "object"
+      },
+      "standard": {
+        "const": "https://hypercontext.wiki/standards/conversation/v1"
+      }
+    }
+  },
+  "validator": {
+    "package": "@supersuit/transcript-md",
+    "implements_since": "0.2.0",
+    "check": "npx -y @supersuit/transcript-md@^0.2.0 validate <file> --json",
+    "check_scope": "validate checks one file: it takes a single transcript.md. The umbrella command checks every record in a workspace.",
+    "backfill": "npx -y @supersuit/transcript-md@^0.2.0 stamp-standard --workspace . --apply"
+  },
+  "codes": [
+    {
+      "code": "INVALID_UTF8",
+      "level": "error",
+      "means": "The file is not valid UTF-8, so its header cannot be read.",
+      "fix": "Re-save the file as UTF-8 from its original bytes."
+    },
+    {
+      "code": "MALFORMED_DELIMITER",
+      "level": "error",
+      "means": "The header opens with --- but has no well-formed opening or closing --- line.",
+      "fix": "Put --- alone on the first line and on the line that ends the header."
+    },
+    {
+      "code": "INVALID_HEADER_LINE",
+      "level": "error",
+      "means": "A header line is not one snake_case key, a colon, a space and a value.",
+      "fix": "Write each header line as `key: <compact JSON>`."
+    },
+    {
+      "code": "PROTOTYPE_KEY",
+      "level": "error",
+      "means": "The header uses __proto__, prototype or constructor as a key.",
+      "fix": "Remove or rename that key."
+    },
+    {
+      "code": "DUPLICATE_KEY",
+      "level": "error",
+      "means": "A key appears twice, at the top level or inside a JSON value.",
+      "fix": "Keep one occurrence of the key."
+    },
+    {
+      "code": "INVALID_JSON_VALUE",
+      "level": "error",
+      "means": "A header value is not valid JSON.",
+      "fix": "Write the value as compact JSON (strings quoted)."
+    },
+    {
+      "code": "NON_JSON_VALUE",
+      "level": "error",
+      "means": "A header value is not plain JSON data (a non-finite number, a cycle, a non-plain object).",
+      "fix": "Use only JSON strings, numbers, booleans, null, arrays and objects."
+    },
+    {
+      "code": "SCHEMA_INVALID",
+      "level": "error",
+      "means": "A value does not satisfy the conversation schema.",
+      "fix": "Correct the field to the type and values the schema allows."
+    },
+    {
+      "code": "REQUIRED_FIELD",
+      "level": "error",
+      "means": "A field the schema requires is missing.",
+      "fix": "Add the field; use null or unknown where the fact is not known."
+    },
+    {
+      "code": "UNKNOWN_KEY",
+      "level": "error",
+      "means": "A field the schema does not declare is present.",
+      "fix": "Remove it, or move it under extensions."
+    },
+    {
+      "code": "self-doc:missing",
+      "level": "error",
+      "means": "The record names no standard, the bare unversioned URL (written before versions), or a value that is not a conversation standard version.",
+      "fix": "transcript-md stamp-standard --workspace . --apply"
+    },
+    {
+      "code": "self-doc:version",
+      "level": "error",
+      "means": "The record names a version of the conversation standard this package does not implement.",
+      "fix": "Install a @supersuit/transcript-md that implements that version."
+    },
+    {
+      "code": "UNSUPPORTED_SCHEMA_VERSION",
+      "level": "error",
+      "means": "schema_version is not 1.",
+      "fix": "Read it with a package that supports that schema version."
+    },
+    {
+      "code": "INVALID_RECORD_ID",
+      "level": "error",
+      "means": "The record id, or a record-id alias, is not a portable directory name.",
+      "fix": "Use an NFC id with no slash, control character or trailing space or dot."
+    },
+    {
+      "code": "ID_FOLDER_MISMATCH",
+      "level": "error",
+      "means": "The record id differs from the name of the folder holding it.",
+      "fix": "Rename the folder or the id so they match."
+    },
+    {
+      "code": "INVALID_NEW_ID",
+      "level": "error",
+      "means": "A new record id is not lowercase kebab case.",
+      "fix": "Choose an id like `team-call-2026-10-20`."
+    },
+    {
+      "code": "AUDIENCE_REQUIRED",
+      "level": "error",
+      "means": "A new record has no intended reader.",
+      "fix": "Set audience."
+    },
+    {
+      "code": "UNKNOWN_FACT",
+      "level": "warning",
+      "means": "A fact is recorded as unknown (null or unknown).",
+      "fix": "Fill it in when it becomes known; nothing is wrong meanwhile."
+    },
+    {
+      "code": "INVALID_DATE",
+      "level": "error",
+      "means": "date or as_of is not a real calendar day.",
+      "fix": "Write YYYY-MM-DD for a day that exists."
+    },
+    {
+      "code": "INVALID_INSTANT",
+      "level": "error",
+      "means": "An instant is not RFC 3339 with seconds and a timezone offset.",
+      "fix": "Write e.g. 2026-10-20T14:05:00-04:00."
+    },
+    {
+      "code": "START_REQUIRED",
+      "level": "error",
+      "means": "start has neither a local time nor an instant.",
+      "fix": "Give start.local or start.instant, or set start to null."
+    },
+    {
+      "code": "INVALID_LOCAL_TIME",
+      "level": "error",
+      "means": "start.local is not a real clock time.",
+      "fix": "Write HH:MM or HH:MM:SS."
+    },
+    {
+      "code": "INVALID_TIMEZONE",
+      "level": "error",
+      "means": "start.timezone is not a valid IANA timezone name.",
+      "fix": "Use a name like America/New_York."
+    },
+    {
+      "code": "START_PRECISION_MISMATCH",
+      "level": "error",
+      "means": "Second precision is declared but start.local has no seconds.",
+      "fix": "Add seconds to start.local or lower the precision."
+    },
+    {
+      "code": "START_CONTRADICTION",
+      "level": "error",
+      "means": "date, local start, timezone and instant disagree.",
+      "fix": "Correct whichever of them is wrong."
+    },
+    {
+      "code": "INVALID_GROUP_PATH",
+      "level": "error",
+      "means": "keep.group is not a workspace-relative path.",
+      "fix": "Use a relative path with no traversal."
+    },
+    {
+      "code": "FAMILY_GROUP_REQUIRED",
+      "level": "error",
+      "means": "Family sharing names no group.",
+      "fix": "Set keep.group."
+    },
+    {
+      "code": "FAMILY_DECISION_REQUIRED",
+      "level": "error",
+      "means": "Family sharing has no explicit operator decision.",
+      "fix": "Record the operator-decision evidence in keep.decision."
+    },
+    {
+      "code": "SHARE_DECISION_REQUIRED",
+      "level": "error",
+      "means": "Sharing has no explicit operator decision.",
+      "fix": "Record the operator-decision evidence in keep.decision."
+    },
+    {
+      "code": "DUPLICATE_ID",
+      "level": "error",
+      "means": "Two participants, sources, retired turns or protected turns share an id.",
+      "fix": "Give each a unique id."
+    },
+    {
+      "code": "UNKNOWN_PERSON_REQUIRED",
+      "level": "error",
+      "means": "A participant of unknown status names a person.",
+      "fix": "Set person to null, or confirm the identity with evidence."
+    },
+    {
+      "code": "CONFIRMED_IDENTITY_EVIDENCE_REQUIRED",
+      "level": "error",
+      "means": "A confirmed participant has no person or no identifying evidence.",
+      "fix": "Add the person and the evidence, or lower the status."
+    },
+    {
+      "code": "CLOUD_IDENTITY_INVALID",
+      "level": "error",
+      "means": "A cloud recording lacks its service or recording id, or carries a vendor id.",
+      "fix": "Set service and recording_id; set vendor_id to null."
+    },
+    {
+      "code": "SOURCE_ID_CONFLICT",
+      "level": "error",
+      "means": "A service locator names a different recording than its cloud capture.",
+      "fix": "Make the locator service_id equal the capture recording_id."
+    },
+    {
+      "code": "NONCLOUD_IDENTITY_INVALID",
+      "level": "error",
+      "means": "A non-cloud capture carries cloud identity fields.",
+      "fix": "Set service and recording_id to null."
+    },
+    {
+      "code": "CAPTURE_ROLES_INVALID",
+      "level": "error",
+      "means": "A capture has no roles or repeats one.",
+      "fix": "List each role once, at least one."
+    },
+    {
+      "code": "LOCATOR_IDENTITY_INVALID",
+      "level": "error",
+      "means": "A locator carries identifiers that do not apply to its kind.",
+      "fix": "Service locators use url or service_id; others use path only."
+    },
+    {
+      "code": "INVALID_BUNDLED_PATH",
+      "level": "error",
+      "means": "A bundled locator path is absolute or traverses.",
+      "fix": "Use a path relative to the record folder."
+    },
+    {
+      "code": "INVALID_MEDIA_TYPE",
+      "level": "error",
+      "means": "A locator media_type is not a MIME type.",
+      "fix": "Write type/subtype, e.g. audio/mp4."
+    },
+    {
+      "code": "BACKUP_UNVERIFIED_FIELDS",
+      "level": "error",
+      "means": "An unverified backup claims verification fields.",
+      "fix": "Null them, or mark the backup verified-owned."
+    },
+    {
+      "code": "BACKUP_VERIFICATION_REQUIRED",
+      "level": "error",
+      "means": "An owned backup lacks a distinct locator, a matching checksum or a verification instant.",
+      "fix": "Record all three, or mark it unverified."
+    },
+    {
+      "code": "ALIAS_NAMESPACE_INVALID",
+      "level": "error",
+      "means": "A source-id alias has no namespace, or another alias has one.",
+      "fix": "Give namespaces to source-id aliases only."
+    },
+    {
+      "code": "CITATION_PATH_INVALID",
+      "level": "error",
+      "means": "A citation lacks a relative path or a portable record id.",
+      "fix": "Correct the citation path and record_id."
+    },
+    {
+      "code": "CITATION_REPOSITORY_REQUIRED",
+      "level": "error",
+      "means": "A git citation names no repository.",
+      "fix": "Set repository."
+    },
+    {
+      "code": "CITATION_RANGE_INVALID",
+      "level": "error",
+      "means": "A line citation ends before it starts.",
+      "fix": "Order start and end."
+    },
+    {
+      "code": "CITATION_TURNS_INVALID",
+      "level": "error",
+      "means": "A turn citation has no turn ids or repeats one.",
+      "fix": "List distinct turn ids."
+    },
+    {
+      "code": "SOURCE_RANGE_INVALID",
+      "level": "error",
+      "means": "A cited capture span ends without an ordered start.",
+      "fix": "Give start_ms no later than end_ms."
+    },
+    {
+      "code": "CONNECTION_PATH_INVALID",
+      "level": "error",
+      "means": "A path connection is not relative.",
+      "fix": "Use a workspace-relative path."
+    },
+    {
+      "code": "REVIEW_EVIDENCE_REQUIRED",
+      "level": "error",
+      "means": "Human review is claimed without operator-decision evidence.",
+      "fix": "Add the evidence, or mark it unreviewed."
+    },
+    {
+      "code": "LEGACY_HEADER_PROOF_INVALID",
+      "level": "error",
+      "means": "The retained legacy header bytes and their hash are missing in part or disagree.",
+      "fix": "Keep both, matching, or both null."
+    },
+    {
+      "code": "REVIEWED_ORIGIN_REQUIRED",
+      "level": "error",
+      "means": "A protected turn retains no reviewed versions.",
+      "fix": "Restore its reviewed versions from the revision journal."
+    },
+    {
+      "code": "REVIEW_DIMENSIONS_REQUIRED",
+      "level": "error",
+      "means": "A reviewed version has no review dimensions or repeats one.",
+      "fix": "List each dimension once."
+    },
+    {
+      "code": "REVIEW_ENTRY_PATH_INVALID",
+      "level": "error",
+      "means": "A reviewed version entry path is not relative.",
+      "fix": "Use the record-relative path."
+    },
+    {
+      "code": "REVISION_AUTHORIZATION_REQUIRED",
+      "level": "error",
+      "means": "An authorized change to a protected turn has no operator decision.",
+      "fix": "Record the operator-decision evidence."
+    },
+    {
+      "code": "CANONICAL_HEADER_REQUIRED",
+      "level": "error",
+      "means": "A <id>/transcript.md has no header at all.",
+      "fix": "Add the conversation header between --- lines."
+    },
+    {
+      "code": "INVALID_REDIRECT",
+      "level": "error",
+      "means": "A conversation-redirect header has keys other than schema_version, kind and to, or a body.",
+      "fix": "Keep exactly schema_version 1, kind and a nonempty to, with an empty body."
+    },
+    {
+      "code": "CANONICAL_SECTIONS_INVALID",
+      "level": "error",
+      "means": "The body does not have exactly ## Now, ## Transcript, ## Log and ## Open questions, in that order.",
+      "fix": "Restore the four H2 sections, exactly spelled, in order."
+    },
+    {
+      "code": "TITLE_MISMATCH",
+      "level": "error",
+      "means": "The body has more than one H1, or an H1 that differs from the header title.",
+      "fix": "Keep at most one H1, equal to title."
+    },
+    {
+      "code": "TRANSCRIPT_SECTION_UNKNOWN",
+      "level": "warning",
+      "means": "No transcript section was found in the body.",
+      "fix": "Add a ## Transcript section when the words are available."
+    },
+    {
+      "code": "TRANSCRIPT_EMPTY",
+      "level": "warning",
+      "means": "The transcript section holds no words.",
+      "fix": "Nothing is wrong; add the words when they exist."
+    },
+    {
+      "code": "TURN_HEADING_INVALID",
+      "level": "error",
+      "means": "A heading names a turn but is not `### t-NNNNNN`.",
+      "fix": "Write turn headings as ### t-000001."
+    },
+    {
+      "code": "TURN_GRAMMAR_INVALID",
+      "level": "error",
+      "means": "The transcript section has text before its first turn.",
+      "fix": "Move that text into a turn or into another section."
+    },
+    {
+      "code": "TURN_ID_DUPLICATE",
+      "level": "error",
+      "means": "Two turns share an id.",
+      "fix": "Give each turn a unique t-NNNNNN id."
+    },
+    {
+      "code": "TURN_METADATA_INVALID",
+      "level": "error",
+      "means": "A turn heading is not followed by a `<!-- turn {...} -->` line with exactly speaker, sources, timing and source_gap.",
+      "fix": "Put the turn metadata comment directly under the heading."
+    },
+    {
+      "code": "TURN_SPEAKER_UNKNOWN",
+      "level": "error",
+      "means": "A turn speaker is not one of the participants.",
+      "fix": "Use a participant id, or null when the speaker is unknown."
+    },
+    {
+      "code": "TURN_SOURCE_INVALID",
+      "level": "error",
+      "means": "A turn has neither sources nor a written source_gap, or a blank gap.",
+      "fix": "Cite the capture span, or explain the gap in source_gap."
+    },
+    {
+      "code": "TURN_TIMING_INVALID",
+      "level": "error",
+      "means": "A turn timing does not fit its declared captures and mappings.",
+      "fix": "Correct the timing, or set it to null."
+    },
+    {
+      "code": "SPEAKER_UNRESOLVED",
+      "level": "warning",
+      "means": "A turn has no known speaker.",
+      "fix": "Map the speaker to a participant when known."
+    },
+    {
+      "code": "TIMING_UNRESOLVED",
+      "level": "warning",
+      "means": "A turn has no timing.",
+      "fix": "Add timing when a capture mapping exists."
+    },
+    {
+      "code": "TURN_SOURCE_UNRESOLVED",
+      "level": "warning",
+      "means": "A turn records a source gap instead of a capture span.",
+      "fix": "Cite the capture span when it becomes available."
+    },
+    {
+      "code": "TURN_EMPTY",
+      "level": "warning",
+      "means": "A turn holds no words.",
+      "fix": "Add its words, or retire the turn."
+    },
+    {
+      "code": "SOURCE_UNKNOWN",
+      "level": "warning",
+      "means": "The record lists no source captures.",
+      "fix": "Add the capture the words came from when known."
+    },
+    {
+      "code": "PARTICIPANTS_UNKNOWN",
+      "level": "warning",
+      "means": "The record lists no participants.",
+      "fix": "Add the participants when known."
+    },
+    {
+      "code": "NOT_FOUND",
+      "level": "error",
+      "means": "The file or record does not exist.",
+      "fix": "Check the path or id."
+    },
+    {
+      "code": "READ_INCOMPLETE",
+      "level": "error",
+      "means": "The record or its workspace could not be read completely.",
+      "fix": "Check the path, the workspace and file permissions, then retry."
+    },
+    {
+      "code": "REDIRECT_LOOP",
+      "level": "error",
+      "means": "Redirects lead back to a record already visited.",
+      "fix": "Point the redirect at the final record."
+    },
+    {
+      "code": "REDIRECT_TARGET_INVALID",
+      "level": "error",
+      "means": "A redirect leads to something that is not a canonical <id>/transcript.md.",
+      "fix": "Point the redirect at a canonical record."
+    },
+    {
+      "code": "REDIRECT_WORKSPACE_REQUIRED",
+      "level": "error",
+      "means": "A redirect cannot be followed without an explicit workspace.",
+      "fix": "Pass --workspace."
+    },
+    {
+      "code": "REDIRECT_HOP_LIMIT",
+      "level": "error",
+      "means": "More than eight redirects in a row.",
+      "fix": "Point the first redirect straight at the final record."
+    },
+    {
+      "code": "REDIRECT_OUTSIDE_WORKSPACE",
+      "level": "error",
+      "means": "A redirect, or a requested path, leaves the workspace.",
+      "fix": "Use a workspace-relative target."
+    },
+    {
+      "code": "SYMLINK_EXCLUDED",
+      "level": "error",
+      "means": "A symlink in the transcripts folder was not followed.",
+      "fix": "Replace the link with the real file or folder."
+    },
+    {
+      "code": "UNCLASSIFIED_MARKDOWN",
+      "level": "error",
+      "means": "A Markdown file sits where no conversation record can be.",
+      "fix": "Move it, or into a <id>/transcript.md."
+    },
+    {
+      "code": "ID_COLLISION",
+      "level": "error",
+      "means": "Two records have ids that are equal after Unicode case folding.",
+      "fix": "Rename one of them."
+    },
+    {
+      "code": "AMBIGUOUS_ALIAS",
+      "level": "error",
+      "means": "An alias or id resolves to more than one record.",
+      "fix": "Remove or narrow the duplicate alias."
+    },
+    {
+      "code": "LEGACY_FIELD_UNPARSED",
+      "level": "error",
+      "means": "A legacy header line or field could not be read as a flat key and value.",
+      "fix": "Correct the line, or migrate the record to a canonical header."
+    },
+    {
+      "code": "DATE_CONFLICT",
+      "level": "error",
+      "means": "A legacy header gives more than one date.",
+      "fix": "Keep one date."
+    },
+    {
+      "code": "SOURCE_SERVICE_UNRESOLVED",
+      "level": "error",
+      "means": "A legacy recording names no recognised service.",
+      "fix": "Name the service, or migrate and record the capture explicitly."
+    },
+    {
+      "code": "RECORDING_ID_UNRESOLVED",
+      "level": "error",
+      "means": "A legacy recording has no usable recording id.",
+      "fix": "Add the exact recording id."
+    },
+    {
+      "code": "SOURCE_ROLE_UNRESOLVED",
+      "level": "error",
+      "means": "A legacy source names a role that is not recognised.",
+      "fix": "Use a recognised role, or migrate the record."
+    },
+    {
+      "code": "TIME_BASIS_UNRESOLVED",
+      "level": "warning",
+      "means": "A legacy header has time fields the reader will not interpret as a start.",
+      "fix": "Migrate the record and state start explicitly."
+    },
+    {
+      "code": "RESTRICTION_UNRESOLVED",
+      "level": "error",
+      "means": "A legacy privacy or sharing field could not be interpreted; the record is treated as private.",
+      "fix": "Migrate the record and set keep explicitly."
+    },
+    {
+      "code": "INVALID_ARGUMENTS",
+      "level": "error",
+      "means": "The command line is not one the CLI accepts.",
+      "fix": "Run transcript-md --help for the exact flags."
+    }
+  ],
+  "umbrella": "npx -y @supersuit/hypercontext check <workspace>"
+}

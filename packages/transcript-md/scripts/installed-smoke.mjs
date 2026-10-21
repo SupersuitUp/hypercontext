@@ -1,0 +1,36 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {fileURLToPath} from 'node:url';
+import {readFileSync,writeFileSync,existsSync,realpathSync,mkdirSync} from 'node:fs';
+import {join,relative,isAbsolute} from 'node:path';
+import {guard,spawnSync,probe} from '../tests/helpers/native.mjs';
+guard();const consumer=realpathSync(process.argv[2]),owned=realpathSync(process.env.TRANSCRIPT_MD_OWNED),rel=relative(owned,consumer);assert.ok(rel===''||!isAbsolute(rel)&&rel!=='..'&&!rel.startsWith('../'));
+const installed=realpathSync(join(consumer,'node_modules'));assert.ok(installed.startsWith(owned+'/'),'Installed dependency tree must be owned');
+const require=createRequire(join(consumer,'example.mjs')),entry=require.resolve('@supersuit/transcript-md');assert.ok(entry.startsWith(installed+'/'),'Must execute actual installed bytes');const readme=readFileSync(join(consumer,'node_modules/@supersuit/transcript-md/README.md'),'utf8');
+for(const sub of ['codec','reader','writer','citations','schema','python','cli'])assert.ok(existsSync(require.resolve('@supersuit/transcript-md/'+sub)),sub);
+const examples=[...readme.matchAll(/```(js|python)\n([\s\S]*?)```/g)];assert.equal(examples.length,2);
+for(const [language,filename]of [['js','example.mjs'],['python','example.py']])assert.equal(readFileSync(join(consumer,filename),'utf8'),examples.find(m=>m[1]===language)[2]);
+const poisoned={...process.env,FREEDOM_WORKSPACE:'/nonexistent/global-workspace',FREEDOM_CONVERSATIONS_CLI:'/nonexistent/global-cli',FREEDOM_HOME:'/nonexistent/global-home'};
+function run(cmd,args){const r=spawnSync(cmd,args,{cwd:consumer,encoding:'utf8',env:poisoned});assert.equal(r.status,0,r.stderr);assert.equal(r.stderr,'');return r.stdout;}
+const created=JSON.parse(run(process.execPath,['example.mjs']));assert.equal(created.text,'Exact example words.\n\n');const retry=JSON.parse(run(process.execPath,['example.mjs']));assert.deepEqual(retry,created);
+const bin=join(consumer,'node_modules/.bin/transcript-md');
+for(const command of [...readme.matchAll(/^\.\/node_modules\/\.bin\/transcript-md (.+)$/gm)]){const output=run(bin,command[1].split(' '));if(command[1]!=='--help')assert.ok(JSON.parse(output));}
+const api=await import(entry),root=join(consumer,'records'),file=created.path,record=probe(api.readConversation,[file,{root}]);
+const resolved=probe(api.resolveCitation,[created.citation,{readVersion:()=>readFileSync(file)}]);assert.deepEqual(resolved.text,record.turns[0].text);
+const decision={kind:'operator-decision',locator:'synthetic:installed-smoke',revision:null,note:'Synthetic controlled change.'},log={date:'2026-10-05',text:'Synthetic installed revision.',evidence:[decision]};
+const revision={schema_version:1,revision_id:'installed-retitle-1',base_sha256:record.fileSha256,mode:'routine',authorization:null,operations:[{op:'retitle',title:'Installed revised title'}],log};
+const before=readFileSync(file);assert.throws(()=>probe(api.reviseConversation,[{file,root,spec:{...revision,base_sha256:'0'.repeat(64)},expectedSha:'0'.repeat(64),pid:process.pid,by:'installed-smoke'}]),e=>e.code==='STALE_PIN');assert.deepEqual(readFileSync(file),before);
+const revised=probe(api.reviseConversation,[{file,root,spec:revision,expectedSha:record.fileSha256,pid:process.pid,by:'installed-smoke'}]);assert.ok(revised.changed);
+assert.deepEqual(probe(api.resolveConversationCitation,[{file,root,citation:created.citation}]).text,record.turns[0].text);
+probe(api.recoverConversationRevision,[{file,root,revisionId:revision.revision_id,action:'reverse',pid:process.pid,by:'installed-smoke'}]);assert.deepEqual(readFileSync(file),before);
+const current=probe(api.readConversation,[file,{root}]);probe(api.annotateConversation,[{file,root,spec:{markdown:'Synthetic interpretation only.',citations:[created.citation],processing:'processed',expected_annotations_sha256:null,log},expectedSha:current.fileSha256,pid:process.pid,by:'installed-smoke'}]);assert.deepEqual(probe(api.readConversation,[file,{root}]).turns[0].text,record.turns[0].text);
+assert.throws(()=>probe(api.assertConversationProjection,[file,{target:{kind:'public'}}]),e=>e.code==='PRIVACY_REFUSED');
+// A genuinely reviewed record protects speech in an installed consumer, independent of later flags.
+const h=structuredClone(record.header);h.id='reviewed-call';h.review={transcription:'human-reviewed',attribution:'unreviewed',processing:'unprocessed',evidence:[decision]};h.extensions={};
+const reviewed=probe(api.createConversation,[{root,spec:{header:h,body:record.body.toString(),assets:[],annotations:null},pid:process.pid,by:'installed-smoke'}]);const rr=probe(api.readConversation,[reviewed.path,{root}]);
+const ch={turn_id:'t-000001',before_text_sha256:probe(api.citeConversation,[rr,{turnIds:['t-000001']}]).selector.text_sha256,speaker:null,sources:[],timing:null,source_gap:'Original capture unavailable.',text:'Replacement words.\n',evidence:[decision]};
+assert.throws(()=>probe(api.reviseConversation,[{file:reviewed.path,root,spec:{...revision,revision_id:'installed-protection-1',base_sha256:rr.fileSha256,operations:[{op:'revise-turns',changes:[ch]}]},expectedSha:rr.fileSha256,pid:process.pid,by:'installed-smoke'}]),e=>e.code==='REVIEWED_TRANSCRIPT_REVISION_REQUIRED');assert.deepEqual(probe(api.readConversation,[reviewed.path,{root}]).turns[0].text,rr.turns[0].text);
+const asset=require.resolve('@supersuit/transcript-md/python');const python=JSON.parse(run(process.env.PYTHON,['-B','-I','-S','example.py',asset,root]));assert.equal(python.id,'example-call');assert.equal(python.text,created.text);
+const pyBridge=`import importlib.util,sys,json\ns=importlib.util.spec_from_file_location('freedom_conversations',sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)\np=sys.argv[2];root=sys.argv[3];r=m.read_record(p,workspace=root);e={'kind':'operator-decision','locator':'synthetic:python','revision':None,'note':'Synthetic bridge choice.'};log={'date':'2026-10-05','text':'Synthetic Python bridge revision.','evidence':[e]};spec={'schema_version':1,'revision_id':'python-installed-1','base_sha256':r['fileSha256'],'mode':'routine','authorization':None,'operations':[{'op':'retitle','title':'Python title'}],'log':log}\na=m.revise_record(p,spec,r['fileSha256'],workspace=root);m.recover_revision(p,'python-installed-1','reverse',workspace=root);r=m.read_record(p,workspace=root);m.annotate_record(p,{'markdown':'Python interpretation.','citations':[],'processing':None,'log':log},r['fileSha256'],workspace=root);assert m.read_source_refs(p,workspace=root)==[];assert len(m.list_records(workspace=root))==2\ntry:m.read_record(p+'-missing',workspace=root)\nexcept m.ConversationError as error:assert error.returncode==1;assert error.diagnostics[0]['code']=='NOT_FOUND'\nelse:raise AssertionError('Missing file must raise')\nprint(json.dumps({'python_bridge':'passed'}))\n`;
+assert.equal(JSON.parse(run(process.env.PYTHON,['-B','-I','-S','-c',pyBridge,asset,file,root])).python_bridge,'passed');
+console.log(JSON.stringify({installed:'passed',node:process.version,python_asset:asset,exports:8,readme_examples:8,stale_protection_history_recovery_annotation_python:'passed'}));

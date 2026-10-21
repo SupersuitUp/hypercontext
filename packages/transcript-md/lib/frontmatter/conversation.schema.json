@@ -1,0 +1,1672 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "kind",
+    "id",
+    "title",
+    "description",
+    "read_when",
+    "date",
+    "start",
+    "as_of",
+    "audience",
+    "keep",
+    "participants",
+    "sources",
+    "connections",
+    "aliases",
+    "review",
+    "body_format",
+    "legacy",
+    "extensions"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "kind": {
+      "const": "conversation"
+    },
+    "standard": {
+      "enum": [
+        "https://hypercontext.wiki/standards/conversation/v1",
+        "https://hypercontext.wiki/standards/conversation"
+      ]
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "read_when": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "date": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "start": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "local",
+            "timezone",
+            "instant",
+            "precision",
+            "evidence"
+          ],
+          "properties": {
+            "local": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[0-9]{2}:[0-9]{2}(:[0-9]{2})?$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "timezone": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "instant": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "precision": {
+              "enum": [
+                "minute",
+                "second"
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "kind",
+                  "locator",
+                  "revision",
+                  "note"
+                ],
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "operator-decision",
+                      "source-metadata",
+                      "source-span",
+                      "existing-header",
+                      "machine-check"
+                    ]
+                  },
+                  "locator": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "revision": {
+                    "anyOf": [
+                      {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "required": [
+                              "kind",
+                              "value"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "const": "sha256"
+                              },
+                              "value": {
+                                "type": "string",
+                                "minLength": 1,
+                                "pattern": "^[a-f0-9]{64}$"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "required": [
+                              "kind",
+                              "value"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "const": "git"
+                              },
+                              "value": {
+                                "type": "string",
+                                "minLength": 1,
+                                "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "note": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[^\\r\\n]+$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "as_of": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "audience": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "keep": {
+      "type": "object",
+      "required": [
+        "scope",
+        "group",
+        "decision"
+      ],
+      "properties": {
+        "scope": {
+          "enum": [
+            "home",
+            "family",
+            "share",
+            "unknown"
+          ]
+        },
+        "group": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "decision": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": [
+                "kind",
+                "locator",
+                "revision",
+                "note"
+              ],
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "operator-decision",
+                    "source-metadata",
+                    "source-span",
+                    "existing-header",
+                    "machine-check"
+                  ]
+                },
+                "locator": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "revision": {
+                  "anyOf": [
+                    {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "value"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "sha256"
+                            },
+                            "value": {
+                              "type": "string",
+                              "minLength": 1,
+                              "pattern": "^[a-f0-9]{64}$"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "value"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "git"
+                            },
+                            "value": {
+                              "type": "string",
+                              "minLength": 1,
+                              "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "note": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[^\\r\\n]+$"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "participants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "person",
+          "status",
+          "role",
+          "evidence"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^p-[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "person": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z0-9][a-z0-9-]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "unknown",
+              "proposed",
+              "confirmed"
+            ]
+          },
+          "role": {
+            "enum": [
+              "speaker",
+              "attendee",
+              "unknown"
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "kind",
+                "locator",
+                "revision",
+                "note"
+              ],
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "operator-decision",
+                    "source-metadata",
+                    "source-span",
+                    "existing-header",
+                    "machine-check"
+                  ]
+                },
+                "locator": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "revision": {
+                  "anyOf": [
+                    {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "value"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "sha256"
+                            },
+                            "value": {
+                              "type": "string",
+                              "minLength": 1,
+                              "pattern": "^[a-f0-9]{64}$"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "value"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "git"
+                            },
+                            "value": {
+                              "type": "string",
+                              "minLength": 1,
+                              "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "note": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[^\\r\\n]+$"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "service",
+          "recording_id",
+          "vendor_id",
+          "roles",
+          "locators",
+          "availability",
+          "evidence"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^c-[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "service": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9-]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recording_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "vendor_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "transcript-body",
+                "metadata",
+                "generated-notes",
+                "supplemental",
+                "unknown"
+              ]
+            }
+          },
+          "locators": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "kind",
+                "path",
+                "url",
+                "service_id",
+                "media_type",
+                "sha256",
+                "bytes",
+                "checked_at",
+                "backup"
+              ],
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "bundled",
+                    "external-local",
+                    "service"
+                  ]
+                },
+                "path": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "url": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "service_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "media_type": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "sha256": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "bytes": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "checked_at": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "backup": {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "locator",
+                    "sha256",
+                    "verified_at"
+                  ],
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "unverified",
+                        "verified-owned"
+                      ]
+                    },
+                    "locator": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "sha256": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "verified_at": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "availability": {
+            "enum": [
+              "local",
+              "remote-only",
+              "missing",
+              "inaccessible",
+              "unknown"
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "kind",
+                "locator",
+                "revision",
+                "note"
+              ],
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "operator-decision",
+                    "source-metadata",
+                    "source-span",
+                    "existing-header",
+                    "machine-check"
+                  ]
+                },
+                "locator": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "revision": {
+                  "anyOf": [
+                    {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "value"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "sha256"
+                            },
+                            "value": {
+                              "type": "string",
+                              "minLength": 1,
+                              "pattern": "^[a-f0-9]{64}$"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "value"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "git"
+                            },
+                            "value": {
+                              "type": "string",
+                              "minLength": 1,
+                              "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "note": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[^\\r\\n]+$"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "setting": {
+      "enum": [
+        "in-person",
+        "remote",
+        "hybrid",
+        "unknown"
+      ]
+    },
+    "on_behalf_of": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "connections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "relation",
+          "target",
+          "citation"
+        ],
+        "properties": {
+          "relation": {
+            "enum": [
+              "person",
+              "project",
+              "same-conversation-candidate",
+              "continues",
+              "related",
+              "supersedes"
+            ]
+          },
+          "target": {
+            "type": "object",
+            "required": [
+              "kind",
+              "id"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "person",
+                  "project",
+                  "conversation",
+                  "path"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "citation": {
+            "anyOf": [
+              {
+                "type": "object",
+                "required": [
+                  "repository",
+                  "path",
+                  "record_id",
+                  "revision",
+                  "selector",
+                  "sources"
+                ],
+                "properties": {
+                  "repository": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "record_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "revision": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "sha256"
+                          },
+                          "value": {
+                            "type": "string",
+                            "minLength": 1,
+                            "pattern": "^[a-f0-9]{64}$"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "git"
+                          },
+                          "value": {
+                            "type": "string",
+                            "minLength": 1,
+                            "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "selector": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "kind",
+                          "ids",
+                          "text_sha256"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "turn"
+                          },
+                          "ids": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "pattern": "^t-[0-9]{6,}$"
+                            }
+                          },
+                          "text_sha256": {
+                            "type": "string",
+                            "minLength": 1,
+                            "pattern": "^[a-f0-9]{64}$"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "kind",
+                          "start",
+                          "end",
+                          "text_sha256"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "lines"
+                          },
+                          "start": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "end": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "text_sha256": {
+                            "type": "string",
+                            "minLength": 1,
+                            "pattern": "^[a-f0-9]{64}$"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "sources": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "capture",
+                        "locator",
+                        "start_ms",
+                        "end_ms"
+                      ],
+                      "properties": {
+                        "capture": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "^c-[a-z0-9]+(?:-[a-z0-9]+)*$"
+                        },
+                        "locator": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "start_ms": {
+                          "anyOf": [
+                            {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "end_ms": {
+                          "anyOf": [
+                            {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "aliases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "kind",
+          "value",
+          "namespace"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "record-id",
+              "legacy-path",
+              "source-id"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1
+          },
+          "namespace": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "review": {
+      "type": "object",
+      "required": [
+        "transcription",
+        "attribution",
+        "processing",
+        "evidence"
+      ],
+      "properties": {
+        "transcription": {
+          "enum": [
+            "unreviewed",
+            "machine-checked",
+            "human-reviewed",
+            "disputed"
+          ]
+        },
+        "attribution": {
+          "enum": [
+            "unreviewed",
+            "machine-checked",
+            "human-reviewed",
+            "disputed"
+          ]
+        },
+        "processing": {
+          "enum": [
+            "unprocessed",
+            "processed"
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "kind",
+              "locator",
+              "revision",
+              "note"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "operator-decision",
+                  "source-metadata",
+                  "source-span",
+                  "existing-header",
+                  "machine-check"
+                ]
+              },
+              "locator": {
+                "type": "string",
+                "minLength": 1
+              },
+              "revision": {
+                "anyOf": [
+                  {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "sha256"
+                          },
+                          "value": {
+                            "type": "string",
+                            "minLength": 1,
+                            "pattern": "^[a-f0-9]{64}$"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "kind",
+                          "value"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "git"
+                          },
+                          "value": {
+                            "type": "string",
+                            "minLength": 1,
+                            "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "note": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[^\\r\\n]+$"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "body_format": {
+      "enum": [
+        "turns-v1",
+        "legacy"
+      ]
+    },
+    "legacy": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "original_path",
+            "original_revision",
+            "raw_header_base64",
+            "raw_header_sha256",
+            "fields",
+            "unparsed_keys",
+            "body_sha256"
+          ],
+          "properties": {
+            "original_path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "original_revision": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "value"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "sha256"
+                    },
+                    "value": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "value"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "git"
+                    },
+                    "value": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "raw_header_base64": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "raw_header_sha256": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "fields": {
+              "type": "object",
+              "required": [],
+              "properties": {},
+              "additionalProperties": true
+            },
+            "unparsed_keys": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "body_sha256": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "extensions": {
+      "type": "object",
+      "required": [],
+      "properties": {
+        "conversation_revision": {
+          "type": "object",
+          "required": [
+            "next_turn_number",
+            "retired_turn_ids",
+            "protected_turns"
+          ],
+          "properties": {
+            "next_turn_number": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "retired_turn_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^t-[0-9]{6,}$"
+              }
+            },
+            "protected_turns": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "turn_id",
+                  "baseline_sha256",
+                  "reviewed_versions",
+                  "authorized_changes",
+                  "retired"
+                ],
+                "properties": {
+                  "turn_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^t-[0-9]{6,}$"
+                  },
+                  "baseline_sha256": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "reviewed_versions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "turn_id",
+                        "entry_revision",
+                        "entry_path",
+                        "snapshot_sha256",
+                        "dimensions",
+                        "evidence"
+                      ],
+                      "properties": {
+                        "turn_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "^t-[0-9]{6,}$"
+                        },
+                        "entry_revision": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "sha256"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "pattern": "^[a-f0-9]{64}$"
+                                }
+                              },
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "git"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "entry_path": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "snapshot_sha256": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "dimensions": {
+                          "type": "array",
+                          "items": {
+                            "enum": [
+                              "transcription",
+                              "attribution"
+                            ]
+                          }
+                        },
+                        "evidence": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "kind",
+                              "locator",
+                              "revision",
+                              "note"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "enum": [
+                                  "operator-decision",
+                                  "source-metadata",
+                                  "source-span",
+                                  "existing-header",
+                                  "machine-check"
+                                ]
+                              },
+                              "locator": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "revision": {
+                                "anyOf": [
+                                  {
+                                    "oneOf": [
+                                      {
+                                        "type": "object",
+                                        "required": [
+                                          "kind",
+                                          "value"
+                                        ],
+                                        "properties": {
+                                          "kind": {
+                                            "const": "sha256"
+                                          },
+                                          "value": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "pattern": "^[a-f0-9]{64}$"
+                                          }
+                                        },
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "object",
+                                        "required": [
+                                          "kind",
+                                          "value"
+                                        ],
+                                        "properties": {
+                                          "kind": {
+                                            "const": "git"
+                                          },
+                                          "value": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+                                          }
+                                        },
+                                        "additionalProperties": false
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "note": {
+                                "type": "string",
+                                "minLength": 1,
+                                "pattern": "^[^\\r\\n]+$"
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "authorized_changes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "revision_id",
+                        "from_sha256",
+                        "to_sha256",
+                        "decision"
+                      ],
+                      "properties": {
+                        "revision_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "^[a-zA-Z0-9_-]{8,128}$"
+                        },
+                        "from_sha256": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "to_sha256": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "pattern": "^[a-f0-9]{64}$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "decision": {
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "locator",
+                            "revision",
+                            "note"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "enum": [
+                                "operator-decision",
+                                "source-metadata",
+                                "source-span",
+                                "existing-header",
+                                "machine-check"
+                              ]
+                            },
+                            "locator": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "revision": {
+                              "anyOf": [
+                                {
+                                  "oneOf": [
+                                    {
+                                      "type": "object",
+                                      "required": [
+                                        "kind",
+                                        "value"
+                                      ],
+                                      "properties": {
+                                        "kind": {
+                                          "const": "sha256"
+                                        },
+                                        "value": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "pattern": "^[a-f0-9]{64}$"
+                                        }
+                                      },
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "required": [
+                                        "kind",
+                                        "value"
+                                      ],
+                                      "properties": {
+                                        "kind": {
+                                          "const": "git"
+                                        },
+                                        "value": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+                                        }
+                                      },
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "note": {
+                              "type": "string",
+                              "minLength": 1,
+                              "pattern": "^[^\\r\\n]+$"
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "retired": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

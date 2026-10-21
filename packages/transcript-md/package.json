@@ -1,0 +1,46 @@
+{
+  "name": "@supersuit/transcript-md",
+  "version": "0.2.0",
+  "description": "Local transcript.md records: lossless codec, validation, revisions and citations",
+  "type": "module",
+  "license": "SEE LICENSE IN LICENSE",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": "./index.mjs",
+    "./codec": "./lib/frontmatter/conversation.mjs",
+    "./reader": "./lib/freedom-conversations.mjs",
+    "./writer": "./lib/freedom-conversation-write.mjs",
+    "./citations": "./lib/freedom-conversation-citations.mjs",
+    "./schema": "./lib/frontmatter/conversation.schema.json",
+    "./python": "./lib/freedom_conversations.py",
+    "./cli": "./lib/freedom-conversations-cli.mjs",
+    "./standards/conversation/v1.json": "./standards/conversation/v1.json"
+  },
+  "bin": {
+    "transcript-md": "lib/freedom-conversations-cli.mjs"
+  },
+  "files": [
+    "index.mjs",
+    "lib/",
+    "standards/",
+    "LICENSE",
+    "NOTICE",
+    "README.md",
+    "FORMAT.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "test": "node scripts/run-tests.mjs",
+    "test:installed": "node scripts/run-tests.mjs --installed",
+    "audit:payload": "node scripts/verify-payload.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SupersuitUp/transcript-md.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
