@@ -1,0 +1,34 @@
+{
+  "manifest_version": 1,
+  "standard": "https://hypercontext.wiki/standards/self/v1",
+  "kind": "self",
+  "version": 1,
+  "title": "The person a workspace belongs to",
+  "status": "current",
+  "superseded_by": null,
+  "latest": "https://hypercontext.wiki/standards/self",
+  "record": { "path": "self/self.md", "format": "md" },
+  "header": {
+    "required": ["kind", "standard", "id", "name", "summary", "read_when", "as_of", "keep"],
+    "keys": {
+      "kind": { "const": "self" },
+      "standard": { "const": "https://hypercontext.wiki/standards/self/v1" }
+    }
+  },
+  "validator": {
+    "package": "@supersuit/self-md",
+    "implements_since": "0.2.0",
+    "check": "npx -y @supersuit/self-md@^0.2.0 lint --workspace . --json",
+    "backfill": "npx -y @supersuit/self-md@^0.2.0 stamp-standard --workspace . --write"
+  },
+  "codes": [
+    { "code": "self-missing", "level": "error", "means": "the workspace has no self/self.md, the one screen read first every session", "fix": "create self/self.md with a header carrying every required key" },
+    { "code": "self-header", "level": "error", "means": "self.md's header is missing a required key or leaves one empty, has kind other than self, or carries a refused key (title, last_verified)", "fix": "add the missing key, set kind: self, and move a title: into name:" },
+    { "code": "self-length", "level": "error", "means": "self.md's body is longer than one screen (60 non-empty lines)", "fix": "move detail into the facet folders under self/ and keep self.md to one screen" },
+    { "code": "self-undeclared", "level": "error", "means": "a folder or file at the root of self/ is neither a default facet or root file nor declared in self/README.md, or is unreadable", "fix": "declare it in self/README.md under ## Facets or ## Root files, or move or remove it" },
+    { "code": "self-outside", "level": "error", "means": "a collection about the person was left in documents/collections/ instead of under its facet in self/", "fix": "move the collection to self/<facet>/<name>/" },
+    { "code": "self-doc:missing", "level": "error", "means": "self.md names no standard, the bare unversioned URL written before versions existed, or another kind's standard", "fix": "npx -y @supersuit/self-md@^0.2.0 stamp-standard --workspace . --write" },
+    { "code": "self-doc:version", "level": "error", "means": "self.md names a version of the self standard this validator does not implement", "fix": "install a @supersuit/self-md that implements that version, or name https://hypercontext.wiki/standards/self/v1" }
+  ],
+  "umbrella": "npx -y @supersuit/hypercontext check <workspace>"
+}
