@@ -1,8 +1,11 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.1.1 (2026-10-20)
 
+- The package now lives in the hypercontext repository with every other record standard (https://github.com/SupersuitUp/hypercontext, packages/superobjective).
 - The header codec now comes from `@supersuit/hypercontext-core` (one copy for every record package), a dependency at `^0.1.0`, instead of a copy of piece-md's. Behaviour is unchanged.
+
+## 0.1.0 (2026-10-20)
 
 The first version of the standard and its package. A superobjective is a folder holding `superobjective.md` (YAML header and a body for people), `ratchet.jsonl` and `calibrations.jsonl`.
 
