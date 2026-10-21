@@ -1,0 +1,103 @@
+{
+  "manifest_version": 1,
+  "standard": "https://hypercontext.wiki/standards/recurrent/v1",
+  "kind": "recurrent",
+  "version": 1,
+  "title": "A recurrent",
+  "status": "current",
+  "superseded_by": null,
+  "latest": "https://hypercontext.wiki/standards/recurrent",
+  "record": {
+    "path": "recurrents/<slug>.md",
+    "format": "md"
+  },
+  "header": {
+    "required": [
+      "kind",
+      "standard"
+    ],
+    "keys": {
+      "kind": {
+        "const": "recurrent"
+      },
+      "standard": {
+        "const": "https://hypercontext.wiki/standards/recurrent/v1"
+      },
+      "status": {
+        "enum": [
+          "active",
+          "paused"
+        ]
+      },
+      "last_run": {
+        "pattern": "^(?:\\d{4}-\\d{2}-\\d{2}|never)$"
+      },
+      "clock": {
+        "type": "array"
+      }
+    }
+  },
+  "validator": {
+    "package": "@supersuit/recurrent-md",
+    "implements_since": "0.1.0",
+    "check": "npx -y @supersuit/recurrent-md@^0.1.0 lint recurrents --json",
+    "backfill": "npx -y @supersuit/recurrent-md@^0.1.0 migrate recurrents --apply"
+  },
+  "codes": [
+    {
+      "code": "self-doc:missing",
+      "level": "error",
+      "means": "the record names no standard, the bare unversioned recurrent URL written before versions, or another kind's standard",
+      "fix": "recurrent-md migrate <dir> --apply adds or upgrades it; a record naming another kind's standard is not a recurrent, so move or fix it by hand"
+    },
+    {
+      "code": "self-doc:version",
+      "level": "error",
+      "means": "the record names a version of the recurrent standard this validator does not implement",
+      "fix": "install the recurrent-md version that implements it, or rewrite the record to https://hypercontext.wiki/standards/recurrent/v1"
+    },
+    {
+      "code": "kind:missing",
+      "level": "error",
+      "means": "kind is missing or is not \"recurrent\"",
+      "fix": "recurrent-md migrate <dir> --apply sets kind: recurrent; a record of another kind is not a recurrent, so move or fix it by hand"
+    },
+    {
+      "code": "labels:legacy",
+      "level": "warn",
+      "means": "the record still keeps fields as **Label:** lines in its body, which Supersuit reads only when its header lacks the key",
+      "fix": "recurrent-md migrate <dir> --apply moves them into the header and out of the body"
+    },
+    {
+      "code": "method:missing",
+      "level": "error",
+      "means": "there is no Method, so nothing runs: neither a superskill, nor words, nor an unattended command",
+      "fix": "write the superskill as /namespace:skill, or the words themselves, as method"
+    },
+    {
+      "code": "cadence:missing",
+      "level": "error",
+      "means": "there is no Cadence and no At times, so nothing can say when it is due",
+      "fix": "set cadence (hourly, every 6 hours, twice daily, daily, every 3 days, weekly, every 2 weeks, monthly), or at for named times"
+    },
+    {
+      "code": "cadence:value",
+      "level": "error",
+      "means": "the cadence is not one Supersuit can count, so it can never say how overdue the recurrent is",
+      "fix": "use hourly, every N hours, twice daily, daily, every N days, weekly, every N weeks, fortnightly, monthly or quarterly"
+    },
+    {
+      "code": "status:value",
+      "level": "error",
+      "means": "status is not active or paused, the only words Supersuit writes for a recurrent",
+      "fix": "set status to active or paused; pause a recurrent rather than retiring it, so its history stays"
+    },
+    {
+      "code": "last_run:value",
+      "level": "error",
+      "means": "last_run is not a real date written YYYY-MM-DD, or never",
+      "fix": "set last_run to never, or leave it for the run to write"
+    }
+  ],
+  "umbrella": "npx -y @supersuit/hypercontext check <workspace>"
+}
