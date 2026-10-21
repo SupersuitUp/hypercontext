@@ -7,11 +7,33 @@ import { localDay } from "./time.mjs";
 import { nameFromUserMd } from "./operator-name.mjs";
 
 export const FRIEND_FILE = "friend.md";
+/** The unversioned page that always shows the newest friend standard. A record never names it: one
+ *  that does was written before versions existed, and `stamp` upgrades it to STANDARD in place. */
+export const LATEST_STANDARD = "https://hypercontext.wiki/standards/friend";
+/** The friend standard versions this package implements. */
+export const STANDARD_VERSIONS = [1];
 /** The page every friend.md names as the standard it follows (`standard:`, directly after `kind:`),
- *  so an agent that has never seen this package can open the file and find its rules. */
-export const STANDARD = "https://hypercontext.wiki/standards/friend";
+ *  so an agent that has never seen this package can open the file and find its rules. Versioned:
+ *  what a published version means never changes. */
+export const STANDARD = `${LATEST_STANDARD}/v${STANDARD_VERSIONS.at(-1)}`;
 /** The standard a group.md names instead: groups are their own record type (@supersuit/group-md). */
-export const GROUP_STANDARD = "https://hypercontext.wiki/standards/group";
+export const GROUP_STANDARD = "https://hypercontext.wiki/standards/group/v1";
+/** The machine-readable twin of STANDARD's page, shipped as standards/friend/v1.json and published
+ *  on the wiki unchanged. tests/standard-manifest.test.mjs proves it matches STANDARD and CODES. */
+export const MANIFEST = JSON.parse(readFileSync(new URL("../standards/friend/v1.json", import.meta.url), "utf8"));
+
+/** What a `standard:` value says about a friend record: `current` (STANDARD), `legacy` (the bare
+ *  unversioned URL, written before versions), `unsupported` (a friend version this package does not
+ *  implement; `version` is its number), `missing` (no value) or `other` (anything else). */
+export function standardStatus(value) {
+  if (value === undefined || value === null || value === "") return { status: "missing" };
+  const v = String(value);
+  if (v === STANDARD) return { status: "current" };
+  if (v === LATEST_STANDARD) return { status: "legacy" };
+  const m = v.match(/^https:\/\/hypercontext\.wiki\/standards\/friend\/v(\d+)$/);
+  if (m) return STANDARD_VERSIONS.includes(Number(m[1])) ? { status: "current" } : { status: "unsupported", version: Number(m[1]) };
+  return { status: "other" };
+}
 export const GROUP_FILE = "group.md";
 export const CIRCLES = ["inner", "close", "active", "known", "past", "blocked"];
 export const LEGACY_CIRCLE = { "the-3": "inner", "active-orbit": "active", blacklist: "blocked", "inner-circle": "inner",
@@ -600,18 +622,43 @@ export function setLastContact(dir, slug, { date, how, about } = {}) {
 }
 
 /** A record's size against LIMITS: its UTF-8 bytes, NOT counting the exact `standard: STANDARD`
- *  header line (with its line ending). The line is required boilerplate, so it never decides whether
- *  a record is too big; a different URL counts like any other line. */
+ *  header line (with its line ending), or the legacy unversioned `standard: LATEST_STANDARD` one. The
+ *  line is required boilerplate, so it never decides whether a record is too big; any other URL
+ *  counts like any other line. */
 export function recordBytes(text) {
   const src = String(text);
   const ls = src.split("\n");
   const bare = (l) => l.replace(/\r$/, "");
   const end = bare(ls[0]) === "---" ? ls.findIndex((l, i) => i > 0 && bare(l) === "---") : -1;
-  const at = end > 0 ? ls.findIndex((l, i) => i > 0 && i < end && bare(l) === `standard: ${STANDARD}`) : -1;
+  const at = end > 0 ? ls.findIndex((l, i) => i > 0 && i < end && (bare(l) === `standard: ${STANDARD}` || bare(l) === `standard: ${LATEST_STANDARD}`)) : -1;
   return Buffer.byteLength(src) - (at > 0 ? Buffer.byteLength(ls[at] + "\n") : 0);
 }
 
 const REQUIRED = ["kind", "id", "name", "summary", "read_when", "as_of", "keep", "circle", "relationship"];
+/** The header keys `missing-key` requires (`standard` is required too, by `self-doc:missing`). */
+export const REQUIRED_KEYS = [...REQUIRED];
+
+const STAMP_FIX = "friend-md stamp --people people --apply";
+/** Every finding `lint` can report: its level, what it means, how to fix it. `lint` takes each
+ *  finding's level from here, and standards/friend/v1.json lists exactly these (a test proves it). */
+export const CODES = {
+  "bad-slug": { level: "error", means: "the name does not resolve to a place inside people/", fix: "rename the folder to a lowercase slug of letters, digits and dashes" },
+  "split-record": { level: "error", means: "both <slug>.md and <slug>/friend.md exist for one person", fix: "merge the flat file into the folder record and delete the flat one" },
+  "flat-record": { level: "warn", means: "a <slug>.md record in a workspace that uses person folders", fix: "migrate it into people/<slug>/friend.md" },
+  "missing-key": { level: "error", means: "a required header key is absent", fix: "add the listed keys to the header" },
+  "untended": { level: "warn", means: "a required header key is present but empty", fix: "fill in the listed keys" },
+  "self-doc:missing": { level: "error", means: "the record names no standard, the unversioned URL written before versions, or another kind's", fix: STAMP_FIX },
+  "self-doc:version": { level: "error", means: "the record names a friend standard version this package does not implement", fix: "upgrade @supersuit/friend-md to a version that implements it, or correct the record's standard:" },
+  "id-mismatch": { level: "error", means: "the header id differs from the folder name", fix: "make id equal the folder name, or rename the folder" },
+  "too-big": { level: "error", means: "the record is over its size limit (8192 bytes, 1024 when blocked), the standard: line not counted", fix: "move detail into story.md, quotes.md or log/" },
+  "now-too-long": { level: "error", means: "the Now section has more than 10 nonblank lines", fix: "trim Now to what is true now; move the rest to log/ or story.md" },
+  "bad-circle": { level: "error", means: "circle is not one of inner, close, active, known, past, blocked", fix: "set circle to one of the six values" },
+  "unknown-facet": { level: "warn", means: "a relationship facet is not in the vocabulary or the workspace's people/README.md Facets section", fix: "use a listed facet, or declare it under ## Facets in people/README.md" },
+  "log-line": { level: "error", means: "a log bullet is not `- YYYY-MM[-DD] · text [source]`, `(my read)` or `(said by X)`", fix: "rewrite the line in the log shape" },
+  "stray-file": { level: "warn", means: "a file in the person folder that the format does not define", fix: "move it into story.md, media.md or a known folder, or delete it" },
+  "unreadable": { level: "error", means: "the record could not be read", fix: "check the file's permissions and encoding" },
+};
+
 const KNOWN_FILES = new Set([FRIEND_FILE, "story.md", "voice.md", "quotes.md", "private.md", "media.md", "log", "threads", "messages"]);
 export const LOG_LINE = /^- \d{4}-\d{2}(-\d{2})? · .+ (\[[^\]]+\]|\(my read\)|\(said by [^)]+\))$/;
 
@@ -635,38 +682,49 @@ export function declaredFacets(dir) {
 export function lint(dir, { slug } = {}) {
   const knownFacets = new Set([...FACETS, ...declaredFacets(dir)]);
   const out = [];
-  // `code` and `level` repeat `rule` and `severity` under the names the other hypercontext linters use.
-  const add = (s, rule, severity, message, extra = {}) => out.push({ slug: s, rule, severity, message, code: rule, level: severity, ...extra });
+  // Every level comes from CODES. `code` and `level` repeat `rule` and `severity` under the names the
+  // other hypercontext linters use.
+  const add = (s, code, message, extra = {}) => {
+    const level = CODES[code]?.level;
+    if (!level) throw new Error(`lint reported "${code}", which is not in CODES`);
+    out.push({ slug: s, rule: code, severity: level, message, code, level, ...extra });
+  };
   const folderWs = workspaceLayout(dir) === "folder";
   for (const s of slug ? [slug] : listSlugs(dir, { archive: true })) {
-    if (!safeSlug(dir, s)) { add(s, "bad-slug", "error", `"${s}" does not name a place inside people/`); continue; }
+    if (!safeSlug(dir, s)) { add(s, "bad-slug", `"${s}" does not name a place inside people/`); continue; }
     for (const base of [dir, join(dir, "archive")])
-      if (isFile(join(base, s, FRIEND_FILE)) && isFile(join(base, `${s}.md`))) add(s, "split-record", "error", `both ${s}.md and ${s}/friend.md exist`);
+      if (isFile(join(base, s, FRIEND_FILE)) && isFile(join(base, `${s}.md`))) add(s, "split-record", `both ${s}.md and ${s}/friend.md exist`);
     const rec = recordPath(dir, s);
     if (!rec) continue;
-    if (!rec.endsWith(`/${FRIEND_FILE}`)) { if (folderWs) add(s, "flat-record", "warn", `${s}.md is in the old shape`); continue; }
+    if (!rec.endsWith(`/${FRIEND_FILE}`)) { if (folderWs) add(s, "flat-record", `${s}.md is in the old shape`); continue; }
     try {
       const folderDir = join(rec, "..");
       const text = lf(readFileSync(rec, "utf8"));
       const raw = readHeader(text);
       const missing = REQUIRED.filter((k) => !(k in raw));
-      if (missing.length) add(s, "missing-key", "error", `missing: ${missing.join(", ")}`);
+      if (missing.length) add(s, "missing-key", `missing: ${missing.join(", ")}`);
       // Present but empty is a fresh stub, not a malformed record: ensure() writes these blank.
       const untended = REQUIRED.filter((k) => k in raw && (raw[k] === "" || (Array.isArray(raw[k]) && !raw[k].length)));
-      if (untended.length) add(s, "untended", "warn", `empty: ${untended.join(", ")}`);
+      if (untended.length) add(s, "untended", `empty: ${untended.join(", ")}`);
       // Self-documenting: the record names the rules it follows, for a reader with no other context.
-      if (raw.standard !== STANDARD) add(s, "self-doc:missing", "error",
-        raw.standard === undefined ? `standard is missing; it must be ${STANDARD}` : `standard "${raw.standard}" is not ${STANDARD}`,
-        { fix: "friend-md stamp --apply (dry run without --apply) writes standard: after kind:, every other byte unchanged" });
-      if (raw.id && raw.id !== s) add(s, "id-mismatch", "error", `id "${raw.id}" is not the folder name "${s}"`);
+      const std = standardStatus(raw.standard);
+      const stampFix = { fix: "friend-md stamp --apply (dry run without --apply) writes standard: after kind:, every other byte unchanged" };
+      if (std.status === "missing") add(s, "self-doc:missing", `standard is missing; it must be ${STANDARD}`, stampFix);
+      else if (std.status === "legacy") add(s, "self-doc:missing",
+        `standard "${raw.standard}" predates versions; friend-md stamp --apply upgrades it to ${STANDARD}`, stampFix);
+      else if (std.status === "other") add(s, "self-doc:missing", `standard "${raw.standard}" is not ${STANDARD}`, stampFix);
+      else if (std.status === "unsupported") add(s, "self-doc:version",
+        `standard "${raw.standard}" names friend v${std.version}; this package implements v${STANDARD_VERSIONS.join(", v")}`,
+        { fix: CODES["self-doc:version"].fix });
+      if (raw.id && raw.id !== s) add(s, "id-mismatch", `id "${raw.id}" is not the folder name "${s}"`);
       const n = normalize(raw);
       const max = n.blocked ? LIMITS.blockedBytes : LIMITS.friendBytes;
-      if (recordBytes(text) > max) add(s, "too-big", "error", `${recordBytes(text)} bytes (the standard line not counted), limit ${max}`);
+      if (recordBytes(text) > max) add(s, "too-big", `${recordBytes(text)} bytes (the standard line not counted), limit ${max}`);
       const now = sectionsOf(parts(text).body).Now;
-      if (now && now.split("\n").filter((l) => l.trim()).length > LIMITS.nowLines) add(s, "now-too-long", "error", `Now is over ${LIMITS.nowLines} lines`);
-      if (raw.circle && !CIRCLES.includes(String(raw.circle))) add(s, "bad-circle", "error", `circle "${raw.circle}"`);
+      if (now && now.split("\n").filter((l) => l.trim()).length > LIMITS.nowLines) add(s, "now-too-long", `Now is over ${LIMITS.nowLines} lines`);
+      if (raw.circle && !CIRCLES.includes(String(raw.circle))) add(s, "bad-circle", `circle "${raw.circle}"`);
       const bad = n.relationship.filter((r) => !knownFacets.has(r));
-      if (bad.length) add(s, "unknown-facet", "warn", `facets not in the vocabulary: ${bad.join(", ")}`);
+      if (bad.length) add(s, "unknown-facet", `facets not in the vocabulary: ${bad.join(", ")}`);
       const logDir = join(folderDir, "log");
       let logs = [];
       try { logs = readdirSync(logDir).filter((f) => f.endsWith(".md")); } catch { /* none */ }
@@ -674,10 +732,10 @@ export function lint(dir, { slug } = {}) {
       // continuation text, and undated.md is verbatim by design.
       for (const f of logs.filter((x) => x !== "undated.md")) for (const l of lf(readFileSync(join(logDir, f), "utf8")).split("\n")) {
         if (l.startsWith("## ")) break;
-        if (l.startsWith("- ") && !LOG_LINE.test(l)) { add(s, "log-line", "error", `log/${f}: "${l.slice(0, 60)}"`); break; }
+        if (l.startsWith("- ") && !LOG_LINE.test(l)) { add(s, "log-line", `log/${f}: "${l.slice(0, 60)}"`); break; }
       }
-      for (const f of readdirSync(folderDir)) if (!KNOWN_FILES.has(f) && !f.startsWith(".")) add(s, "stray-file", "warn", `unexpected ${f}`);
-    } catch (e) { add(s, "unreadable", "error", `cannot read the record: ${e.code ?? e.message}`); }
+      for (const f of readdirSync(folderDir)) if (!KNOWN_FILES.has(f) && !f.startsWith(".")) add(s, "stray-file", `unexpected ${f}`);
+    } catch (e) { add(s, "unreadable", `cannot read the record: ${e.code ?? e.message}`); }
   }
   return out;
 }
@@ -1153,9 +1211,11 @@ export function verifyMigration(text, files, { slug, resolveTranscript, from, lo
 
 // ---- Self-documenting backfill -----------------------------------------------------------------
 
-/** What stamping `text` would do: { text, status } with status `stamped` (changed), `current`
- *  (already names STANDARD), `no-header` (no `---` fence on line 1, or it never closes) or
- *  `unsafe` (a `standard:` value spread over more lines, left for a person). */
+/** What stamping `text` would do: { text, status } with status `stamped` (changed: added, the
+ *  unversioned URL upgraded to STANDARD, or a wrong URL replaced), `current` (already names
+ *  STANDARD), `no-header` (no `---` fence on line 1, or it never closes), `unsafe` (a `standard:`
+ *  value spread over more lines, left for a person) or `unsupported-version` (a friend version this
+ *  package does not implement, left alone rather than downgraded). */
 export function stampPlan(text) {
   const src = String(text);
   const ls = src.split("\n");
@@ -1168,7 +1228,9 @@ export function stampPlan(text) {
   const at = ls.findIndex((l, i) => i > 0 && i < end && /^standard:/.test(l));
   if (at >= 0) {
     if (at + 1 < end && /^[ \t]+[^ \t\r]/.test(ls[at + 1])) return { text: src, status: "unsafe" };
-    if (readHeader(src).standard === STANDARD) return { text: src, status: "current" };
+    const std = standardStatus(readHeader(src).standard);
+    if (std.status === "current") return { text: src, status: "current" };
+    if (std.status === "unsupported") return { text: src, status: "unsupported-version" };
     const lineEol = ls[at].endsWith("\r") ? "\r" : "";
     ls.splice(at, 1, `standard: ${STANDARD}${lineEol}`);
     return { text: ls.join("\n"), status: "stamped" };

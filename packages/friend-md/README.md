@@ -91,20 +91,33 @@ open the file and find its rules:
 ```yaml
 ---
 kind: friend
-standard: https://hypercontext.wiki/standards/friend
+standard: https://hypercontext.wiki/standards/friend/v1
 id: ann-lee
 ```
 
 Every writer in the package (`ensure`, `migratePerson`, and the Python `ensure`) stamps it
 directly after `kind:`. `migrateGroup` stamps a group.md with `GROUP_STANDARD`
-(`https://hypercontext.wiki/standards/group`) instead, and `stamp` and `lint` leave
-`people/groups/` alone. `lint` reports a record without it, or naming
-any other URL, as `self-doc:missing` at level error. `STANDARD` is exported.
+(`https://hypercontext.wiki/standards/group/v1`) instead, and `stamp` and `lint` leave
+`people/groups/` alone. The link names the version: `/v1` means the same thing forever, and the
+unversioned `https://hypercontext.wiki/standards/friend` is only the page listing every version.
+`lint` reports a record without `standard:`, naming the unversioned URL (written before versions),
+or naming any other URL, as `self-doc:missing` at level error, and one naming a friend version this
+package does not implement as `self-doc:version` at level error. `STANDARD` is exported.
+
+### The manifest
+
+Each version of the standard has a machine-readable twin, and this package owns it:
+`standards/friend/v1.json` ships in the tarball, is exported as `MANIFEST` (and as
+`@supersuit/friend-md/standards/friend/v1.json`), and is published unchanged at
+`https://hypercontext.wiki/standards/friend/v1.json`. It carries the header keys `lint` requires,
+the constraints a reader can check without installing anything, the exact check and backfill
+commands, and every code `lint` can report with its level, meaning and fix. `CODES` is the same
+table in JavaScript; a test proves the two never drift.
 
 Backfill existing records with `stamp`, a dry run unless `--apply` is passed:
 
 ```sh
-npx friend-md stamp --workspace .          # lists what it would change, exit 0
+npx friend-md stamp --workspace .          # lists what it would change, exit 0 (also upgrades the unversioned URL to /v1)
 npx friend-md stamp --workspace . --apply  # writes it
 ```
 

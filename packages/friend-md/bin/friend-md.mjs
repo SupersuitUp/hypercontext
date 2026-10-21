@@ -16,7 +16,9 @@ const HELP = `Usage: friend-md <read|list|path|resolve|operator|lint|stamp> [per
   --help             Show this help
 
 stamp adds standard: ${P.STANDARD} after kind: in every friend.md
-that lacks it, every other byte unchanged. Records with no header and log/ files are never touched.
+that lacks it, upgrades the unversioned ${P.LATEST_STANDARD} (written before
+versions) in place, and replaces any other URL, every other byte unchanged. Records with no header,
+records naming a friend version this package does not implement, and log/ files are never touched.
 
 Exit codes: 0 success; 1 missing record, lint error or runtime refusal; 2 usage or ambiguity.
 Whole-workspace migration and message capture are provided by Freedom.
@@ -64,7 +66,9 @@ function main(argv) {
         if (applied) writeFileSync(path, plan.text);
         report.changed.push({ slug, path });
       } else if (plan.status === "current") report.current.push({ slug, path });
-      else report.skipped.push({ slug, path, reason: plan.status === "no-header" ? "no header" : "standard spans several lines" });
+      else report.skipped.push({ slug, path, reason: plan.status === "no-header" ? "no header"
+        : plan.status === "unsupported-version" ? `names friend v${P.standardStatus(P.readHeader(text).standard).version}, which this version of friend-md does not implement`
+        : "standard spans several lines" });
     }
     const verb = applied ? "stamped" : "would stamp";
     const lines = [...report.changed.map((c) => `${verb}\t${c.slug}\t${c.path}`),

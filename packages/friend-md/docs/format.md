@@ -28,7 +28,7 @@ exist, and lint reports the split record.
 ```yaml
 ---
 kind: friend
-standard: https://hypercontext.wiki/standards/friend
+standard: https://hypercontext.wiki/standards/friend/v1
 id: ann-lee
 name: Ann Lee
 aliases: [Annie]
@@ -64,12 +64,20 @@ size, log formatting, duplicate layouts and stray files. Untended records warn.
 
 ## Self-documenting
 
-Every portrait carries `standard: https://hypercontext.wiki/standards/friend` directly after `kind:`, naming the
-rules it follows for a reader with no other context. The package's writers stamp it; `lint`
-reports a missing or different value as `self-doc:missing` (error). Backfill a workspace with
-`friend-md stamp --workspace DIR` (dry run) and `--apply`, which inserts the line and leaves
-every other byte unchanged. `setLastContact` does not stamp: it touches only its two keys. A group.md names
-`https://hypercontext.wiki/standards/group` (`GROUP_STANDARD`), and `people/groups/` is never
+Every portrait carries `standard: https://hypercontext.wiki/standards/friend/v1` directly after `kind:`, naming the
+version of the rules it follows for a reader with no other context. What a version means never
+changes; `https://hypercontext.wiki/standards/friend` is the page listing every version, and a
+record never names it. The package's writers stamp the versioned URL; `lint` reports a missing
+value, the unversioned URL (written before versions) or another kind's or any other URL as
+`self-doc:missing` (error), and a friend version the package does not implement as
+`self-doc:version` (error). Backfill a workspace with `friend-md stamp --workspace DIR` (dry run)
+and `--apply`, which inserts the line, upgrades the unversioned URL to `/v1` in place, and leaves
+every other byte unchanged; a record naming an unimplemented version is skipped, never downgraded.
+
+The version's manifest, `standards/friend/v1.json` (the package's `MANIFEST`), lists the required
+header keys, the reader-checkable constraints (`standard` is const, `circle` is one of six) and
+every lint code with its level, meaning and fix. `setLastContact` does not stamp: it touches only its two keys. A group.md names
+`https://hypercontext.wiki/standards/group/v1` (`GROUP_STANDARD`), and `people/groups/` is never
 stamped or linted here.
 
 ## History

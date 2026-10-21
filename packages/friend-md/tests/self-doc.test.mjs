@@ -10,8 +10,8 @@ import { ROOT } from "./helpers.mjs";
 
 const P = await import(join(ROOT, "src", "index.mjs"));
 const BIN = join(ROOT, "bin", "friend-md.mjs");
-const URL = "https://hypercontext.wiki/standards/friend";
-const GROUP_URL = "https://hypercontext.wiki/standards/group";
+const URL = "https://hypercontext.wiki/standards/friend/v1";
+const GROUP_URL = "https://hypercontext.wiki/standards/group/v1";
 const README = "---\nlayout: friend-md\n---\n";
 
 function tree(t, files) {

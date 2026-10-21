@@ -9,6 +9,7 @@
   "exports": {
     ".": "./src/index.mjs",
     "./python": "./python/freedom_people.py",
+    "./standards/friend/v1.json": "./standards/friend/v1.json",
     "./package.json": "./package.json"
   },
   "bin": {
@@ -19,6 +20,7 @@
     "bin/",
     "python/freedom_people.py",
     "docs/",
+    "standards/",
     "LICENSE",
     "README.md",
     "SOURCE.json",

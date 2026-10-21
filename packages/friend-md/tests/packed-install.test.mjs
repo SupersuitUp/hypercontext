@@ -18,7 +18,7 @@ test("the actual tarball installs its documented API, CLI and Python companion i
   t.after(() => rmSync(scratch, { recursive: true, force: true }));
   const pack = JSON.parse(run("npm", ["pack", "--json", "--ignore-scripts", "--pack-destination", scratch], root))[0];
   const files = pack.files.map((f) => f.path);
-  for (const path of ["README.md", "LICENSE", "SOURCE.json", "docs/format.md", "python/freedom_people.py", "bin/friend-md.mjs"]) {
+  for (const path of ["README.md", "LICENSE", "SOURCE.json", "docs/format.md", "python/freedom_people.py", "bin/friend-md.mjs", "standards/friend/v1.json"]) {
     assert.ok(files.includes(path), `${path} must ship in the tarball`);
   }
   assert.ok(!files.some((p) => /(^|\/)(tests|node_modules|__pycache__|\.git|\.env)(\/|$)/.test(p)), "development or private files leaked into tarball");
@@ -28,10 +28,13 @@ test("the actual tarball installs its documented API, CLI and Python companion i
   run("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund", join(scratch, pack.filename)], consumer);
   mkdirSync(join(consumer, "people", "ann-lee"), { recursive: true });
   writeFileSync(join(consumer, "people", "README.md"), "---\nlayout: friend-md\n---\n");
-  writeFileSync(join(consumer, "people", "ann-lee", "friend.md"), "---\nkind: friend\nstandard: https://hypercontext.wiki/standards/friend\nid: ann-lee\nname: Ann Lee\naliases: [Annie]\nsummary: Tea club collaborator.\nread_when: Before planning tea.\nas_of: 2026-10-04\nkeep: home\ncircle: close\nrelationship: [friend]\n---\n## Now\nTea on Friday.\n");
+  writeFileSync(join(consumer, "people", "ann-lee", "friend.md"), "---\nkind: friend\nstandard: https://hypercontext.wiki/standards/friend/v1\nid: ann-lee\nname: Ann Lee\naliases: [Annie]\nsummary: Tea club collaborator.\nread_when: Before planning tea.\nas_of: 2026-10-04\nkeep: home\ncircle: close\nrelationship: [friend]\n---\n## Now\nTea on Friday.\n");
   const out = run(process.execPath, ["--input-type=module", "-e", `
     import assert from 'node:assert/strict';
-    import { resolve, readPerson, ensure, appendLog, lint, peopleDir, migratePerson } from '@supersuit/friend-md';
+    import { resolve, readPerson, ensure, appendLog, lint, peopleDir, migratePerson, MANIFEST, STANDARD } from '@supersuit/friend-md';
+    import { createRequire } from 'node:module';
+    assert.equal(MANIFEST.standard, STANDARD);
+    assert.deepEqual(createRequire(import.meta.url)('@supersuit/friend-md/standards/friend/v1.json'), MANIFEST);
     const dir = peopleDir(process.cwd());
     assert.equal(resolve(dir, 'Annie'), 'ann-lee');
     assert.equal(readPerson(dir, 'ann-lee').sections.Now, 'Tea on Friday.');

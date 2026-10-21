@@ -12,7 +12,7 @@ from pathlib import Path
 
 FRIEND_FILE = "friend.md"
 # The page every friend.md names as the standard it follows; held equal to STANDARD in index.mjs.
-STANDARD = "https://hypercontext.wiki/standards/friend"
+STANDARD = "https://hypercontext.wiki/standards/friend/v1"
 GROUP_FILE = "group.md"
 CIRCLES = ["inner", "close", "active", "known", "past", "blocked"]
 LEGACY_CIRCLE = {"the-3": "inner", "active-orbit": "active", "blacklist": "blocked", "inner-circle": "inner",
