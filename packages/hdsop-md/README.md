@@ -46,17 +46,17 @@ error  self-doc:missing  book-the-venue.md  standard is the bare https://hyperco
 [exit 1]
 ```
 
-**stamp** makes every header name the version of its standard: it adds a missing `standard:` and upgrades the bare unversioned URL to `/v1`, in place, every other byte unchanged. A dry run that lists the changes unless `--apply`. It never gives a file a header, and never rewrites a header naming another standard; those are listed as skipped.
+**stamp** makes every header name the version of its standard: it adds a missing `standard:` and upgrades the bare unversioned URL to `/v1`, in place, every other byte unchanged. A dry run that lists the changes unless `--apply`. It never gives a map a header, and never rewrites a header naming another standard; those are listed as skipped. A headerless `CATALOG.md` is given the minimal header (`kind: workflow-catalog` and `standard:`, exactly what Supersuit's writer puts on a catalog it creates) when the Supersuit beside it keeps catalog headers, and skipped when it does not.
 
 ```
 $ hdsop-md stamp
-skipped  CATALOG.md  no-header: Supersuit's catalog writer refuses to rewrite a catalog with a header, so one is not added
+would add  CATALOG.md
 would upgrade  book-the-venue.md
-1 to stamp, 1 already current, 1 skipped
+2 to stamp, 1 already current, 0 skipped
 [exit 1]
 ```
 
-**Why the catalog is not given a header.** Supersuit reads a catalog with a header exactly as it reads one without: the same rows, the same note, the same problems from its check. But its catalog writer regenerates the whole file from the rows and refuses any file that regeneration would shorten, and a header is three lines it would drop. So a stamped catalog stops accepting new rows from `map-a-workflow`, from a row update or from a skill install. Both halves are proven in `test/supersuit.test.mjs` against Supersuit's own library. A catalog that already has a header is stamped like a map, and lint warns `catalog:not-writable` about it.
+**When the catalog is given a header.** Supersuit reads a catalog with a header exactly as it reads one without: the same rows, the same note, the same problems from its check. Its catalog writer regenerates the whole file from the rows and refuses any file that regeneration would shorten. Since freedom-dev 885ae79f3 it keeps a header byte for byte and creates every catalog with one; before that it counted the header as lines it would drop, so a stamped catalog stopped accepting rows from `map-a-workflow`, a row update or a skill install. So `stamp` asks first: it loads the catalog writer of the Supersuit in the workspace holding the folder and of the one installed at `~/.freedom/plugin`, and adds the header only when each keeps one, or when there is none. `HDSOP_MD_SUPERSUIT` names a Supersuit root to ask instead, or `none`. A writer that cannot be loaded counts as refusing. Both halves are proven in `test/supersuit.test.mjs` against Supersuit's own library. A catalog that already has a header is stamped like a map.
 
 Exit codes: 0 clean or nothing left to do, 1 findings or changes pending, 2 usage.
 
@@ -87,7 +87,7 @@ The keys a map may carry: `standard`, `title`, `id`, `skill`, `version`, `doc_st
 | `self-doc:missing` | error | CATALOG.md names no standard (it has no header, or its header names none), the bare unversioned URL, or another kind's standard |
 | `self-doc:version` | error | CATALOG.md names a version of the workflow-catalog standard this validator does not implement |
 | `catalog:missing` | info | the workflows folder has no CATALOG.md yet |
-| `catalog:not-writable` | warn | Supersuit's catalog writer would refuse to rewrite this CATALOG.md, because regenerating it would drop lines or misplace columns |
+| `catalog:not-writable` | warn | Supersuit's catalog writer would refuse to rewrite this CATALOG.md, because regenerating it would drop lines outside its header or misplace columns |
 | `row:doc` | error | a row's Doc is not unmapped, drafting or proven |
 | `row:automation` | error | a row's Automation is not manual, assisted, skill-partial, mostly-automated or judgment-core |
 | `row:duplicate` | error | two rows name the same workflow (ignoring case) |
@@ -103,10 +103,11 @@ Each code's fix is in `CODES` and in the manifests.
 ## Library
 
 ```js
-import { lint, stampPlan, checkMap, parseCatalog, checkRows, catalogLosses, MANIFESTS, CODES, STANDARDS } from '@supersuit/hdsop-md';
+import { lint, stampPlan, catalogHeaderAllowed, checkMap, parseCatalog, checkRows, catalogLosses, MANIFESTS, CODES, STANDARDS } from '@supersuit/hdsop-md';
 
 lint('workflows');                          // {findings, maps, catalog: {exists, rows}}
 stampPlan(text, 'hdsop');                   // {text, status: added|upgraded|current|no-header|other}
+stampPlan(text, 'workflow-catalog', { catalogHeader: (await catalogHeaderAllowed('workflows')).allowed });
 parseCatalog(text).rows;                    // the rows, read as Supersuit reads them
 MANIFESTS.hdsop;                            // standards/hdsop/v1.json
 MANIFESTS['workflow-catalog'];              // standards/workflow-catalog/v1.json

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 (2026-10-21)
+
+- `stamp` gives a headerless `CATALOG.md` the minimal header (`kind: workflow-catalog` and `standard:`, byte for byte what Supersuit's catalog writer creates a catalog with) when the Supersuit beside it keeps catalog headers, which it does since freedom-dev 885ae79f3. It asks that Supersuit's own catalog writer, found in the workspace holding the folder and at `~/.freedom/plugin` (or named by `HDSOP_MD_SUPERSUIT`, `none` for no Supersuit), and skips the catalog as before when any writer refuses or cannot be loaded. The loss check, and so lint's `catalog:not-writable`, no longer counts a header as lines the writer would drop. New exports: `catalogHeaderAllowed`, `supersuitWriters`, `writerKeepsHeader`, `splitCatalogHeader`, `CATALOG_HEADER`.
+
 ## 0.1.0 (2026-10-21)
 
 The first package for the two records a workflows folder holds, which until now were checked only for naming their standard, by `@supersuit/hypercontext`.

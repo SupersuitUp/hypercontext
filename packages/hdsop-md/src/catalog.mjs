@@ -1,10 +1,10 @@
 // CATALOG.md: the table of every workflow, how often it runs, whether it is written down and how
 // much of it still runs on a person. Read and judged exactly as Supersuit reads and judges it.
 //
-// Source: freedom-dev .agents/lib/freedom-workflows.mjs. parseCatalog (147-190), renderRollup
-// (215-230), renderRow (244-263), renderCatalog (265-290) and lossOnRewrite (314-350) are ported
-// line for line, and test/supersuit.test.mjs proves the port agrees with the original on every
-// shape it is given. checkRows is check() (478-524), minus what needs the folder (lint.mjs).
+// Source: freedom-dev .agents/lib/freedom-workflows.mjs. parseCatalog, renderRollup, renderRow,
+// renderCatalog, splitHeader and lossOnRewrite are ported line for line (lossOnRewrite as it reads
+// since the writer keeps a header, freedom-dev 885ae79f3), and test/supersuit.test.mjs proves the
+// port agrees with the original on every shape it is given. checkRows is check() (478-524), minus what needs the folder (lint.mjs).
 // One rule of check() is not here: "no workflow name" (488) can never fire, because the reader
 // skips a row whose first cell is empty (164) before check() sees it.
 import { CODES } from './codes.mjs';
@@ -139,12 +139,25 @@ export function renderCatalog({ rows, note = '' }) {
 }
 
 /**
+ * A leading YAML header split off a catalog, as Supersuit's writer splits it (splitHeader):
+ * `header` is the exact bytes from the opening `---` through the closing one and the blank lines
+ * after it, and `header + body` is the input. An unclosed header is not a header: it stays in the body.
+ * @returns {{header: string, body: string}}
+ */
+export function splitCatalogHeader(text) {
+  const src = String(text ?? '');
+  const m = /^---\r?\n(?:[\s\S]*?\r?\n)?---[ \t]*(?:\r?\n(?:[ \t]*\r?\n)*|$)/.exec(src);
+  return m ? { header: m[0], body: src.slice(m[0].length) } : { header: '', body: src };
+}
+
+/**
  * What Supersuit's catalog writer would destroy by regenerating this text, which is why it refuses
  * to write it. Empty means the writer owns the file.
  * @returns {string[]}
  */
 export function catalogLosses(text) {
-  const src = String(text ?? '');
+  // The header is the file's own: Supersuit's writer carries it over byte for byte, so it is never loss.
+  const src = splitCatalogHeader(text).body;
   if (!src.trim()) return [];
   const lines = src.split('\n');
   const losses = [];

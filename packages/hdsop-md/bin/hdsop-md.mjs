@@ -3,7 +3,7 @@
 // Exit codes: 0 clean or nothing left to do, 1 findings or changes pending, 2 usage.
 import { readFileSync, writeFileSync, statSync } from 'node:fs';
 import { resolve, basename } from 'node:path';
-import { lint, scan, stampPlan, STANDARDS, CATALOG_NO_HEADER } from '../src/index.mjs';
+import { lint, scan, stampPlan, catalogHeaderAllowed, STANDARDS, CATALOG_NO_HEADER } from '../src/index.mjs';
 
 const HELP = `hdsop-md: the workflows folder, its maps (HDSOPs) and its catalog
 
@@ -16,9 +16,11 @@ Usage:
       Name the standard in every header: ${STANDARDS.hdsop} in a map,
       ${STANDARDS['workflow-catalog']} in CATALOG.md. Adds a missing
       standard:, or upgrades the bare unversioned URL, in place, every other byte unchanged. A dry
-      run that lists the changes unless --apply. Never gives a file a header (CATALOG.md included:
-      ${CATALOG_NO_HEADER}), and
-      never rewrites a header naming another standard: those are listed as skipped.
+      run that lists the changes unless --apply. Never gives a map a header. Gives a headerless
+      CATALOG.md the minimal one (kind: and standard:) when the Supersuit beside it keeps catalog
+      headers, asked of its own catalog writer (HDSOP_MD_SUPERSUIT names a Supersuit root, or
+      none; else the workspace and ~/.freedom/plugin); otherwise it is skipped: ${CATALOG_NO_HEADER}.
+      Never rewrites a header naming another standard: those are listed as skipped.
       Exit 0 when nothing is left to do, 1 when changes are pending (a dry run) or skipped.
   hdsop-md --help | --version
 
@@ -72,15 +74,17 @@ const commands = {
     return errors ? 1 : 0;
   },
 
-  stamp([dir], opt) {
+  async stamp([dir], opt) {
     const root = folder(dir);
     const { maps, catalog } = scan(root);
+    // Only a headerless catalog needs the question, and only then is the writer beside it loaded.
+    const catalogHeader = catalog && !catalog.hasHeader ? (await catalogHeaderAllowed(root)).allowed : false;
     const report = { applied: Boolean(opt.apply), changed: [], current: [], skipped: [] };
     const lines = [];
     const records = [...(catalog ? [{ path: catalog.path, kind: 'workflow-catalog' }] : []), ...maps.map((m) => ({ path: m.path, kind: 'hdsop' }))];
     for (const { path, kind } of records) {
       const rel = basename(path);
-      const plan = stampPlan(readFileSync(path, 'utf8'), kind);
+      const plan = stampPlan(readFileSync(path, 'utf8'), kind, { catalogHeader });
       if (plan.status === 'current') { report.current.push(rel); continue; }
       if (plan.status === 'no-header' || plan.status === 'other') {
         const why = plan.status === 'no-header' && kind === 'workflow-catalog' ? `${plan.status}: ${CATALOG_NO_HEADER}` : plan.status;
@@ -100,7 +104,7 @@ const commands = {
   },
 };
 
-function main(argv) {
+async function main(argv) {
   const { positional, opt } = parse(argv);
   if (opt.help) { print(HELP); return 0; }
   if (opt.version) { print(JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version); return 0; }
@@ -109,11 +113,11 @@ function main(argv) {
   if (!Object.hasOwn(commands, name)) throw new Usage(`unknown command "${name}"`);
   if (opt.apply && name !== 'stamp') throw new Usage('--apply is only for stamp');
   if (rest.length > 1) throw new Usage(`${name} takes one folder`);
-  return commands[name](rest, opt);
+  return await commands[name](rest, opt);
 }
 
 try {
-  process.exitCode = main(process.argv.slice(2));
+  process.exitCode = await main(process.argv.slice(2));
 } catch (error) {
   say(error instanceof Usage ? `${error.message}\nRun hdsop-md --help for usage.` : `hdsop-md: ${error.message}`);
   process.exitCode = 2;

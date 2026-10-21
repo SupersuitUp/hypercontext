@@ -1,8 +1,9 @@
-// Stamping: a map's header gains or upgrades its standard, byte for byte; a file with no header is
-// never given one, and that includes the catalog (test/supersuit.test.mjs says why).
+// Stamping: a map's header gains or upgrades its standard, byte for byte; a map with no header is
+// never given one, and a catalog with none is given the minimal header only when the caller says the
+// Supersuit writer beside it keeps a header (test/supersuit.test.mjs says why).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { stampPlan } from '../src/index.mjs';
+import { stampPlan, CATALOG_HEADER } from '../src/index.mjs';
 import { mapHeader, BODY, catalogText, row, MAP_STANDARD, CATALOG_STANDARD } from './helpers.mjs';
 
 const BARE_MAP = 'https://hypercontext.wiki/standards/hdsop';
@@ -42,9 +43,19 @@ test('a map with no header is never given one', () => {
   assert.deepEqual(stampPlan(src, 'hdsop'), { text: src, status: 'no-header' });
 });
 
-test('a catalog with no header is never given one', () => {
+test('a catalog with no header is given one only when the writer beside it keeps headers', () => {
   const src = catalogText([row({ workflow: 'A' })]);
   assert.deepEqual(stampPlan(src, 'workflow-catalog'), { text: src, status: 'no-header' });
+  assert.deepEqual(stampPlan(src, 'workflow-catalog', { catalogHeader: false }), { text: src, status: 'no-header' });
+  const plan = stampPlan(src, 'workflow-catalog', { catalogHeader: true });
+  assert.equal(plan.status, 'added');
+  assert.equal(plan.text, `---\nkind: workflow-catalog\nstandard: ${CATALOG_STANDARD}\n---\n\n${src}`, 'the header Supersuit creates a catalog with, then every byte as it was');
+  assert.equal(plan.text, CATALOG_HEADER + src);
+  assert.deepEqual(stampPlan(plan.text, 'workflow-catalog', { catalogHeader: true }), { text: plan.text, status: 'current' });
+  const blank = `\n${src}`;
+  assert.equal(stampPlan(blank, 'workflow-catalog', { catalogHeader: true }).text, `---\nkind: workflow-catalog\nstandard: ${CATALOG_STANDARD}\n---\n${blank}`, 'no second blank line');
+  const md = '# Purpose\n';
+  assert.deepEqual(stampPlan(md, 'hdsop', { catalogHeader: true }), { text: md, status: 'no-header' }, 'a map is never given one');
 });
 
 test('a catalog that already has a header is stamped like a map', () => {

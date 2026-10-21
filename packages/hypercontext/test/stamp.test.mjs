@@ -46,11 +46,20 @@ test('a kind marked not stampable is never touched, and the report says why', as
 });
 
 test('the real packages stamp every kind they own, the catalog with the maps, and say what they skipped', async () => {
-  const ws = mayaWorkspace({ 'workflows/CATALOG.md': '# Workflow catalog\n\n| Workflow | Map |\n|---|---|\n| Water the beds | [map](water-the-beds.md) |\n' });
+  const catalogBody = '# Workflow catalog\n\n| Workflow | Map |\n|---|---|\n| Water the beds | [map](water-the-beds.md) |\n';
+  const ws = mayaWorkspace({ 'workflows/CATALOG.md': catalogBody });
   const kinds = ['document', 'checkpoint', 'hdsop', 'workflow-catalog', 'recurrent', 'tile-app'];
-  const s = await stamp(ws, { kinds, apply: true, packagesDir: '' });
-  assert.match(kindRow(s, 'workflow-catalog').via, /with hdsop/);
-  assert.ok(kindRow(s, 'hdsop').skippedLines.some((l) => /CATALOG\.md\s+no-header/.test(l)), JSON.stringify(kindRow(s, 'hdsop')));
+  // hdsop-md asks the Supersuit beside a workspace whether its catalog writer keeps a header before
+  // giving a headerless catalog one. Name none, so a Supersuit installed on this machine never decides.
+  const prior = process.env.HDSOP_MD_SUPERSUIT;
+  process.env.HDSOP_MD_SUPERSUIT = 'none';
+  let s;
+  try { s = await stamp(ws, { kinds, apply: true, packagesDir: '' }); }
+  finally { if (prior === undefined) delete process.env.HDSOP_MD_SUPERSUIT; else process.env.HDSOP_MD_SUPERSUIT = prior; }
+  // The hdsop run stamps the catalog as well, so by the catalog's own turn there is nothing left.
+  assert.equal(kindRow(s, 'workflow-catalog').via, 'nothing to do');
+  assert.equal(readFileSync(join(ws, 'workflows/CATALOG.md'), 'utf8'), `---\nkind: workflow-catalog\nstandard: ${STD('workflow-catalog')}\n---\n\n${catalogBody}`, 'the headerless catalog is given the minimal header');
+  assert.ok(!(kindRow(s, 'hdsop').skippedLines ?? []).some((l) => /CATALOG\.md/.test(l)), JSON.stringify(kindRow(s, 'hdsop')));
   assert.ok(kindRow(s, 'document').skippedLines.some((l) => l.includes('documents/2031-12-01-legacy-note.md')));
   assert.ok(kindRow(s, 'document').said.length);
   const r = await check(ws, { kinds: ['checkpoint', 'hdsop', 'recurrent', 'tile-app'], shapes: false });

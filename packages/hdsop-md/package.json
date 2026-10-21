@@ -1,6 +1,6 @@
 {
   "name": "@supersuit/hdsop-md",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The written standard for a workflows folder: each workflow map (an HDSOP) and the catalog that scores them, with a checker and a byte-preserving stamp.",
   "keywords": ["hdsop", "workflow", "sop", "catalog", "markdown", "frontmatter", "records", "hypercontext", "agents"],
   "type": "module",

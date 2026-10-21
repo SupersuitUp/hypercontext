@@ -4,10 +4,12 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpWorkflows, file, map, catalog, row, cleanFolder, mapHeader, BODY, CATALOG_STANDARD } from './helpers.mjs';
+import { tmpWorkflows, file, map, catalog, row, cleanFolder, mapHeader, BODY, CATALOG_STANDARD, catalogText, fakeSupersuit } from './helpers.mjs';
 
 const BIN = fileURLToPath(new URL('../bin/hdsop-md.mjs', import.meta.url));
-const run = (args, cwd) => spawnSync(process.execPath, [BIN, ...args], { cwd, encoding: 'utf8' });
+// Every run names its Supersuit (none by default), so a Supersuit installed on the machine running
+// the tests never decides what stamp does.
+const run = (args, cwd, env = {}) => spawnSync(process.execPath, [BIN, ...args], { cwd, encoding: 'utf8', env: { ...process.env, HDSOP_MD_SUPERSUIT: 'none', ...env } });
 const headed = (dir) => catalog(dir, [row({ workflow: 'Send the monthly invoice', map: 'send-the-invoice.md' })], { header: `---\nstandard: "${CATALOG_STANDARD}"\n---\n` });
 
 test('lint a folder with no errors exits 0 and says what it counted', (t) => {
@@ -16,8 +18,7 @@ test('lint a folder with no errors exits 0 and says what it counted', (t) => {
   headed(dir);
   const r = run(['lint', dir]);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /^warn   catalog:not-writable  CATALOG\.md  /m);
-  assert.match(r.stdout, /0 errors, 1 warning, 1 map, a catalog of 1 row\n$/);
+  assert.equal(r.stdout, 'clean: 1 map, a catalog of 1 row\n');
 });
 
 test('lint defaults to workflows/ in the current folder, and a missing folder is usage', (t) => {
@@ -46,12 +47,12 @@ test('lint --json carries each finding\'s kind', (t) => {
   assert.equal(out.findings[0].kind, 'workflow-catalog');
 });
 
-test('stamp is a dry run: it lists what it would change, writes nothing, and skips the headerless catalog', (t) => {
+test('stamp is a dry run: it lists what it would change, writes nothing, and skips the headerless catalog an old writer would refuse', (t) => {
   const { dir } = tmpWorkflows(t);
   cleanFolder(dir);
   map(dir, 'book-the-venue', { standard: null, id: 'HDSOP-OPS-002' });
   const before = readFileSync(join(dir, 'book-the-venue.md'), 'utf8');
-  const r = run(['stamp', dir]);
+  const r = run(['stamp', dir], undefined, { HDSOP_MD_SUPERSUIT: fakeSupersuit(t, { keeps: false }) });
   assert.equal(r.status, 1);
   assert.match(r.stdout, /^would add  book-the-venue\.md$/m);
   assert.match(r.stdout, /^skipped  CATALOG\.md  no-header: .*catalog writer/m);
@@ -86,6 +87,32 @@ test('stamp on a current folder exits 0, and --json reports the plan', (t) => {
   assert.deepEqual(JSON.parse(r.stdout), { applied: false, changed: [], current: ['CATALOG.md', 'send-the-invoice.md'], skipped: [] });
 });
 
+test('stamp --apply gives a headerless catalog the minimal header when the Supersuit beside it keeps headers, or there is none', (t) => {
+  for (const env of [{ HDSOP_MD_SUPERSUIT: fakeSupersuit(t, { keeps: true }) }, { HDSOP_MD_SUPERSUIT: 'none' }]) {
+    const { dir } = tmpWorkflows(t);
+    cleanFolder(dir);
+    const src = readFileSync(join(dir, 'CATALOG.md'), 'utf8');
+    const dry = run(['stamp', dir], undefined, env);
+    assert.equal(dry.status, 1, dry.stderr);
+    assert.match(dry.stdout, /^would add  CATALOG\.md$/m);
+    assert.equal(readFileSync(join(dir, 'CATALOG.md'), 'utf8'), src, 'a dry run writes nothing');
+    const r = run(['stamp', dir, '--apply'], undefined, env);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stdout, /^added  CATALOG\.md$/m);
+    assert.equal(readFileSync(join(dir, 'CATALOG.md'), 'utf8'), `---\nkind: workflow-catalog\nstandard: ${CATALOG_STANDARD}\n---\n\n${src}`);
+    assert.equal(run(['lint', dir], undefined, env).stdout, 'clean: 1 map, a catalog of 1 row\n');
+  }
+});
+
+test('stamp finds the Supersuit in the workspace holding the folder, and one that cannot be asked counts as refusing', (t) => {
+  const { parent, dir } = tmpWorkflows(t);
+  cleanFolder(dir);
+  file(parent, '.agents/lib/freedom-workflows.mjs', 'throw new Error("not loadable");\n');
+  const r = run(['stamp', dir, '--apply'], undefined, { HDSOP_MD_SUPERSUIT: '', HOME: parent });
+  assert.match(r.stdout, /^skipped  CATALOG\.md  no-header: the installed Supersuit/m);
+  assert.ok(readFileSync(join(dir, 'CATALOG.md'), 'utf8').startsWith('# Workflow catalog'));
+});
+
 test('bad usage exits 2', (t) => {
   const { dir } = tmpWorkflows(t);
   assert.equal(run(['frobnicate']).status, 2);
@@ -98,5 +125,5 @@ test('bad usage exits 2', (t) => {
 test('--help and --version', () => {
   assert.match(run(['--help']).stdout, /hdsop-md lint \[<workflows-dir>\]/);
   assert.match(run(['--help']).stdout, /hdsop-md stamp \[<workflows-dir>\] \[--apply\] \[--json\]/);
-  assert.match(run(['--version']).stdout, /^0\.1\.0\n$/);
+  assert.match(run(['--version']).stdout, /^0\.1\.1\n$/);
 });
