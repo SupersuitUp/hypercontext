@@ -1,6 +1,6 @@
 // Writing a piece.md. Every record this package writes names the standard it upholds, so an
 // agent that has never seen the format can open the page and read the rules.
-import { readHeader, writeHeader } from './header.mjs';
+import { readHeader, writeHeader } from '@supersuit/hypercontext-core';
 import { STANDARD, STANDARD_LATEST } from './piece.mjs';
 
 /**

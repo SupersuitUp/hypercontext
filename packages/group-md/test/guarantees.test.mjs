@@ -5,25 +5,36 @@ import { readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import * as api from '../src/index.mjs';
 import { tmpGroups, put, walk, DANA_FREEDOM } from './helpers.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const sources = [...readdirSync(join(root, 'src')).map((f) => join(root, 'src', f)), join(root, 'bin', 'group-md.mjs')];
 
-test('it never opens a message app: the code imports the filesystem, paths and itself, nothing else', () => {
-  for (const file of sources) {
+// The one package it may import is @supersuit/hypercontext-core, the header codec every record package
+// shares (one copy since 2026-10-20). The same rule is held over core's own sources, so the promise
+// still covers every line that runs.
+const CORE = '@supersuit/hypercontext-core';
+const coreRoot = dirname(createRequire(join(root, 'package.json')).resolve(`${CORE}/package.json`));
+const coreSources = readdirSync(join(coreRoot, 'src')).filter((n) => n.endsWith('.mjs')).map((n) => join(coreRoot, 'src', n));
+
+test('it never opens a message app: the code imports the filesystem, paths, itself and the shared codec, nothing else', () => {
+  for (const file of [...sources, ...coreSources]) {
     const text = readFileSync(file, 'utf8');
     const imports = [...text.matchAll(/^\s*(?:import|export)\b[^;]*?\bfrom\s+['"]([^'"]+)['"]/gm)].map((m) => m[1]);
     for (const spec of imports) {
-      assert.ok(spec === 'node:fs' || spec === 'node:path' || spec.startsWith('./') || spec.startsWith('../'), `${file} imports ${spec}`);
+      const allowed = spec === 'node:fs' || spec === 'node:path' || spec.startsWith('./') || spec.startsWith('../') || (spec === CORE && !coreSources.includes(file));
+      assert.ok(allowed, `${file} imports ${spec}`);
     }
     const code = text.replace(/^\s*(\/\/|\/\*|\*).*$/gm, ''); // a JSDoc type may say import('./x.mjs')
     assert.doesNotMatch(code, /\bimport\s*\(|\brequire\s*\(/, `${file} loads code at run time`);
   }
   const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-  assert.deepEqual(pkg.dependencies ?? {}, {});
+  assert.deepEqual(Object.keys(pkg.dependencies ?? {}), [CORE]);
   assert.equal(pkg.devDependencies, undefined);
+  const core = JSON.parse(readFileSync(join(coreRoot, 'package.json'), 'utf8'));
+  assert.deepEqual(core.dependencies ?? {}, {});
 });
 
 test('it never touches a person record: every writing path leaves a people folder beside it byte-identical', (t) => {

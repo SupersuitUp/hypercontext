@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { KINDS } from './kinds.mjs';
 import { findRecords, legacyRecords, superprojectRoots, documentHomes, fsDefault } from './find.mjs';
 import { judge, acceptedFor, standardOf, CODE, VERSION_CODE } from './selfdoc.mjs';
-import { implementedVersions, checkOnline } from './manifest.mjs';
+import { implementedVersions, checkOnline, manifestFindings } from './manifest.mjs';
 import { resolvePackage, packageVersion, LINTS } from './packages.mjs';
 
 // Codes a package reports for the property this package judges itself. Dropped from the package's
@@ -38,6 +38,7 @@ export async function check(workspace, { kinds, packagesDir, shapes = true, onli
     const records = findRecords(workspace, k.kind, fs);
     let selfDoc = 0, context = 0;
     const versions = implementedVersions(k, { packagesDir });
+    findings.push(...manifestFindings(k, { packagesDir }));
     const named = new Set();
     seen.set(k.kind, named);
     for (const rel of records) {

@@ -33,7 +33,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SupersuitUp/friend-md.git"
+    "url": "git+https://github.com/SupersuitUp/hypercontext.git",
+    "directory": "packages/friend-md"
   },
   "license": "SEE LICENSE IN LICENSE",
   "publishConfig": {

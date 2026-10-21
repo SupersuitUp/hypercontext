@@ -2,7 +2,7 @@
 // that has never seen this package can open the file and find its rules. The link names a
 // version because what a version means never changes once published; a change to what a valid
 // record is becomes the next version.
-import { placeKey, readHeader } from './header.mjs';
+import { placeKey, readHeader } from '@supersuit/hypercontext-core';
 
 /** The unversioned page: always the latest version. A record never names it. */
 export const LATEST = 'https://hypercontext.wiki/standards/group';

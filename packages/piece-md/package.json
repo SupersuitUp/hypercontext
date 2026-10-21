@@ -15,6 +15,6 @@
   "engines": { "node": ">=20" },
   "license": "MIT",
   "publishConfig": { "access": "public" },
-  "repository": { "type": "git", "url": "git+https://github.com/SupersuitUp/piece-md.git" },
-  "dependencies": {}
+  "repository": { "type": "git", "url": "git+https://github.com/SupersuitUp/hypercontext.git", "directory": "packages/piece-md" },
+  "dependencies": { "@supersuit/hypercontext-core": "^0.1.0" }
 }

@@ -1,6 +1,6 @@
 // @supersuit/piece-md: a piece of a life's record is a folder whose piece.md answers the five
 // hypercontext questions. The format is docs/FORMAT.md.
-export { readHeader, writeHeader } from './header.mjs';
+export { readHeader, writeHeader } from '@supersuit/hypercontext-core';
 export { checkPiece, toPiece, isMedia, TYPES, MEDIA_TYPES, TEXT_TYPES, KEEP, TIME_SOURCES, MEDIA_EXTENSIONS, RECORD_FILE, NAME, STANDARD, STANDARD_LATEST, IMPLEMENTED_VERSIONS } from './piece.mjs';
 export { pieceText, stampStandard, stampPlan } from './write.mjs';
 export { CODES } from './codes.mjs';

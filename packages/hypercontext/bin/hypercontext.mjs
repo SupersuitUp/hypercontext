@@ -20,11 +20,13 @@ Usage:
       Every kind, its standard and the package that checks it.
   hypercontext manifests --out <dir> [--packages <dir>]
       Copy every kind's manifest from the package that owns it into <dir>/<kind>/v<N>.json, plus
-      <dir>/index.json, for a site to publish unchanged. Exit 1 when an owner is not installed.
+      <dir>/index.json, for a site to publish unchanged. Exit 1 when an owner is not installed or ships
+      a manifest that is not valid (it is listed, never written).
   hypercontext --help | --version
 
-<workspace> defaults to the current folder. --packages names a folder of package checkouts,
-used when a kind's package is not installed (also HYPERCONTEXT_PACKAGES).
+<workspace> defaults to the current folder. Each kind's package is found by node resolution, then
+beside this package in the hypercontext repository. --packages names a folder of package checkouts
+to use instead, and only those (also HYPERCONTEXT_PACKAGES).
 
 Exit codes: 0 clean, 1 findings, 2 usage.`;
 
@@ -80,8 +82,9 @@ if (cmd === 'manifests') {
   const out = opt('--out');
   if (!out) usage('manifests needs --out <dir>');
   const index = exportManifests(resolve(out), { packagesDir });
-  const missing = index.filter((x) => x.missing);
-  finish(json ? JSON.stringify(index, null, 2) + '\n' : index.map((x) => `${x.kind.padEnd(18)} ${x.missing ? `MISSING: ${x.owner} is not installed` : x.versions.join(' ')}`).join('\n') + '\n', missing.length ? 1 : 0);
+  const bad = index.filter((x) => x.missing || x.invalid);
+  const line = (x) => (x.missing ? `MISSING: ${x.owner} is not installed` : x.invalid ? `INVALID: ${x.invalid.join(' | ')}` : x.versions.join(' '));
+  finish(json ? JSON.stringify(index, null, 2) + '\n' : index.map((x) => `${x.kind.padEnd(18)} ${line(x)}`).join('\n') + '\n', bad.length ? 1 : 0);
 }
 
 // finish() exits only once the output has drained, so nothing below may run after a command.

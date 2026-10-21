@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { pieceText, stampStandard, stampPlan } from '../src/write.mjs';
-import { readHeader } from '../src/header.mjs';
+import { readHeader } from '@supersuit/hypercontext-core';
 import { checkPiece, STANDARD } from '../src/piece.mjs';
 import { LAKE } from './helpers.mjs';
 

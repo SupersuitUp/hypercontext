@@ -5,7 +5,7 @@
 // in place, never created.
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { readHeader, writeHeader } from './header.mjs';
+import { readHeader, writeHeader } from '@supersuit/hypercontext-core';
 import { toRecord, fromRecord } from './record.mjs';
 import { norm, ID } from './normalize.mjs';
 import { stampStandard } from './standard.mjs';

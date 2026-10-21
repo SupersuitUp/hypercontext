@@ -16,7 +16,7 @@
 import { lstatSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
-import { readHeader } from "./header.mjs";
+import { readFlatHeader as readHeader } from "@supersuit/hypercontext-core";
 
 /** Manifest filenames a reader may use. The first is the original published convention. */
 export const MANIFEST_NAMES = [".freedom-reads.json", ".reads.json"];

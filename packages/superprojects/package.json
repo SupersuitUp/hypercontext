@@ -34,7 +34,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SupersuitUp/superprojects.git"
+    "url": "git+https://github.com/SupersuitUp/hypercontext.git",
+    "directory": "packages/superprojects"
   },
   "dependencies": {}
 }

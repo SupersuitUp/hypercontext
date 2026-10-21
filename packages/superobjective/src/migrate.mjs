@@ -16,7 +16,7 @@
 // through as a date:relative finding for its owners to fix, not as a sentence the migration chose.
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, basename } from 'node:path';
-import { readHeader, writeHeader } from './header.mjs';
+import { readHeader, writeHeader } from '@supersuit/hypercontext-core';
 import { STANDARD, VERSION, FILE, RATCHET, CALIBRATIONS, SLUG, slugify, snapshot, ownersOf, keepFor, text } from './record.mjs';
 import { datesIn, isDate, relativePhrase } from './date.mjs';
 import { STATEMENT_LINE, renderRegions, setRegion } from './render.mjs';

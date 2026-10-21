@@ -42,7 +42,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SupersuitUp/group-md.git"
+    "url": "git+https://github.com/SupersuitUp/hypercontext.git",
+    "directory": "packages/group-md"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@supersuit/hypercontext-core": "^0.1.0"
+  }
 }

@@ -3,12 +3,21 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { exportManifests, checkOnline, implementedVersions, readManifest, sameManifest } from '../src/manifest.mjs';
+import { exportManifests, checkOnline, implementedVersions, readManifest, sameManifest, manifestFindings } from '../src/manifest.mjs';
+import { validateManifest } from '@supersuit/hypercontext-core';
 import { KINDS, byKind } from '../src/kinds.mjs';
 import { check } from '../src/check.mjs';
 import { stubPackages, mayaWorkspace, md, STD } from './helpers.mjs';
 
-const friendManifest = (extra = {}) => ({ manifest_version: 1, standard: STD('friend'), kind: 'friend', version: 1, codes: [{ code: 'self-doc:missing', level: 'error' }], ...extra });
+// A manifest the shape STANDARDS.md section 2 defines, so a stub owner is a valid owner.
+const friendManifest = (extra = {}) => ({
+  manifest_version: 1, standard: STD('friend', extra.version ?? 1), kind: 'friend', version: 1, title: 'A person', status: 'current', superseded_by: null,
+  latest: 'https://hypercontext.wiki/standards/friend', record: { path: 'people/<slug>/friend.md', format: 'md' },
+  header: { required: ['kind', 'standard'], keys: { kind: { const: 'friend' } } },
+  validator: { package: '@supersuit/friend-md', implements_since: '0.3.0', check: 'friend-md lint --json' },
+  codes: [{ code: 'self-doc:missing', level: 'error', means: 'names no standard', fix: 'friend-md stamp --apply' }],
+  umbrella: 'hypercontext check .', ...extra,
+});
 const pkgs = (extra = {}) => stubPackages({ 'friend-md': { name: '@supersuit/friend-md', bin: 'bin/friend-md.mjs', json: [], manifests: { 'standards/friend/v1.json': friendManifest(), ...extra } } });
 
 test('every kind this package owns ships a well-formed manifest for its current version', () => {
@@ -21,7 +30,34 @@ test('every kind this package owns ships a well-formed manifest for its current 
     assert.equal(m.validator, null);
     assert.deepEqual(m.codes.map((c) => c.code).sort(), ['self-doc:missing', 'self-doc:version']);
     assert.equal(m.header.keys.standard.const, k.standard);
+    assert.deepEqual(validateManifest(m).problems, [], k.kind);
   }
+});
+
+test('an owner shipping a manifest that is not valid is an error naming the file and every problem', async () => {
+  const dir = pkgs({ 'standards/friend/v2.json': { manifest_version: 1, kind: 'friend', version: 3 } });
+  const f = manifestFindings(byKind('friend'), { packagesDir: dir });
+  assert.equal(f.length, 1);
+  assert.equal(f[0].code, 'manifest:invalid');
+  assert.equal(f[0].level, 'error');
+  assert.match(f[0].message, /standards\/friend\/v2\.json, which is not a valid manifest: .*title is missing.*not the v2 its file name says/);
+  const r = await check(mayaWorkspace(), { kinds: ['friend'], packagesDir: dir });
+  assert.equal(r.findings.filter((x) => x.code === 'manifest:invalid').length, 1);
+  assert.equal(r.ok, false);
+});
+
+test('a manifest that is not JSON, or is another kind\'s, is invalid', () => {
+  const dir = stubPackages({ 'friend-md': { name: '@supersuit/friend-md', bin: 'bin/friend-md.mjs', json: [], manifests: { 'standards/friend/v1.json': { ...friendManifest(), kind: 'group' } } } });
+  assert.match(manifestFindings(byKind('friend'), { packagesDir: dir })[0].message, /its kind is "group"/);
+});
+
+test('export never publishes an invalid manifest; it lists it as invalid instead', () => {
+  const dir = pkgs({ 'standards/friend/v2.json': { manifest_version: 1 } });
+  const out = mkdtempSync(join(tmpdir(), 'hc-man-'));
+  const entry = exportManifests(out, { packagesDir: dir }).find((x) => x.kind === 'friend');
+  assert.equal(entry.invalid.length, 1);
+  assert.deepEqual(entry.versions, []);
+  assert.ok(!existsSync(join(out, 'friend')));
 });
 
 test('the versions a kind implements come from the manifests its owner ships', () => {

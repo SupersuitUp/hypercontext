@@ -56,6 +56,10 @@ const CALL = LAKE.replaceAll('2026-06-14-1812-nai-nai-at-the-lake', '2026-07-02-
 try {
   // 1. The tarball holds only what it should, and nothing personal.
   const [pack] = JSON.parse(run('npm', ['pack', '--json', '--pack-destination', dir], 0, root).stdout);
+  // The shared header codec is a dependency. Until @supersuit/hypercontext-core is on npm, the proof
+  // installs it from its own tarball, packed from the sibling workspace, in the same command.
+  const coreDir = mkdtempSync(join(tmpdir(), 'hypercontext-core-pack-'));
+  const [corePack] = JSON.parse(run('npm', ['pack', '--json', '--pack-destination', coreDir], 0, join(root, '..', 'core')).stdout);
   for (const file of pack.files) {
     assert.ok(/^(src\/|bin\/|docs\/|standards\/|README\.md$|CHANGELOG\.md$|LICENSE$|package\.json$)/.test(file.path), `Unexpected package payload: ${file.path}`);
     const text = readFileSync(join(root, file.path), 'utf8');
@@ -64,7 +68,7 @@ try {
 
   // 2. Installed into an empty project, with nothing else.
   writeFileSync(join(dir, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
-  run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', join(dir, pack.filename)]);
+  run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', join(coreDir, corePack.filename), join(dir, pack.filename)]);
   assert.deepEqual(readdirSync(join(dir, 'node_modules')).filter((n) => !n.startsWith('.')), ['@supersuit'], 'zero dependencies');
   const bin = join(dir, 'node_modules', '.bin', 'piece-md');
 

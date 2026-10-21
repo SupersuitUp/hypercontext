@@ -3,7 +3,8 @@
 // A test that stays green when its rule is removed was never checking the rule.
 //
 // Each case: [what the rule is, file under the package root, test file, the text as written, the text broken].
-import { mkdtempSync, cpSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, cpSync, readFileSync, writeFileSync, rmSync, mkdirSync, symlinkSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,26 +12,35 @@ import { spawnSync } from 'node:child_process';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
+// The copy lives outside the repository, where node cannot find the shared codec this package
+// depends on, so the copy is handed the installed @supersuit/hypercontext-core by a link.
+const coreDir = dirname(createRequire(join(root, 'package.json')).resolve('@supersuit/hypercontext-core/package.json'));
+function linkCore(dir) {
+  mkdirSync(join(dir, 'node_modules', '@supersuit'), { recursive: true });
+  symlinkSync(coreDir, join(dir, 'node_modules', '@supersuit', 'hypercontext-core'), 'dir');
+}
+
 const cases = [
+  // The stamp and the version-shape cases moved with that code to @supersuit/hypercontext-core.
+  ['a record naming a bad manifest is an error', 'src/manifest.mjs', 'manifest.test.mjs', "if (problems.length) bad(", "if (false) bad("],
+  ['a manifest\'s file name is checked', 'src/manifest.mjs', 'manifest.test.mjs', "if (m.version !== Number(name.match(", "if (false && m.version !== Number(name.match("],
+  ['check reports manifest findings', 'src/check.mjs', 'manifest.test.mjs', 'findings.push(...manifestFindings(k, { packagesDir }));', ''],
+  ['export never publishes an invalid manifest', 'src/manifest.mjs', 'manifest.test.mjs', 'dir && !invalid.length ?', 'dir ?'],
+  ['a named folder of checkouts is exclusive', 'src/packages.mjs', 'packages.test.mjs', 'return nameAt(dir) === pkg.name ? dir : null;', 'if (nameAt(dir) === pkg.name) return dir;'],
+  ['siblings are found with no flag', 'src/packages.mjs', 'packages.test.mjs', 'return nameAt(sibling) === pkg.name ? sibling : null;', 'return null;'],
   ['a record naming no standard is refused', 'src/selfdoc.mjs', 'selfdoc.test.mjs', 'else if (!got.standard) problem =', 'else if (false) problem ='],
   ['a record naming another kind\'s standard is refused', 'src/selfdoc.mjs', 'selfdoc.test.mjs', 'else if (v === null) problem =', 'else if (false) problem ='],
   ['the unversioned link is refused', 'src/selfdoc.mjs', 'selfdoc.test.mjs', 'else if (v === 0) problem =', 'else if (false) problem ='],
   ['an unimplemented version is refused', 'src/selfdoc.mjs', 'selfdoc.test.mjs', 'else if (!versions.includes(v)) {', 'else if (false) {'],
   ['an unimplemented version has its own code', 'src/selfdoc.mjs', 'selfdoc.test.mjs', 'code = VERSION_CODE; }', '}'],
   ['a caller may accept a second standard', 'src/selfdoc.mjs', 'selfdoc.test.mjs', 'else if (alsoAccept.includes(got.standard)) problem = null;', ''],
-  ['a version number is the whole tail', 'src/kinds.mjs', 'selfdoc.test.mjs', "match(/^(\\d+)$/)", "match(/^(\\d+)/)"],
-  ['stamp upgrades its own unversioned link', 'src/selfdoc.mjs', 'selfdoc.test.mjs', 'if (has && bare && h.data.standard === bare) {', 'if (false) {'],
   ['the versions come from the owner\'s manifests', 'src/manifest.mjs', 'manifest.test.mjs', 'return got.length ? got : [CURRENT_VERSION];', 'return [CURRENT_VERSION];'],
   ['check passes the implemented versions', 'src/check.mjs', 'manifest.test.mjs', 'const verdict = judge(text, k, { versions, ', 'const verdict = judge(text, k, { '],
-  ['export never writes a missing owner from a guess', 'src/manifest.mjs', 'manifest.test.mjs', 'missing: !dir });', 'missing: false });'],
+  ['export never writes a missing owner from a guess', 'src/manifest.mjs', 'manifest.test.mjs', 'missing: !dir, ', 'missing: false, '],
   ['online: a dead page is unreachable', 'src/manifest.mjs', 'manifest.test.mjs', "if (!page.ok) { findings.push(", "if (false) { findings.push("],
   ['online: a missing manifest is unreachable', 'src/manifest.mjs', 'manifest.test.mjs', "if (!json.ok) { findings.push(", "if (false) { findings.push("],
   ['online: drift is caught', 'src/manifest.mjs', 'manifest.test.mjs', 'if (!sameManifest(json.body, local)) findings.push(', 'if (false) findings.push('],
   ['manifests compare as canonical JSON', 'src/manifest.mjs', 'manifest.test.mjs', 'Object.keys(v).sort()', 'Object.keys(v)'],
-  ['stamp goes after kind', 'src/selfdoc.mjs', 'selfdoc.test.mjs', "if (/^kind:/.test(lines[i])) { at = i + 1; break; }", "if (false) { at = i + 1; break; }"],
-  ['stamp leaves a named standard alone', 'src/selfdoc.mjs', 'selfdoc.test.mjs', "if (has) return { text: src, changed: false, reason: 'already names a standard' };", ''],
-  ['stamp fills an empty key in place', 'src/selfdoc.mjs', 'selfdoc.test.mjs', "if ('standard' in h.data) return", 'if (false) return'],
-  ['stamp keeps CRLF', 'src/selfdoc.mjs', 'selfdoc.test.mjs', "const eol = /\\r$/.test(lines[0]) ? '\\r' : '';", "const eol = '';"],
   ['a linked file is not a record', 'src/find.mjs', 'find.test.mjs', 'return lstatSync(p).isFile();', 'return lstatSync(p).isFile() || lstatSync(p).isSymbolicLink();'],
   ['README is never a record', 'src/find.mjs', 'find.test.mjs', "'README.md', ", ''],
   ['a linked folder is not walked', 'src/find.mjs', 'find.test.mjs', 'return lstatSync(p).isDirectory();', 'return existsSync(p) && !lstatSync(p).isFile();'],
@@ -59,6 +69,7 @@ for (const [what, file, testFile, from, to] of cases) {
   const dir = mkdtempSync(join(tmpdir(), 'hypercontext-mut-'));
   try {
     cpSync(root, dir, { recursive: true, filter: (p) => !p.includes('/.git') && !p.includes('node_modules') });
+    linkCore(dir);
     const p = join(dir, file);
     const src = readFileSync(p, 'utf8');
     if (!src.includes(from)) { missed.push(`${what}: the text to break is no longer in ${file}`); continue; }

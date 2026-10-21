@@ -8,7 +8,7 @@
 // quietly".
 import { mkdirSync, writeFileSync, appendFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { readHeader, writeHeader } from './header.mjs';
+import { readHeader, writeHeader } from '@supersuit/hypercontext-core';
 import { STANDARD, VERSION, FILE, RATCHET, CALIBRATIONS, ROOTS, VISIBILITIES, CAP, SIGNS, SLUG, signsOf, ownersOf, groupOf, snapshot, keepFor, slugify, text } from './record.mjs';
 import { checkDated, isDate, yearOn } from './date.mjs';
 import { listRecords, readRecord } from './read.mjs';

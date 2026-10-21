@@ -6,7 +6,7 @@
 // superprojects is the caller's business (or `readSuperprojects` below, for a plain folder of them).
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { readHeader } from './header.mjs';
+import { readHeader } from '@supersuit/hypercontext-core';
 import { signsOf } from './record.mjs';
 
 /** Parse a `serves` value: `<root>/<id>#<sign>`. Returns null when it is not that shape. */

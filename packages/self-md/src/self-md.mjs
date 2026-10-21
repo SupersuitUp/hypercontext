@@ -7,7 +7,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readHeader } from "./header.mjs";
+import { readFlatHeader as readHeader } from "@supersuit/hypercontext-core";
 
 /** The default facets: each is a folder under self/ and the question it answers. */
 export const FACETS = {

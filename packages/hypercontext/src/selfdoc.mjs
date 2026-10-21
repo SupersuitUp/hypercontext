@@ -6,7 +6,7 @@
 // complete the rest of it is. The shared context keys (id, summary, read_when, as_of, keep) are
 // counted beside it and never refused here: a kind's own package decides whether an empty
 // summary is a defect, and most already say so (friend-md calls it "untended").
-import { readHeader, writeHeader } from './header.mjs';
+import { readHeader, stampStandard } from '@supersuit/hypercontext-core';
 
 import { versionOf, CURRENT_VERSION } from './kinds.mjs';
 
@@ -52,36 +52,5 @@ export function judge(text, kind, { alsoAccept = [], versions = [CURRENT_VERSION
 export const acceptedFor = (kindName, data, standards) =>
   kindName === 'document' && data?.kind === 'piece' ? [standards.piece] : [];
 
-/**
- * Add `standard:` to a record that names none, or upgrade the bare URL of its own kind (written
- * before versions) to the current version, changing nothing else. A new line goes directly after
- * `kind:` when the header has one, otherwise first. A record naming another kind's standard, or a
- * version of its own, comes back unchanged: that is a judgment, and the report names it.
- * @param {string} text
- * @param {string} url the versioned standard to name
- * @param {string} [bare] the kind's unversioned URL, upgraded in place when found
- * @returns {{text: string, changed: boolean, reason?: string}}
- */
-export function stampStandard(text, url, bare) {
-  const src = String(text ?? '');
-  const h = readHeader(src);
-  if (h.raw === '' && !/^---[ \t]*\r?\n/.test(src)) return { text: src, changed: false, reason: 'no header' };
-  const lines = src.split('\n');
-  let close = -1;
-  for (let i = 1; i < lines.length; i++) if (/^---[ \t]*\r?$/.test(lines[i])) { close = i; break; }
-  if (close < 0) return { text: src, changed: false, reason: 'no header' };
-  const eol = /\r$/.test(lines[0]) ? '\r' : '';
-  const has = typeof h.data.standard === 'string' && h.data.standard !== '';
-  if (has && bare && h.data.standard === bare) {
-    for (let i = 1; i < close; i++) {
-      if (/^standard:/.test(lines[i])) { lines[i] = `standard: ${JSON.stringify(url)}${eol}`; return { text: lines.join('\n'), changed: true }; }
-    }
-  }
-  if (has) return { text: src, changed: false, reason: 'already names a standard' };
-  // An empty `standard:` key is filled in place rather than duplicated.
-  if ('standard' in h.data) return { text: writeHeader(src, { standard: url }), changed: true };
-  let at = 1;
-  for (let i = 1; i < close; i++) if (/^kind:/.test(lines[i])) { at = i + 1; break; }
-  lines.splice(at, 0, `standard: ${JSON.stringify(url)}${eol}`);
-  return { text: lines.join('\n'), changed: true };
-}
+// The byte-preserving stamp is the same for every kind and every package: it lives in core.
+export { stampStandard };

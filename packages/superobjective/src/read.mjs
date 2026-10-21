@@ -3,7 +3,7 @@
 // calibrations.jsonl. Reading never writes, and readHeader/writeHeader round-trip a file byte for byte.
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { join, basename, relative } from 'node:path';
-import { readHeader } from './header.mjs';
+import { readHeader } from '@supersuit/hypercontext-core';
 import { FILE, RATCHET, CALIBRATIONS, groupOf } from './record.mjs';
 
 /** Parse a JSONL file. Missing file reads as no lines. Bad lines are reported, never thrown. */

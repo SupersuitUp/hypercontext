@@ -28,9 +28,12 @@
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SupersuitUp/self-md.git"
+    "url": "git+https://github.com/SupersuitUp/hypercontext.git",
+    "directory": "packages/self-md"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@supersuit/hypercontext-core": "^0.1.0"
+  },
   "keywords": [
     "self",
     "markdown",

@@ -9,6 +9,10 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { KINDS, STANDARD_BASE, CURRENT_VERSION } from './kinds.mjs';
 import { resolvePackage } from './packages.mjs';
+import { validateManifest } from '@supersuit/hypercontext-core';
+
+/** The finding for a manifest an owner ships that a reader with no package could not use. */
+export const MANIFEST_CODE = 'manifest:invalid';
 
 const OWN = join(dirname(dirname(fileURLToPath(import.meta.url))), 'standards');
 
@@ -38,20 +42,48 @@ export function readManifest(kind, version = CURRENT_VERSION, opts = {}) {
 }
 
 /**
+ * Every manifest a kind's owner ships, judged by @supersuit/hypercontext-core's validateManifest
+ * (STANDARDS.md section 2), plus the two things only the file's place can say: it is the manifest
+ * of this kind, and of the version its file name says. One error finding per bad file.
+ * @returns {Array<{kind, level, code, path, message}>}
+ */
+export function manifestFindings(kind, opts = {}) {
+  const { dir, owner } = manifestHome(kind, opts);
+  if (!dir) return [];
+  const out = [];
+  for (const name of readdirSync(dir).filter((n) => /^v\d+\.json$/.test(n)).sort()) {
+    const rel = `standards/${kind.kind}/${name}`;
+    const bad = (why) => out.push({ kind: kind.kind, level: 'error', code: MANIFEST_CODE, path: '', message: `${owner} ships ${rel}, ${why}` });
+    let m;
+    try { m = JSON.parse(readFileSync(join(dir, name), 'utf8')); } catch { bad('which is not JSON'); continue; }
+    const { problems } = validateManifest(m);
+    if (m && typeof m === 'object') {
+      if (m.kind !== kind.kind) problems.push(`its kind is ${JSON.stringify(m.kind)}, not ${kind.kind}`);
+      if (m.version !== Number(name.match(/\d+/)[0])) problems.push(`its version is ${JSON.stringify(m.version)}, not the ${name.replace('.json', '')} its file name says`);
+    }
+    if (problems.length) bad(`which is not a valid manifest: ${problems.join('; ')}`);
+  }
+  return out;
+}
+
+/**
  * Copy every kind's manifests from their owners into `out/<kind>/v<N>.json`, plus `out/index.json`
  * listing them, for a site to publish unchanged. A kind whose owner is not installed is listed as
- * missing, never written from a guess.
+ * missing, never written from a guess, and one whose owner ships an invalid manifest is listed with
+ * `invalid` and not written.
  */
 export function exportManifests(out, opts = {}) {
   const index = [];
   for (const k of KINDS) {
     const { dir, owner } = manifestHome(k, opts);
-    const versions = dir ? implementedVersions(k, opts) : [];
+    // An invalid manifest is never published: the page a record links to must describe its rules.
+    const invalid = dir ? manifestFindings(k, opts).map((f) => f.message) : [];
+    const versions = dir && !invalid.length ? implementedVersions(k, opts) : [];
     for (const v of versions) {
       mkdirSync(join(out, k.kind), { recursive: true });
       writeFileSync(join(out, k.kind, `v${v}.json`), readFileSync(join(dir, `v${v}.json`)));
     }
-    index.push({ kind: k.kind, owner, latest: `${STANDARD_BASE}${k.kind}`, versions: versions.map((v) => `${STANDARD_BASE}${k.kind}/v${v}`), missing: !dir });
+    index.push({ kind: k.kind, owner, latest: `${STANDARD_BASE}${k.kind}`, versions: versions.map((v) => `${STANDARD_BASE}${k.kind}/v${v}`), missing: !dir, ...(invalid.length ? { invalid } : {}) });
   }
   mkdirSync(out, { recursive: true });
   writeFileSync(join(out, 'index.json'), JSON.stringify({ manifest_version: 1, standards: index }, null, 2) + '\n');

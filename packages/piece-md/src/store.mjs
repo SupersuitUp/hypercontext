@@ -2,7 +2,7 @@
 // Only .md files are ever opened. Media is seen by its name in a directory listing, never read.
 import { readdirSync, readFileSync, existsSync, readlinkSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { readHeader } from './header.mjs';
+import { readHeader } from '@supersuit/hypercontext-core';
 import { NAME, RECORD_FILE, isMedia } from './piece.mjs';
 
 const skip = (name) => name.startsWith('.') || name === 'node_modules';

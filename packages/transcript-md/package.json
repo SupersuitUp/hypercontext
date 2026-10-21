@@ -38,7 +38,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SupersuitUp/transcript-md.git"
+    "url": "git+https://github.com/SupersuitUp/hypercontext.git",
+    "directory": "packages/transcript-md"
   },
   "publishConfig": {
     "access": "public"

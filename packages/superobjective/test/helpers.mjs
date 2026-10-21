@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { set } from '../src/write.mjs';
-import { readHeader, writeHeader } from '../src/header.mjs';
+import { readHeader, writeHeader } from '@supersuit/hypercontext-core';
 
 export const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 export const SET_DAY = '2026-10-18';

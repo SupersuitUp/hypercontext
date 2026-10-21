@@ -12,20 +12,15 @@
 // the report says in one line that nothing checks its shape, so the gap is visible from the
 // same command that would close it.
 
-export const STANDARD_BASE = 'https://hypercontext.wiki/standards/';
+// The URL shapes and how a URL reads back as a version are shared by every record package, so they
+// live in @supersuit/hypercontext-core and are re-exported here unchanged.
+import { STANDARD_BASE, bareStandard, standardUrl, versionOf } from '@supersuit/hypercontext-core';
+export { STANDARD_BASE, bareStandard, versionOf };
 // A record names one VERSION of its standard (docs/STANDARDS.md): the page at /v<N> never changes
 // meaning, so the link says which rules the record was written to. The bare /standards/<kind>
 // is the latest page, for people; a record carrying it predates versions.
 export const CURRENT_VERSION = 1;
-const url = (slug, v = CURRENT_VERSION) => `${STANDARD_BASE}${slug}/v${v}`;
-export const bareStandard = (kind) => `${STANDARD_BASE}${kind}`;
-/** The version a URL names for a kind: a number, 0 for the bare URL, null for another kind's. */
-export function versionOf(kind, standardUrl) {
-  const s = String(standardUrl ?? '');
-  if (s === bareStandard(kind)) return 0;
-  const m = s.startsWith(`${bareStandard(kind)}/v`) ? s.slice(bareStandard(kind).length + 2).match(/^(\d+)$/) : null;
-  return m ? Number(m[1]) : null;
-}
+const url = (slug, v = CURRENT_VERSION) => standardUrl(slug, v);
 
 /**
  * @typedef {object} Kind

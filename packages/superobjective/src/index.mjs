@@ -8,7 +8,7 @@ export { lint, checkRecord, checkSet, vague, CODES } from './lint.mjs';
 export { pace, VERDICTS } from './pace.mjs';
 export { parseServes, formatServes, resolveServes, readSuperprojects } from './serves.mjs';
 export { migrate, detectShape, idFrom } from './migrate.mjs';
-export { readHeader, writeHeader } from './header.mjs';
+export { readHeader, writeHeader } from '@supersuit/hypercontext-core';
 export { renderRegions, statementInBody } from './render.mjs';
 export { stamp, stampText } from './stamp.mjs';
 export { MANIFEST } from './manifest.mjs';

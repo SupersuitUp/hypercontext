@@ -6,30 +6,41 @@
 // or level), and normalize() is the only place that knows it.
 import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { dirname, join, relative } from 'node:path';
 
 const require = createRequire(import.meta.url);
+// This package's own root. In the hypercontext repository every record package is a sibling
+// workspace (packages/<repo>), so a checkout finds them with no install and no flag.
+const SELF_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+
+const nameAt = (dir) => { try { return JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).name; } catch { return null; } };
 
 /**
- * Where a package is installed: node resolution first, then `<packagesDir>/<repo>`, a folder of
- * sibling checkouts, for a machine that builds these packages before they are published.
+ * Where a package is, in this order:
+ * 1. `packagesDir/<repo>` when a folder of checkouts is named (the option or HYPERCONTEXT_PACKAGES).
+ *    Named means only: nothing else is consulted, so a caller can say exactly which packages run.
+ * 2. node resolution from this package, which finds an installed package and, in the hypercontext
+ *    repository after `npm install`, the workspace links.
+ * 3. `<repo>` beside this package, the layout of the hypercontext repository, so an un-installed
+ *    checkout still finds its sibling packages.
  * @returns {string|null} the package root
  */
 export function resolvePackage(pkg, { packagesDir = process.env.HYPERCONTEXT_PACKAGES } = {}) {
+  if (packagesDir) {
+    const dir = join(packagesDir, pkg.repo);
+    return nameAt(dir) === pkg.name ? dir : null;
+  }
   try {
     let dir = dirname(require.resolve(pkg.name));
     for (let i = 0; i < 6; i++) {
-      const pj = join(dir, 'package.json');
-      if (existsSync(pj) && JSON.parse(readFileSync(pj, 'utf8')).name === pkg.name) return dir;
+      if (nameAt(dir) === pkg.name) return realpathSync(dir);
       dir = dirname(dir);
     }
-  } catch { /* not installed; try the sibling folder */ }
-  if (packagesDir) {
-    const dir = join(packagesDir, pkg.repo);
-    try { if (JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).name === pkg.name) return dir; } catch { /* absent */ }
-  }
-  return null;
+  } catch { /* not installed; try the sibling workspace */ }
+  const sibling = join(dirname(SELF_ROOT), pkg.repo);
+  return nameAt(sibling) === pkg.name ? sibling : null;
 }
 
 export function packageVersion(dir) {

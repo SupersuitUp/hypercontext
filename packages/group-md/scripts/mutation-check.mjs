@@ -3,13 +3,22 @@
 // A test that stays green when its rule is removed was never checking the rule.
 //
 // Each case: [what the rule is, source file under src/, test file, the line as written, the line broken].
-import { mkdtempSync, cpSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, cpSync, readFileSync, writeFileSync, rmSync, mkdirSync, symlinkSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
+
+// The copy lives outside the repository, where node cannot find the shared codec this package
+// depends on, so the copy is handed the installed @supersuit/hypercontext-core by a link.
+const coreDir = dirname(createRequire(join(root, 'package.json')).resolve('@supersuit/hypercontext-core/package.json'));
+function linkCore(dir) {
+  mkdirSync(join(dir, 'node_modules', '@supersuit'), { recursive: true });
+  symlinkSync(coreDir, join(dir, 'node_modules', '@supersuit', 'hypercontext-core'), 'dir');
+}
 const BIN = '../bin/group-md.mjs';
 
 const cases = [
@@ -55,7 +64,6 @@ const cases = [
   ['apply writes only reconciled keys', 'reconcile.mjs', 'reconcile.test.mjs', '.filter(([key]) => RECONCILED_KEYS.includes(key))', '.filter(() => true)'],
   ['writes stay under dir', 'store.mjs', 'reconcile.test.mjs', "if (typeof id !== 'string' || !ID.test(id)) throw new Error(", 'if (false) throw new Error('],
   // ---- the format
-  ['unknown keys survive a write byte for byte', 'header.mjs', 'header.test.mjs', 'if (at >= 0 && canon(segmentValue(segs[at])) === canon(value)) continue;', 'if (false) continue;'],
   ['a write touches only the keys that changed', 'store.mjs', 'store.test.mjs', 'if (same(now[key], next[key])) continue;', 'if (false) continue;'],
   ['two legacy imessage keys are one thread', 'record.mjs', 'record.test.mjs', "out.push({ app: 'imessage', id: guid, name, seen: '' });", "out.push({ app: 'imessage', id: '', name, seen: '' });"],
   ['a legacy key is not read twice', 'record.mjs', 'record.test.mjs', 'threads.push(...legacyThreads(d, new Set(threads.map((t) => t.app))));', 'threads.push(...legacyThreads(d, new Set()));'],
@@ -101,6 +109,7 @@ for (const [name, source, suite, before, after] of cases) {
   try {
     for (const part of ['src', 'test', 'bin', 'standards']) cpSync(join(root, part), join(dir, part), { recursive: true });
     cpSync(join(root, 'package.json'), join(dir, 'package.json'));
+    linkCore(dir);
     const file = join(dir, 'src', source), text = readFileSync(file, 'utf8');
     if (!text.includes(before)) throw new Error(`Mutation anchor missing: ${name}`);
     if (text.split(before).length !== 2) throw new Error(`Mutation anchor is not unique: ${name}`);

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { readRecord, listRecords, findRecord, ranked, readJsonl } from '../src/read.mjs';
-import { readHeader, writeHeader } from '../src/header.mjs';
+import { readHeader, writeHeader } from '@supersuit/hypercontext-core';
 import { tmpHome, garden, studio, GARDEN, GARDEN_STATEMENT, fileText } from './helpers.mjs';
 
 test('a record reads its header, body, ratchet and calibrations', (t) => {

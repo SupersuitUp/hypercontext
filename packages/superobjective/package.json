@@ -15,6 +15,6 @@
   "engines": { "node": ">=20" },
   "license": "MIT",
   "publishConfig": { "access": "public" },
-  "repository": { "type": "git", "url": "git+https://github.com/SupersuitUp/superobjective.git" },
-  "dependencies": {}
+  "repository": { "type": "git", "url": "git+https://github.com/SupersuitUp/hypercontext.git", "directory": "packages/superobjective" },
+  "dependencies": { "@supersuit/hypercontext-core": "^0.1.0" }
 }

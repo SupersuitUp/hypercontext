@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { readFileSync, existsSync } from 'node:fs';
 import { migrate, detectShape, idFrom } from '../src/migrate.mjs';
 import { readRecord } from '../src/read.mjs';
-import { readHeader, writeHeader } from '../src/header.mjs';
+import { readHeader, writeHeader } from '@supersuit/hypercontext-core';
 import { lint } from '../src/lint.mjs';
 import { raise } from '../src/write.mjs';
 import { Refusal } from '../src/write.mjs';

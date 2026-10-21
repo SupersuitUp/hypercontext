@@ -7,7 +7,7 @@
 // records are untouched. A dry run by default; a second run changes nothing.
 import { writeFileSync } from 'node:fs';
 import { STANDARD, standardOf } from './record.mjs';
-import { readHeader, writeHeader } from './header.mjs';
+import { readHeader, writeHeader } from '@supersuit/hypercontext-core';
 import { setAbout } from './render.mjs';
 import { listRecords } from './read.mjs';
 

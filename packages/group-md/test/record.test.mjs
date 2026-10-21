@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readHeader, writeHeader } from '../src/header.mjs';
+import { readHeader, writeHeader } from '@supersuit/hypercontext-core';
 import { toRecord, fromRecord } from '../src/record.mjs';
 import { norm, slugify } from '../src/normalize.mjs';
 
