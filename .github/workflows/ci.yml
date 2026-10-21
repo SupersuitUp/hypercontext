@@ -1,0 +1,27 @@
+# Every package, tested together on every push and pull request. They share
+# @supersuit/hypercontext-core, so a change to one is a change that can break any of them.
+# (Replaces the per-package CI superobjective carried before the packages moved here.)
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      # Only links the workspaces: nothing here depends on a package from outside the repository.
+      - run: npm ci
+      # Every workspace's tests, then the drift test across all of them.
+      - run: npm test
+      # Every rule is removed once, and its test must go red.
+      - run: npm run mutation-check

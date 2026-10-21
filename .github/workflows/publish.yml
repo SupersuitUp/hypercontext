@@ -1,0 +1,207 @@
+# Publish ONE package of the hypercontext repository to npm through OIDC trusted publishing.
+#
+# ONE REPOSITORY, ONE RELEASE TRAIN, ONE PACKAGE PER TAG. Every record standard lives here as its
+# own npm package (packages/<dir>), and a tag names which one ships:
+#     friend-md@0.3.0   core@0.1.0   hypercontext@0.1.0
+# The part before the @ is the folder under packages/, never the npm name, so a tag cannot be
+# mistaken for a scoped package. Every package is tested on every release, because every package
+# imports the shared core: a codec change that breaks group-md must not ship inside piece-md.
+#
+# WHY THIS EXISTS. Publishing by hand needs a one-time password in a browser on every release,
+# which puts a human round trip in front of every fix reaching the people who install it. This
+# workflow lets a tag publish with no human step and no stored token.
+#
+# It is also the direction npm is forcing. Their own banner: "npm tokens that bypass 2FA
+# are being restricted, account changes (Aug 2026) and direct publishing (Jan 2027)."
+# A long-lived automation token in a secret would work today and stop working on a date
+# somebody else picked.
+#
+# HOW THE TRUST WORKS. There is no token here and no NODE_AUTH_TOKEN, deliberately.
+# GitHub mints a short-lived OIDC identity for this workflow, npm verifies it against the
+# trusted publisher configured on the package, and the publish is authorised by WHO ran it
+# rather than by a secret anyone holding it could use. The trusted-publisher record on npm
+# names this repository AND this filename, so renaming this file breaks publishing until
+# every package's record is updated. That is the intended behaviour rather than a trap.
+#
+# Each package needs its own record pointing HERE, once, by a person logged in to npm with 2FA:
+#     npm trust github @supersuit/<name> --file publish.yml \
+#       --repo SupersuitUp/hypercontext --allow-publish --allow-stage-publish
+# The packages that came from their own repositories (friend-md, group-md, self-md, superprojects,
+# transcript-md, piece-md) have records naming their OLD repo and workflow, which publish nothing
+# from here until replaced.
+#
+# HOW TO RELEASE. Bump the version in packages/<dir>/package.json, add its CHANGELOG entry,
+# commit, then:
+#     git tag <dir>@<version> && git push origin <dir>@<version>
+# The version guard below refuses a tag that disagrees with that package.json, because a
+# mismatch publishes a version nobody wrote a changelog for.
+name: publish
+
+on:
+  push:
+    tags: ["*@*"]
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "The folder under packages/ to publish (friend-md, core, hypercontext ...)"
+        type: string
+        required: true
+      dry_run:
+        description: "Run every check and stop before publishing"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  # The one permission OIDC needs. Without it the publish fails with an auth error that
+  # does not mention OIDC at all.
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # npm checks the environment claim inside the OIDC token, so a record that NAMES an
+    # environment the job does not declare fails as ENEEDAUTH, with nothing said about
+    # environments. The records above are created with no environment, and
+    # `npm trust list @supersuit/<name>` shows none, so any value here passes. `blank` is kept
+    # to match docusaurus-preset-wiki, whose record also names none and which has published
+    # every release through this exact shape. If a record is ever given an environment, this
+    # line must change to match it in the same sitting.
+    #
+    # The FIRST publish of a new package cannot go through this workflow: npm attaches a
+    # trusted publisher to an existing package, so the first version is published by hand (web
+    # 2FA) and the record created right after. Every release since is a tag push.
+    environment: blank
+    steps:
+      - uses: actions/checkout@v5
+
+      # NO `registry-url` HERE, AND THAT IS THE WHOLE TRICK.
+      #
+      # Every published example of this workflow sets `registry-url: https://registry.npmjs.org`,
+      # and with OIDC it is the thing that breaks the publish. setup-node responds to that
+      # option by writing an .npmrc containing
+      #     //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}
+      # and exporting NODE_AUTH_TOKEN as a placeholder. npm finds a credential already
+      # configured, so it never attempts the OIDC exchange, sends the placeholder instead, and
+      # the registry rejects it.
+      #
+      # The rejection is a 404 rather than a 401, because npm answers an unauthenticated PUT
+      # with "not found" so that private package names cannot be probed. So the failure reads
+      # as "the package does not exist" for a package that plainly does, and says nothing
+      # about auth at all. Cost one release on 2026-09-15 (run 34978380965).
+      #
+      # Omitting it leaves npm with no configured credential, which is the state that makes it
+      # perform the OIDC exchange. The default registry is already registry.npmjs.org.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      # PINNED TO 11.x, NOT `npm@latest`.
+      #
+      # OIDC trusted publishing landed in npm 11.5.1. Writing `npm@latest` here picked up
+      # npm 12.0.2 on 2026-09-15, which did not perform the exchange at all: it went straight
+      # to ENEEDAUTH, "you need to authorize this machine using npm login", as though trusted
+      # publishing did not exist. Reaching for the newest npm to be safe is what broke it.
+      #
+      # Raise this deliberately, after checking that the new major still does the exchange,
+      # rather than by floating it.
+      - name: Pin npm to a version that performs the OIDC exchange
+        run: |
+          npm install -g npm@11
+          npm --version
+
+      # The exchange needs these two, injected by GitHub only when `id-token: write` is set
+      # above. Asserting them here turns a silent auth failure at the end of a long run into an
+      # immediate, named one.
+      - name: Assert the OIDC identity is available
+        run: |
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "No OIDC identity available to this job."
+            # Single quotes: inside double quotes bash would run the backticks as a command.
+            echo 'The workflow needs `permissions: id-token: write`, and a fork PR never gets one.'
+            exit 1
+          fi
+          echo "OIDC identity present"
+
+      # Which package, from the tag (`<dir>@<version>`) or the dispatch input, and its name and
+      # version from its own package.json. A tag that names no workspace stops here.
+      - name: Resolve the package this release is for
+        id: pkg
+        env:
+          INPUT_PACKAGE: ${{ inputs.package }}
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            DIR="${GITHUB_REF_NAME%@*}"
+            TAG_VERSION="${GITHUB_REF_NAME##*@}"
+          else
+            DIR="${INPUT_PACKAGE}"
+            TAG_VERSION=""
+          fi
+          case "$DIR" in */*|.*|"") echo "\"$DIR\" is not a folder under packages/"; exit 1 ;; esac
+          if [ ! -f "packages/$DIR/package.json" ]; then
+            echo "There is no packages/$DIR/package.json. The tag is <folder under packages/>@<version>, e.g. friend-md@0.3.0."
+            exit 1
+          fi
+          NAME="$(node -p "require('./packages/$DIR/package.json').name")"
+          VERSION="$(node -p "require('./packages/$DIR/package.json').version")"
+          PRIVATE="$(node -p "Boolean(require('./packages/$DIR/package.json').private)")"
+          if [ "$PRIVATE" = "true" ]; then echo "$NAME is private and is never published."; exit 1; fi
+          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag_version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
+          echo "releasing $NAME $VERSION from packages/$DIR"
+
+      - name: Refuse a tag that disagrees with package.json
+        if: github.event_name == 'push'
+        env:
+          TAG_VERSION: ${{ steps.pkg.outputs.tag_version }}
+          VERSION: ${{ steps.pkg.outputs.version }}
+          DIR: ${{ steps.pkg.outputs.dir }}
+        run: |
+          if [ "$TAG_VERSION" != "$VERSION" ]; then
+            echo "tag $DIR@$TAG_VERSION does not match packages/$DIR/package.json $VERSION"
+            echo "Publishing here would ship a version with no CHANGELOG entry."
+            exit 1
+          fi
+          echo "tag and package.json agree on $VERSION"
+
+      # The workspaces have no dependencies outside this repository, so `npm ci` only links them
+      # (the lockfile says so). Every package is tested, not only the one shipping, because they
+      # share core: the package is the product, so it is tested before it is published, never after.
+      - run: npm ci
+      - run: npm test
+
+      - name: Refuse a version already on npm
+        env:
+          NAME: ${{ steps.pkg.outputs.name }}
+          VERSION: ${{ steps.pkg.outputs.version }}
+        run: |
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "$NAME@$VERSION is already published. Bump the version."
+            exit 1
+          fi
+          echo "$NAME@$VERSION is not on npm yet"
+
+      - name: Publish only that workspace
+        if: github.event_name == 'push' || inputs.dry_run == false
+        env:
+          DIR: ${{ steps.pkg.outputs.dir }}
+        # No NODE_AUTH_TOKEN and no .npmrc auth line, which is enforced by the absence of
+        # `registry-url` above rather than by anything here. The OIDC identity is the entire
+        # credential; ANY configured token takes precedence over it and puts the 2FA prompt
+        # back, or fails as an unexplained 404.
+        #
+        # The assertion below is cheap and catches the regression directly, because the
+        # symptom is otherwise indistinguishable from a missing package.
+        run: |
+          if [ -n "${NODE_AUTH_TOKEN:-}" ] || grep -qs "_authToken" "${NPM_CONFIG_USERCONFIG:-/dev/null}"; then
+            echo "A credential is configured, so npm will not attempt the OIDC exchange."
+            echo "Check that setup-node above does not set registry-url."
+            exit 1
+          fi
+          npm publish --workspace "packages/$DIR"
+
+      - name: Dry run only
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
+        run: echo "All checks passed. Nothing published (dry run)."
