@@ -2,6 +2,8 @@
 
 ## 0.2.0
 
+- The header codec now comes from `@supersuit/hypercontext-core` (its forgiving reader, exported there as `readFlatHeader` and still exported here as `readHeader`), a dependency at `^0.1.0`. Behaviour is unchanged.
+
 self.md is self-documenting: it names the standard it follows.
 
 - `STANDARD` is exported, with `STAMP_COMMAND`.

@@ -1,5 +1,7 @@
 # @supersuit/superprojects
 
+*This package lives in the [hypercontext repository](https://github.com/SupersuitUp/hypercontext/tree/main/packages/superprojects), with every other record standard; issues and changes go there.*
+
 *Formerly `@supersuit/agentic-projects`, which gets no further releases. The doctrine is at [superprojects.wiki](https://superprojects.wiki).*
 
 Portable Markdown superprojects that another agent can resume: ownership, a concrete next action, a verified current picture, attributed evidence, an atomic action map with an on-track answer, and explicit permission to share. Extracted from Freedom's running project engine.

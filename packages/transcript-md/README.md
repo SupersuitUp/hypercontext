@@ -1,5 +1,7 @@
 # @supersuit/transcript-md
 
+*This package lives in the [hypercontext repository](https://github.com/SupersuitUp/hypercontext/tree/main/packages/transcript-md), with every other record standard; issues and changes go there.*
+
 Local transcript.md conversation records: lossless structured headers, strict validation, read-only legacy interpretation, append-only annotations, expected-SHA revisions, persistent human-review protection, and immutable source citations.
 
 Requires Node 22 or newer. The Python companion requires Python 3.9 or newer and Node on PATH. Mutations additionally require Git 2.31 or newer and POSIX `ps`. Supported platforms are Linux and macOS. No runtime npm dependency, activation, account discovery, install hook, network capture, or global Freedom installation is required.

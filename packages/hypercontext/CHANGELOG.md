@@ -2,6 +2,11 @@
 
 ## 0.1.0
 
+- The header codec, `versionOf`, `bareStandard` and the byte-preserving `stampStandard` now come from `@supersuit/hypercontext-core`, a dependency at `^0.1.0`; they are re-exported here unchanged.
+- Every manifest an owner ships is checked against core's `validateManifest`: a bad one is `manifest:invalid` (error) in `check`, and `manifests` lists it as invalid, never publishes it, and exits 1.
+- Each kind's package is found by node resolution and then beside this package in the hypercontext repository, so a checkout of that repository needs no `--packages`. `--packages` (or `HYPERCONTEXT_PACKAGES`) now means only that folder.
+- The document manifest's `created` key is `type: string` with a date pattern; `date` is not a type a reader can check.
+
 The first version: one check over a whole workspace.
 
 - `hypercontext check` finds every record of fifteen kinds, judges the property they share (each names the standard it follows, `self-doc:missing` when not), counts the shared context keys, and runs each kind's own package (self-md, friend-md, group-md, superprojects, superobjective, piece-md, transcript-md). One row per kind. A kind no package checks yet is a warning saying so.

@@ -1,5 +1,7 @@
 # @supersuit/friend-md
 
+*This package lives in the [hypercontext repository](https://github.com/SupersuitUp/hypercontext/tree/main/packages/friend-md), with every other record standard; issues and changes go there.*
+
 Read, write, validate and convert relationship records stored as Markdown. A small
 `friend.md` portrait sits beside append-only history, stories and quotes. This package
 carries the existing JavaScript implementation and its Python companion, without a

@@ -1,5 +1,7 @@
 # @supersuit/group-md
 
+*This package lives in the [hypercontext repository](https://github.com/SupersuitUp/hypercontext/tree/main/packages/group-md), with every other record standard; issues and changes go there.*
+
 A written standard for the record of a group of people and its chat threads, with a checker, a finder and a reconciler.
 
 You say "text the dana and theo chat". The thread is a WhatsApp group called "Dana : Freedom". Nothing on your machine knows those words mean that thread, so an agent goes digging through the message app's storage to find it. A group record is the fix: one Markdown file per group that holds the thread's permanent id, who is in it, and every name you have called it. Finding a group becomes reading a folder.

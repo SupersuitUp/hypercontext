@@ -1,5 +1,7 @@
 # @supersuit/superobjective
 
+*This package lives in the [hypercontext repository](https://github.com/SupersuitUp/hypercontext/tree/main/packages/superobjective), with every other record standard; issues and changes go there.*
+
 **A superobjective is one sentence the world can make true or false by an exact date about a year away: the best case its owner can barely believe and would be really happy to see come true, and the work aimed at it points at it.** A person or a company holds up to three, ranked, one by default; the first leads when two compete. This package is the written standard for it, the checks that keep it honest, and the only writer that changes it.
 
 It is one record type in the [hypercontext](https://hypercontext.wiki) family, beside [`@supersuit/piece-md`](https://www.npmjs.com/package/@supersuit/piece-md), [`@supersuit/group-md`](https://www.npmjs.com/package/@supersuit/group-md) and [`@supersuit/superprojects`](https://www.npmjs.com/package/@supersuit/superprojects). The full format: [docs/FORMAT.md](docs/FORMAT.md).

@@ -2,6 +2,8 @@
 
 ## 0.3.0 (2026-10-20)
 
+- The header codec now comes from `@supersuit/hypercontext-core` (one copy for every record package), a dependency at `^0.1.0`; this package's own copy and its codec tests moved there. Behaviour is unchanged.
+
 The standard link now names its version, and the standard itself ships as data. Shape and rules: <https://hypercontext.wiki/standards/piece/v1>.
 
 **Breaking, for anyone matching lint codes:** `standard:missing` and `standard:value` are gone. They are now the two codes every hypercontext record package shares:

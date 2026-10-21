@@ -2,6 +2,8 @@
 
 ## 0.1.0 (unreleased)
 
+- The header codec now comes from `@supersuit/hypercontext-core` (one copy for every record package), a dependency at `^0.1.0`, instead of a copy of piece-md's. Behaviour is unchanged.
+
 The first version of the standard and its package. A superobjective is a folder holding `superobjective.md` (YAML header and a body for people), `ratchet.jsonl` and `calibrations.jsonl`.
 
 - `docs/FORMAT.md`: the standard, version "1": header, body, the two logs, roots and caps (up to three active per person and per company, ranked), pace, closing, migration, `serves`, and 23 lint codes.

@@ -1,5 +1,7 @@
 # @supersuit/piece-md
 
+*This package lives in the [hypercontext repository](https://github.com/SupersuitUp/hypercontext/tree/main/packages/piece-md), with every other record standard; issues and changes go there.*
+
 **Every piece of a life's record is a folder whose `piece.md` says what it is.** A photo, a screenshot, a recording, a video, a generated image, a document: none of them can answer the five questions an AI needs before it can use them (About what? True as of when? Says who? Who may see it? Connected to what?). `piece.md` answers them in writing, beside the original. This package checks a folder of pieces against that shape and finds pieces without opening a single pixel or waveform.
 
 It is one record type in the [hypercontext](https://hypercontext.wiki) family, beside [`@supersuit/friend-md`](https://www.npmjs.com/package/@supersuit/friend-md) for people and [`@supersuit/group-md`](https://www.npmjs.com/package/@supersuit/group-md) for groups. Why a folder: <https://hypercontext.wiki/every-piece-is-a-folder>. The full format: [docs/FORMAT.md](docs/FORMAT.md).

@@ -1,5 +1,7 @@
 # @supersuit/self-md
 
+*This package lives in the [hypercontext repository](https://github.com/SupersuitUp/hypercontext/tree/main/packages/self-md), with every other record standard; issues and changes go there.*
+
 A written standard for the folder that holds everything about one person (`self/`), with a lint
 that enforces it and a sweep that derives which tools read each file.
 

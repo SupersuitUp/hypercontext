@@ -1,5 +1,7 @@
 # @supersuit/hypercontext
 
+*This package lives in the [hypercontext repository](https://github.com/SupersuitUp/hypercontext/tree/main/packages/hypercontext), with every other record standard; issues and changes go there.*
+
 One check over a whole workspace, for every kind of record in it.
 
 A hypercontext workspace keeps a life or a company as plain files: a person in `people/<slug>/friend.md`, a project in `superprojects/<slug>/`, a conversation in `meeting-transcripts/<id>/transcript.md`, and so on. Each kind has its own standard and its own package that checks it. This package is the umbrella: it finds every record of every kind, asks each kind's package to check its own, and checks the one property they all share.
@@ -78,7 +80,9 @@ Rewriting the baseline drops what was fixed and refuses anything new unless you 
 
 ### Where the packages come from
 
-Each kind's package is found by normal resolution. On a machine that builds them before they are published, `--packages <dir>` (or `HYPERCONTEXT_PACKAGES`) names a folder of checkouts, one per repository name. A package that cannot be found is a warning naming it, never a silent pass; a package that runs and prints nothing usable is an error.
+Each kind's package is found by normal resolution, then beside this package in the hypercontext repository (`packages/<folder>`), so a checkout of that repository needs no flag. `--packages <dir>` (or `HYPERCONTEXT_PACKAGES`) names a folder of checkouts, one per folder name, to use instead, and then only that folder is looked in. A package that cannot be found is a warning naming it, never a silent pass; a package that runs and prints nothing usable is an error.
+
+Every manifest an owner ships is checked against `@supersuit/hypercontext-core`'s `validateManifest`. A bad one is `manifest:invalid` (error) in `check`, and `manifests` lists it as invalid and never publishes it.
 
 ## Exit codes
 

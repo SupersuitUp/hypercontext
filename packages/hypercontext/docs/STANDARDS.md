@@ -61,7 +61,7 @@ Beside each version page is its machine-readable twin, `https://hypercontext.wik
 | `status`, `superseded_by` | `current` or `superseded`, and the URL that replaced it |
 | `latest` | the unversioned page that always shows the newest version |
 | `record.path`, `record.format` | where records of this kind live, and `md` (YAML header) or `json` |
-| `header.required`, `header.keys` | the header keys a record must carry, and the constraints a reader can check without a package (`const`, `enum`, `pattern`, `type`) |
+| `header.required`, `header.keys` | the header keys a record must carry, and the constraints a reader can check without a package, with JSON Schema's meaning (`const`, `enum`, `pattern`, `type`, `items`, `minLength`, `maxLength`, `minItems`, `maxItems`); `@supersuit/hypercontext-core`'s `validateManifest` refuses any other |
 | `validator` | the package that checks the full shape, the first version of it that implements this standard version, and the exact commands; `null` when no package exists yet |
 | `checked_by` | only when `validator` is `null`: the umbrella command that checks the shared property, the backfill when one may run, and a `note` saying what is not checked |
 | `codes` | **every** finding the validator can report, with its level, what it means and how to fix it. Equal to the package's own code table, which a test in the package proves |
@@ -80,5 +80,7 @@ Beside each version page is its machine-readable twin, `https://hypercontext.wik
 - a record naming another kind's standard;
 
 and, as `self-doc:version`, a record naming a version of its kind that the installed validator does not implement (from the future, or retired without a migration).
+
+It also refuses, as `manifest:invalid`, any manifest an installed owner ships that does not have the shape in section 2 (checked by `validateManifest` in `@supersuit/hypercontext-core`), or whose `kind` and `version` disagree with its path. `hypercontext manifests` never exports such a file.
 
 `hypercontext check --online` also fetches every distinct standard a workspace's records name, and refuses (`standard:unreachable`) any that does not answer, and (`standard:drift`) any whose published manifest differs from the one the installed package ships. That is the hyperlink half of airtight: every link a record carries opens, and opens onto the rules the checker actually enforced.

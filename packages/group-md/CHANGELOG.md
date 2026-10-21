@@ -2,6 +2,7 @@
 
 ## 0.2.0
 
+- The header codec now comes from `@supersuit/hypercontext-core` (one copy for every record package, `placeKey` included), a dependency at `^0.1.0`; this package's own copy and its codec tests moved there. Behaviour is unchanged.
 - **Every group record is self-documenting.** A record names the version of the standard it follows in `standard: "https://hypercontext.wiki/standards/group/v1"`, directly after `kind:`, so an agent that has never seen this package can open the file and find its rules. The URL is exported as `STANDARD`. A version's meaning never changes once published; a change to what a valid record is becomes `v2`. The unversioned `https://hypercontext.wiki/standards/group` is the page for the latest version, exported as `LATEST`, and a record never names it.
 - **Every writer stamps it.** `writeRecord`, `addAlias`, `applyPlan` (and so `reconcile --apply`) and `migrate --apply` insert the key after `kind:` when it is missing and correct a different URL in place. No other line moves.
 - **`lint` refuses a record without it**: new code `self-doc:missing`, level error, for a missing key, the bare unversioned URL (the message says it predates versions and that `migrate --apply` upgrades it), or any other URL, another kind's standard included. Its message names the fix, `group-md migrate <dir> --apply`.
