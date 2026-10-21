@@ -1,0 +1,311 @@
+{
+  "manifest_version": 1,
+  "standard": "https://hypercontext.wiki/standards/piece/v1",
+  "kind": "piece",
+  "version": 1,
+  "title": "A piece of a life's record",
+  "status": "current",
+  "superseded_by": null,
+  "latest": "https://hypercontext.wiki/standards/piece",
+  "record": {
+    "path": "documents/<YYYY-MM-DD-HHMM-slug>/piece.md",
+    "format": "md"
+  },
+  "header": {
+    "required": [
+      "kind",
+      "context_version",
+      "standard",
+      "id",
+      "type",
+      "summary",
+      "read_when",
+      "as_of",
+      "keep",
+      "audience",
+      "about",
+      "taken",
+      "taken_from",
+      "source",
+      "connections"
+    ],
+    "keys": {
+      "kind": {
+        "const": "piece"
+      },
+      "context_version": {
+        "const": "1"
+      },
+      "standard": {
+        "const": "https://hypercontext.wiki/standards/piece/v1"
+      },
+      "id": {
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}-(?:\\d{4}|\\d{6})-[a-z0-9][a-z0-9-]*$"
+      },
+      "type": {
+        "enum": [
+          "photo",
+          "screenshot",
+          "recording",
+          "video",
+          "image",
+          "document",
+          "note",
+          "deck",
+          "page"
+        ]
+      },
+      "as_of": {
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+      },
+      "keep": {
+        "enum": [
+          "keep",
+          "home",
+          "share"
+        ]
+      },
+      "about": {
+        "type": "array"
+      },
+      "taken": {
+        "pattern": "^(?:\\d{4}-\\d{2}-\\d{2}(?:T\\d{2}:\\d{2}(?::\\d{2})?)?|unknown)$"
+      },
+      "taken_from": {
+        "enum": [
+          "device",
+          "filename",
+          "file-time",
+          "stated",
+          "inferred",
+          "unknown"
+        ]
+      },
+      "connections": {
+        "type": "array"
+      },
+      "files": {
+        "type": "array"
+      }
+    }
+  },
+  "validator": {
+    "package": "@supersuit/piece-md",
+    "implements_since": "0.3.0",
+    "check": "npx -y @supersuit/piece-md@^0.3.0 lint documents --json",
+    "backfill": "npx -y @supersuit/piece-md@^0.3.0 stamp documents --apply"
+  },
+  "codes": [
+    {
+      "code": "header:missing",
+      "level": "error",
+      "means": "the piece.md has no YAML header, so none of the five questions is answered",
+      "fix": "write the header from docs/FORMAT.md (pieceText writes a new one)"
+    },
+    {
+      "code": "name:pattern",
+      "level": "error",
+      "means": "the folder or file name is not YYYY-MM-DD-HHMM-slug",
+      "fix": "rename it to YYYY-MM-DD-HHMM-slug, the moment it was made, and set id to match"
+    },
+    {
+      "code": "kind:missing",
+      "level": "error",
+      "means": "kind is missing or is not \"piece\"",
+      "fix": "set kind: piece"
+    },
+    {
+      "code": "self-doc:missing",
+      "level": "error",
+      "means": "the record names no standard, the bare unversioned piece URL written before versions, or another kind's standard",
+      "fix": "piece-md stamp <home> --apply adds or upgrades it; a record naming another kind's standard is not a piece, so move or fix it by hand"
+    },
+    {
+      "code": "self-doc:version",
+      "level": "error",
+      "means": "the record names a version of the piece standard this validator does not implement",
+      "fix": "install the piece-md version that implements it, or rewrite the record to https://hypercontext.wiki/standards/piece/v1"
+    },
+    {
+      "code": "context_version:missing",
+      "level": "error",
+      "means": "context_version is missing",
+      "fix": "set context_version: \"1\""
+    },
+    {
+      "code": "context_version:value",
+      "level": "error",
+      "means": "context_version is not \"1\"",
+      "fix": "set context_version: \"1\""
+    },
+    {
+      "code": "id:missing",
+      "level": "error",
+      "means": "id is missing",
+      "fix": "set id to the folder name (the file name without .md for a one-file piece)"
+    },
+    {
+      "code": "id:mismatch",
+      "level": "error",
+      "means": "id does not equal the folder or file name",
+      "fix": "set id to the name, or rename the folder to the id"
+    },
+    {
+      "code": "type:value",
+      "level": "error",
+      "means": "type is missing or not one of the piece types",
+      "fix": "set type to photo, screenshot, recording, video, image, document, note, deck or page"
+    },
+    {
+      "code": "summary:missing",
+      "level": "error",
+      "means": "summary is missing: what the piece is, in a line",
+      "fix": "write summary"
+    },
+    {
+      "code": "read_when:missing",
+      "level": "error",
+      "means": "read_when is missing: when a reader should open this piece",
+      "fix": "write read_when"
+    },
+    {
+      "code": "audience:missing",
+      "level": "error",
+      "means": "audience is missing: who the record is written for",
+      "fix": "write audience"
+    },
+    {
+      "code": "source:missing",
+      "level": "error",
+      "means": "source is missing: who or what made the piece",
+      "fix": "write source"
+    },
+    {
+      "code": "as_of:date",
+      "level": "error",
+      "means": "as_of is missing or not a YYYY-MM-DD date",
+      "fix": "set as_of to the date the record was true"
+    },
+    {
+      "code": "keep:value",
+      "level": "error",
+      "means": "keep is missing or not keep, home or share",
+      "fix": "have a person choose keep, home or share; never infer it"
+    },
+    {
+      "code": "about:missing",
+      "level": "error",
+      "means": "about is missing: the ids this piece is about",
+      "fix": "set about to a list of ids"
+    },
+    {
+      "code": "about:empty",
+      "level": "error",
+      "means": "about is an empty list",
+      "fix": "name at least one person, superproject or place the piece is about"
+    },
+    {
+      "code": "taken:missing",
+      "level": "error",
+      "means": "taken is missing",
+      "fix": "set taken to a date, a date and time, or unknown"
+    },
+    {
+      "code": "taken:value",
+      "level": "error",
+      "means": "taken is not a date, a date and time, or unknown",
+      "fix": "set taken to YYYY-MM-DD, YYYY-MM-DDTHH:MM, or unknown"
+    },
+    {
+      "code": "taken_from:missing",
+      "level": "error",
+      "means": "taken_from is missing: where the time in taken came from",
+      "fix": "set taken_from to device, filename, file-time, stated, inferred or unknown"
+    },
+    {
+      "code": "taken_from:value",
+      "level": "error",
+      "means": "taken_from is not one of the time sources",
+      "fix": "set taken_from to device, filename, file-time, stated, inferred or unknown"
+    },
+    {
+      "code": "connections:missing",
+      "level": "error",
+      "means": "connections is missing",
+      "fix": "set connections to a list of links or ids; [] is allowed"
+    },
+    {
+      "code": "connections:empty",
+      "level": "warn",
+      "means": "connections is empty, so nothing links to this piece",
+      "fix": "add a link to a person, a superproject or another piece"
+    },
+    {
+      "code": "files:missing",
+      "level": "error",
+      "means": "a media piece has no files list, or files is not a list",
+      "fix": "add files: a row per file naming who is in it"
+    },
+    {
+      "code": "file:target",
+      "level": "error",
+      "means": "a file row names neither a path nor a link, or its link has no scheme",
+      "fix": "give the row a path inside the folder or a link with a scheme"
+    },
+    {
+      "code": "file:path",
+      "level": "error",
+      "means": "a file row's path leaves the piece's folder",
+      "fix": "use a path inside the folder, or a link for a file elsewhere"
+    },
+    {
+      "code": "file:people",
+      "level": "error",
+      "means": "a file row does not say who is in it",
+      "fix": "add people: [] for nobody, or a {id, confirmed} per person"
+    },
+    {
+      "code": "person:confirmed",
+      "level": "error",
+      "means": "a person in a file row is not {id, confirmed: true|false}",
+      "fix": "write each person as {id, confirmed: false} until a person confirms them"
+    },
+    {
+      "code": "single:media",
+      "level": "error",
+      "means": "a media piece is a bare .md instead of a folder",
+      "fix": "move it to <name>/piece.md beside the media"
+    },
+    {
+      "code": "single:outgrown",
+      "level": "error",
+      "means": "a one-file text piece names a file of its own, so it is a folder now",
+      "fix": "move it to <name>/piece.md beside that file"
+    },
+    {
+      "code": "file:unlisted",
+      "level": "warn",
+      "means": "a media file inside a piece's folder has no row",
+      "fix": "add a files row for it, naming who is in it"
+    },
+    {
+      "code": "piece:missing",
+      "level": "error",
+      "means": "a folder named like a piece holds no piece.md",
+      "fix": "write its piece.md, or rename the folder if it is not a piece"
+    },
+    {
+      "code": "media:unrecorded",
+      "level": "error",
+      "means": "a media file sits outside any piece",
+      "fix": "make it a piece: a folder named for its moment holding the file and its piece.md"
+    },
+    {
+      "code": "link:skipped",
+      "level": "warn",
+      "means": "a symbolic link named like a piece was not checked, because a link is another tree's file",
+      "fix": "check the piece where it lives; replace the link with the piece itself if it belongs here"
+    }
+  ],
+  "umbrella": "npx -y @supersuit/hypercontext check <workspace>"
+}
