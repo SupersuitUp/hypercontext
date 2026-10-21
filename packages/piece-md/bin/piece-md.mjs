@@ -3,7 +3,7 @@
 // Exit codes: 0 found or clean, 1 nothing found or findings, 2 usage.
 import { readFileSync, writeFileSync, statSync } from 'node:fs';
 import { resolve, relative } from 'node:path';
-import { lint, find, scan, stampPlan, TYPES, STANDARD } from '../src/index.mjs';
+import { lint, find, scan, stampPlan, recordPiece, RecordRefused, TYPES, STANDARD } from '../src/index.mjs';
 
 const HELP = `piece-md: records for the pieces of a life (photos, recordings, video, images, documents)
 
@@ -22,6 +22,16 @@ Usage:
       that lists the changes unless --apply. Never gives a headerless file a header, and never
       rewrites a record naming another standard: those are listed as skipped.
       Exit 0 when nothing is left to do, 1 when changes are pending (a dry run) or skipped.
+  piece-md record <home> --slug <slug> [--at <iso>] --summary <s> --read-when <s> --about <id,id>
+           --source <s> [--type <type>] [--keep keep|home|share] [--audience <s>] [--taken-from <s>]
+           [--connection <link>]... [--copy | --in-place] <files...> [--json]
+      File media as a piece in one call: <home>/YYYY-MM-DD-HHMM-<slug>/ with piece.md. The files
+      move in (--copy leaves the originals; --in-place records a file outside the home where it
+      sits, as a file:// link row). When the piece exists, the files are added to its rows; a file
+      it already lists changes nothing. Never overwrites: a name already in the folder is refused.
+      --at defaults to the first file's modification time (taken_from: file-time); with --at,
+      taken_from is stated. keep defaults to keep, audience to self.
+      Exit 0 recorded, 1 refused (nothing changed), 2 usage.
   piece-md --help | --version
 
 <home> is the folder pieces live under, default documents/ in the current folder. A piece is a
@@ -29,11 +39,13 @@ folder named YYYY-MM-DD-HHMM-slug holding piece.md, or a one-file text piece as 
 
 Exit codes: 0 found or clean, 1 nothing found or findings, 2 usage.
 
-It reads only .md files. Media is seen by name in a listing and never opened.
+It opens only .md files. Media is seen by name in a listing; record moves or copies it whole and
+never reads it.
 `;
 
-const FLAGS = new Set(['json', 'confirmed', 'help', 'version', 'apply']);
-const OPTIONS = new Set(['person', 'from', 'to', 'type']);
+const FLAGS = new Set(['json', 'confirmed', 'help', 'version', 'apply', 'copy', 'in-place']);
+const OPTIONS = new Set(['person', 'from', 'to', 'type', 'slug', 'at', 'summary', 'read-when', 'keep', 'audience', 'about', 'source', 'taken-from', 'connection']);
+const REPEATED = new Set(['connection']);
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 class Usage extends Error {}
@@ -50,7 +62,7 @@ function parse(argv) {
     if (!OPTIONS.has(name)) throw new Usage(`unknown option --${name}`);
     const value = inline ?? argv[++i];
     if (value === undefined) throw new Usage(`--${name} needs a value`);
-    opt[name] = value;
+    if (REPEATED.has(name)) (opt[name] ??= []).push(value); else opt[name] = value;
   }
   return { positional, opt };
 }
@@ -67,6 +79,34 @@ const json = (value) => print(JSON.stringify(value, null, 2));
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 const commands = {
+  record([dir, ...files], opt) {
+    if (!dir) throw new Usage('record needs the home: piece-md record <home> --slug <slug> <files...>');
+    const root = home(dir);
+    if (!opt.slug) throw new Usage('record needs --slug');
+    if (!files.length) throw new Usage('record needs at least one file');
+    if (opt.copy && opt['in-place']) throw new Usage('--copy and --in-place are opposites; pick one');
+    const fields = {
+      summary: opt.summary, read_when: opt['read-when'], source: opt.source, type: opt.type, keep: opt.keep,
+      audience: opt.audience, taken_from: opt['taken-from'], connections: opt.connection,
+      about: opt.about === undefined ? undefined : opt.about.split(',').map((x) => x.trim()).filter(Boolean),
+    };
+    let r;
+    try {
+      r = recordPiece({ home: root, slug: opt.slug, at: opt.at, files: files.map((f) => resolve(f)), fields, copy: Boolean(opt.copy), move: !opt['in-place'] });
+    } catch (error) {
+      if (!(error instanceof RecordRefused)) throw error;
+      say(`refused: ${error.message}`);
+      return 1;
+    }
+    if (opt.json) { json(r); return 0; }
+    const at = (p) => relative(root, p).split('\\').join('/');
+    print([
+      ...r.added.map((p) => `added  ${p.startsWith(r.dir) ? at(p) : p}`),
+      `${r.created ? 'created' : 'updated'} ${at(r.pieceMd)}: ${r.added.length} added, ${r.files.length - r.added.length} already recorded`,
+    ].join('\n'));
+    return 0;
+  },
+
   stamp([dir], opt) {
     const root = home(dir);
     const report = { applied: Boolean(opt.apply), changed: [], current: [], skipped: [] };
@@ -126,6 +166,9 @@ function main(argv) {
   if (!name) throw new Usage('no command given');
   if (!Object.hasOwn(commands, name)) throw new Usage(`unknown command "${name}"`);
   if (opt.apply && name !== 'stamp') throw new Usage('--apply is only for stamp');
+  for (const only of ['copy', 'in-place', 'slug', 'at', 'summary', 'read-when', 'keep', 'audience', 'about', 'source', 'taken-from', 'connection']) {
+    if (opt[only] !== undefined && name !== 'record') throw new Usage(`--${only} is only for record`);
+  }
   return commands[name](rest, opt);
 }
 

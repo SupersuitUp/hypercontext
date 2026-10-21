@@ -15,7 +15,7 @@ A hypercontext record is a file that names the version of the standard it follow
 | [packages/self-md](packages/self-md) | `@supersuit/self-md` | `self` | 0.2.0 |
 | [packages/superprojects](packages/superprojects) | `@supersuit/superprojects` | `superproject`, `state`, `atomic-action-map` | 0.7.0 |
 | [packages/transcript-md](packages/transcript-md) | `@supersuit/transcript-md` | `conversation` | 0.2.0 |
-| [packages/piece-md](packages/piece-md) | `@supersuit/piece-md` | `piece` | 0.3.0 |
+| [packages/piece-md](packages/piece-md) | `@supersuit/piece-md` | `piece` | 0.3.1 |
 | [packages/superobjective](packages/superobjective) | `@supersuit/superobjective` | `superobjective` | 0.1.0 |
 | [packages/document-md](packages/document-md) | `@supersuit/document-md` | `document` | 0.1.0 |
 | [packages/checkpoint-md](packages/checkpoint-md) | `@supersuit/checkpoint-md` | `checkpoint` | 0.1.0 |

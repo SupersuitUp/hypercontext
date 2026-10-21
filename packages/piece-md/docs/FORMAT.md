@@ -54,6 +54,8 @@ What it is, in plain words. For a written piece, the body is the writing itself.
 | `files` | required for media. Each row has `path` (inside the folder: no `/` start, no `..`) or `link` (anything with a scheme), and `people` (a list, `[]` for nobody) |
 | `people` | each person is `{id, confirmed: true\|false}`. A face named by a model is `confirmed: false` until a person confirms it |
 
+**Writing one.** A tool that saves media files it as a piece with `recordPiece` (or `piece-md record`): it makes the folder from the moment and a slug, moves the files in, and writes the header above, or adds rows to the piece when that moment already has one. A file stays where it is only as a `link` row (`file://...`), because a `path` row never leaves the folder; and never for a file inside the home, which lint would still count unrecorded. It never overwrites a file a piece already holds.
+
 Records made by other tools are linked, never restated: a generated image's `.recipe.json` is a row in `files`, and a recording's transcript is a connection.
 
 ## What the checker reports
