@@ -6,7 +6,7 @@ import {createHash,randomUUID} from 'node:crypto';
 import {enclosingWorkspace,paths} from './freedom-workspace.mjs';
 import {peopleDir,recordPath} from './freedom-people.mjs';
 import {workspaceFile} from './freedom-self.mjs';
-import {parseConversationHeader,serializeConversationHeader,validateConversation,blockingDiagnostics,withStandard,stampPlan,STANDARD,SELF_DOC_MISSING} from './frontmatter/conversation.mjs';
+import {parseConversationHeader,serializeConversationHeader,validateConversation,blockingDiagnostics,withStandard,stampPlan,standardFinding,STANDARD} from './frontmatter/conversation.mjs';
 import {readConversation,parseConversation,listConversationDirectory,indexConversations,canProjectConversation} from './freedom-conversations.mjs';
 import {resolveCitation} from './freedom-conversation-citations.mjs';
 import {conversationIdCollisionKey} from './freedom-conversation-casefold.mjs';
@@ -309,7 +309,7 @@ function runJournal(c,j,action,afterOperation){
  j.state=action==='reverse'?'reversed':'complete';saveJournal(j);return result(j,true,action);
 }
 function transaction(c,{id,kind,spec,before,after,writes=[],assets=[],protectionBefore=null,protectionAfter=null,reviewedInput=null,turnIds=[],line=null,proof=[]},afterOperation){
- if((before===null||!before.equals(after))&&parseConversationHeader(after).header?.standard!==STANDARD)refuse(SELF_DOC_MISSING);
+ if(before===null||!before.equals(after)){const h=parseConversationHeader(after).header,finding=h?standardFinding(h.standard):{code:'self-doc:missing'};if(finding)refuse(finding.code);}
  recheckContext(c);noIncomplete(c);const priorJournals=journals(c);const existing=readJournal(c,id);if(existing)refuse('REVISION_ID_COLLISION');
  const operations=[...writes.map(w=>pinFile(w.path,fileBytes(w.path),w.bytes)),pinFile(c.file,before,after)].filter((o,i,a)=>a.findIndex(p=>p.path===o.path)===i);
  const changedPaths=new Set(operations.map(o=>o.path));

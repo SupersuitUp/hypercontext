@@ -16,13 +16,94 @@ function checkSchema(schema) {
   for (const key of ['oneOf','anyOf']) for (const child of schema[key] ?? []) checkSchema(child);
 }
 checkSchema(conversationSchema);
-/** The page that defines this format. Every transcript.md names it in its `standard` key. */
-export const STANDARD='https://hypercontext.wiki/standards/conversation';
+/** The machine-readable twin of the standard page, shipped as standards/conversation/v1.json. */
+export const MANIFEST = freeze(JSON.parse(readFileSync(new URL('../../standards/conversation/v1.json', import.meta.url), 'utf8')));
+/** Version 1 of the page that defines this format. Every transcript.md names it in `standard`. */
+export const STANDARD='https://hypercontext.wiki/standards/conversation/v1';
+/** The unversioned URL records carried before versions existed. Still read; stamp-standard upgrades it. */
+export const STANDARD_UNVERSIONED='https://hypercontext.wiki/standards/conversation';
 /** Error-level, so checkers count it; it never stops a read, because records predate the rule. */
 export const SELF_DOC_MISSING='self-doc:missing';
-/** Error diagnostics that stop interpretation: every error except a missing standard. */
-export const blockingDiagnostics=diagnostics=>(Array.isArray(diagnostics)?diagnostics:[]).filter(d=>d?.severity==='error'&&d.code!==SELF_DOC_MISSING);
-const diagnostic = (code,field,message,severity='error') => ({code,severity,path:null,field,message});
+/** Error-level: the record names a version of this standard that this package does not implement. */
+export const SELF_DOC_VERSION='self-doc:version';
+/** The codes that say a record is not self-documenting. Reported, never blocking a read. */
+export const SELF_DOC_CODES=Object.freeze([SELF_DOC_MISSING,SELF_DOC_VERSION]);
+const VERSIONED=/^https:\/\/hypercontext\.wiki\/standards\/conversation\/v([1-9][0-9]*)$/;
+/** Every code parseConversationHeader and validateConversation can emit, with its one level.
+ * standards/conversation/v1.json ships the same table as `codes`; a test proves they agree. */
+export const DIAGNOSTIC_CODES=freeze({
+  INVALID_UTF8:{level:'error',means:'The file is not valid UTF-8, so its header cannot be read.',fix:'Re-save the file as UTF-8 from its original bytes.'},
+  MALFORMED_DELIMITER:{level:'error',means:'The header opens with --- but has no well-formed opening or closing --- line.',fix:'Put --- alone on the first line and on the line that ends the header.'},
+  INVALID_HEADER_LINE:{level:'error',means:'A header line is not one snake_case key, a colon, a space and a value.',fix:'Write each header line as `key: <compact JSON>`.'},
+  PROTOTYPE_KEY:{level:'error',means:'The header uses __proto__, prototype or constructor as a key.',fix:'Remove or rename that key.'},
+  DUPLICATE_KEY:{level:'error',means:'A key appears twice, at the top level or inside a JSON value.',fix:'Keep one occurrence of the key.'},
+  INVALID_JSON_VALUE:{level:'error',means:'A header value is not valid JSON.',fix:'Write the value as compact JSON (strings quoted).'},
+  NON_JSON_VALUE:{level:'error',means:'A header value is not plain JSON data (a non-finite number, a cycle, a non-plain object).',fix:'Use only JSON strings, numbers, booleans, null, arrays and objects.'},
+  SCHEMA_INVALID:{level:'error',means:'A value does not satisfy the conversation schema.',fix:'Correct the field to the type and values the schema allows.'},
+  REQUIRED_FIELD:{level:'error',means:'A field the schema requires is missing.',fix:'Add the field; use null or unknown where the fact is not known.'},
+  UNKNOWN_KEY:{level:'error',means:'A field the schema does not declare is present.',fix:'Remove it, or move it under extensions.'},
+  [SELF_DOC_MISSING]:{level:'error',means:'The record names no standard, the bare unversioned URL (written before versions), or a value that is not a conversation standard version.',fix:'transcript-md stamp-standard --workspace . --apply'},
+  [SELF_DOC_VERSION]:{level:'error',means:'The record names a version of the conversation standard this package does not implement.',fix:'Install a @supersuit/transcript-md that implements that version.'},
+  UNSUPPORTED_SCHEMA_VERSION:{level:'error',means:'schema_version is not 1.',fix:'Read it with a package that supports that schema version.'},
+  INVALID_RECORD_ID:{level:'error',means:'The record id, or a record-id alias, is not a portable directory name.',fix:'Use an NFC id with no slash, control character or trailing space or dot.'},
+  ID_FOLDER_MISMATCH:{level:'error',means:'The record id differs from the name of the folder holding it.',fix:'Rename the folder or the id so they match.'},
+  INVALID_NEW_ID:{level:'error',means:'A new record id is not lowercase kebab case.',fix:'Choose an id like `team-call-2026-10-20`.'},
+  AUDIENCE_REQUIRED:{level:'error',means:'A new record has no intended reader.',fix:'Set audience.'},
+  UNKNOWN_FACT:{level:'warning',means:'A fact is recorded as unknown (null or unknown).',fix:'Fill it in when it becomes known; nothing is wrong meanwhile.'},
+  INVALID_DATE:{level:'error',means:'date or as_of is not a real calendar day.',fix:'Write YYYY-MM-DD for a day that exists.'},
+  INVALID_INSTANT:{level:'error',means:'An instant is not RFC 3339 with seconds and a timezone offset.',fix:'Write e.g. 2026-10-20T14:05:00-04:00.'},
+  START_REQUIRED:{level:'error',means:'start has neither a local time nor an instant.',fix:'Give start.local or start.instant, or set start to null.'},
+  INVALID_LOCAL_TIME:{level:'error',means:'start.local is not a real clock time.',fix:'Write HH:MM or HH:MM:SS.'},
+  INVALID_TIMEZONE:{level:'error',means:'start.timezone is not a valid IANA timezone name.',fix:'Use a name like America/New_York.'},
+  START_PRECISION_MISMATCH:{level:'error',means:'Second precision is declared but start.local has no seconds.',fix:'Add seconds to start.local or lower the precision.'},
+  START_CONTRADICTION:{level:'error',means:'date, local start, timezone and instant disagree.',fix:'Correct whichever of them is wrong.'},
+  INVALID_GROUP_PATH:{level:'error',means:'keep.group is not a workspace-relative path.',fix:'Use a relative path with no traversal.'},
+  FAMILY_GROUP_REQUIRED:{level:'error',means:'Family sharing names no group.',fix:'Set keep.group.'},
+  FAMILY_DECISION_REQUIRED:{level:'error',means:'Family sharing has no explicit operator decision.',fix:'Record the operator-decision evidence in keep.decision.'},
+  SHARE_DECISION_REQUIRED:{level:'error',means:'Sharing has no explicit operator decision.',fix:'Record the operator-decision evidence in keep.decision.'},
+  DUPLICATE_ID:{level:'error',means:'Two participants, sources, retired turns or protected turns share an id.',fix:'Give each a unique id.'},
+  UNKNOWN_PERSON_REQUIRED:{level:'error',means:'A participant of unknown status names a person.',fix:'Set person to null, or confirm the identity with evidence.'},
+  CONFIRMED_IDENTITY_EVIDENCE_REQUIRED:{level:'error',means:'A confirmed participant has no person or no identifying evidence.',fix:'Add the person and the evidence, or lower the status.'},
+  CLOUD_IDENTITY_INVALID:{level:'error',means:'A cloud recording lacks its service or recording id, or carries a vendor id.',fix:'Set service and recording_id; set vendor_id to null.'},
+  SOURCE_ID_CONFLICT:{level:'error',means:'A service locator names a different recording than its cloud capture.',fix:'Make the locator service_id equal the capture recording_id.'},
+  NONCLOUD_IDENTITY_INVALID:{level:'error',means:'A non-cloud capture carries cloud identity fields.',fix:'Set service and recording_id to null.'},
+  CAPTURE_ROLES_INVALID:{level:'error',means:'A capture has no roles or repeats one.',fix:'List each role once, at least one.'},
+  LOCATOR_IDENTITY_INVALID:{level:'error',means:'A locator carries identifiers that do not apply to its kind.',fix:'Service locators use url or service_id; others use path only.'},
+  INVALID_BUNDLED_PATH:{level:'error',means:'A bundled locator path is absolute or traverses.',fix:'Use a path relative to the record folder.'},
+  INVALID_MEDIA_TYPE:{level:'error',means:'A locator media_type is not a MIME type.',fix:'Write type/subtype, e.g. audio/mp4.'},
+  BACKUP_UNVERIFIED_FIELDS:{level:'error',means:'An unverified backup claims verification fields.',fix:'Null them, or mark the backup verified-owned.'},
+  BACKUP_VERIFICATION_REQUIRED:{level:'error',means:'An owned backup lacks a distinct locator, a matching checksum or a verification instant.',fix:'Record all three, or mark it unverified.'},
+  ALIAS_NAMESPACE_INVALID:{level:'error',means:'A source-id alias has no namespace, or another alias has one.',fix:'Give namespaces to source-id aliases only.'},
+  CITATION_PATH_INVALID:{level:'error',means:'A citation lacks a relative path or a portable record id.',fix:'Correct the citation path and record_id.'},
+  CITATION_REPOSITORY_REQUIRED:{level:'error',means:'A git citation names no repository.',fix:'Set repository.'},
+  CITATION_RANGE_INVALID:{level:'error',means:'A line citation ends before it starts.',fix:'Order start and end.'},
+  CITATION_TURNS_INVALID:{level:'error',means:'A turn citation has no turn ids or repeats one.',fix:'List distinct turn ids.'},
+  SOURCE_RANGE_INVALID:{level:'error',means:'A cited capture span ends without an ordered start.',fix:'Give start_ms no later than end_ms.'},
+  CONNECTION_PATH_INVALID:{level:'error',means:'A path connection is not relative.',fix:'Use a workspace-relative path.'},
+  REVIEW_EVIDENCE_REQUIRED:{level:'error',means:'Human review is claimed without operator-decision evidence.',fix:'Add the evidence, or mark it unreviewed.'},
+  LEGACY_HEADER_PROOF_INVALID:{level:'error',means:'The retained legacy header bytes and their hash are missing in part or disagree.',fix:'Keep both, matching, or both null.'},
+  REVIEWED_ORIGIN_REQUIRED:{level:'error',means:'A protected turn retains no reviewed versions.',fix:'Restore its reviewed versions from the revision journal.'},
+  REVIEW_DIMENSIONS_REQUIRED:{level:'error',means:'A reviewed version has no review dimensions or repeats one.',fix:'List each dimension once.'},
+  REVIEW_ENTRY_PATH_INVALID:{level:'error',means:'A reviewed version entry path is not relative.',fix:'Use the record-relative path.'},
+  REVISION_AUTHORIZATION_REQUIRED:{level:'error',means:'An authorized change to a protected turn has no operator decision.',fix:'Record the operator-decision evidence.'},
+});
+/** Error diagnostics that stop interpretation: every error except the self-documentation codes. */
+export const blockingDiagnostics=diagnostics=>(Array.isArray(diagnostics)?diagnostics:[]).filter(d=>d?.severity==='error'&&!SELF_DOC_CODES.includes(d.code));
+/** One diagnostic, its level taken from DIAGNOSTIC_CODES. An unlisted code is a bug and throws. */
+export function conversationDiagnostic(code,field,message) {
+  const entry=Object.hasOwn(DIAGNOSTIC_CODES,code)?DIAGNOSTIC_CODES[code]:null;
+  if(!entry)throw new Error(`unlisted conversation diagnostic code: ${code}`);
+  return {code,severity:entry.level,path:null,field,message};
+}
+const diagnostic=conversationDiagnostic;
+/** The self-documentation finding for a `standard` value, or null when it is STANDARD. */
+export function standardFinding(value) {
+  if(value===STANDARD)return null;
+  if(value===undefined)return {code:SELF_DOC_MISSING,message:`Record does not name its standard, ${STANDARD}.`};
+  if(value===STANDARD_UNVERSIONED)return {code:SELF_DOC_MISSING,message:`Record names the unversioned standard URL, which predates versions; \`transcript-md stamp-standard --apply\` upgrades it to ${STANDARD}.`};
+  if(typeof value==='string'&&VERSIONED.test(value))return {code:SELF_DOC_VERSION,message:`Record names a version of the conversation standard this package does not implement; it implements ${STANDARD}.`};
+  return {code:SELF_DOC_MISSING,message:`Record names a standard other than ${STANDARD}.`};
+}
 const object = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const protoKeys = new Set(['__proto__','prototype','constructor']);
 function jsonProblem(value, ancestors = new Set()) {
@@ -111,7 +192,7 @@ export function serializeConversationHeader(header,body) {
 }
 const matchesType=(type,value)=>!type || (type==='null'?value===null:type==='object'?object(value):type==='array'?Array.isArray(value):type==='integer'?Number.isInteger(value):type==='number'?typeof value==='number'&&Number.isFinite(value):typeof value===type);
 function schemaErrors(schema,value,field='') {
-  const out=[]; const fail=(code='SCHEMA_INVALID')=>out.push(diagnostic(code,field||null,'Value does not satisfy the conversation schema.'));
+  const out=[]; const fail=()=>out.push(diagnostic('SCHEMA_INVALID',field||null,'Value does not satisfy the conversation schema.'));
   const type=schema.type;
   if(!matchesType(type,value)) { fail();return out; }
   if(schema.enum&&!schema.enum.some(v=>Object.is(v,value)))fail();
@@ -158,10 +239,13 @@ const decisions=entries=>Array.isArray(entries)&&entries.some(e=>e.kind==='opera
 /** Pure structural/context checks. Person/group existence and mutation history belong to doors. */
 export function validateConversation(header,context={}) {
   const problem=jsonProblem(header);if(problem)return [diagnostic(problem,null,'Conversation metadata is not safe JSON.')];
-  const out=schemaErrors(conversationSchema,header);
-  const add=(code,field,message,severity)=>out.push(diagnostic(code,field,message,severity));
+  // `standard` is judged by standardFinding alone, so a missing, older or future version is a
+  // self-documentation finding (never blocking) rather than a schema failure (blocking).
+  const out=schemaErrors(conversationSchema,header).filter(d=>d.field!=='standard');
+  const add=(code,field,message)=>out.push(diagnostic(code,field,message));
   if(!object(header))return out;
-  if(header.standard!==STANDARD)add(SELF_DOC_MISSING,'standard',`Record does not name its standard, ${STANDARD}.`,'error');
+  const finding=standardFinding(header.standard);
+  if(finding)add(finding.code,'standard',finding.message);
   if(header.schema_version!==1)add('UNSUPPORTED_SCHEMA_VERSION','schema_version','Unsupported conversation schema version.');
   if(typeof header.id==='string'&&!validId(header.id))add('INVALID_RECORD_ID','id','Record id is not a portable directory component.');
   if(context.folderId!==undefined&&header.id!==context.folderId)add('ID_FOLDER_MISMATCH','id','Record id must match its parent folder.');
@@ -169,7 +253,7 @@ export function validateConversation(header,context={}) {
   if(context.newRecord&&header.audience===null)add('AUDIENCE_REQUIRED','audience','New conversations require an intended reader.');
   // Shape failures are already classified; never inspect malformed nested structures.
   if(out.some(d=>d.code==='SCHEMA_INVALID'||d.code==='REQUIRED_FIELD'||d.code==='UNKNOWN_KEY'))return out;
-  for(const field of ['title','description','date','start','as_of','audience'])if(header[field]===null)add('UNKNOWN_FACT',field,'Conversation fact is unknown.','warning');
+  for(const field of ['title','description','date','start','as_of','audience'])if(header[field]===null)add('UNKNOWN_FACT',field,'Conversation fact is unknown.');
   for(const field of ['date','as_of'])if(header[field]!=null&&!validDay(header[field]))add('INVALID_DATE',field,'Expected a valid calendar day.');
   // Check semantic date/instant/path rules everywhere their typed field occurs.
   const walk=(value,field='')=>{
@@ -186,7 +270,7 @@ export function validateConversation(header,context={}) {
   };walk(header);
   if(object(header.start)) {
     const s=header.start;
-    if(s.local!==null&&s.timezone===null&&s.instant===null)add('UNKNOWN_FACT','start.timezone','Local start has no zone or instant; cross-zone arithmetic is unavailable.','warning');
+    if(s.local!==null&&s.timezone===null&&s.instant===null)add('UNKNOWN_FACT','start.timezone','Local start has no zone or instant; cross-zone arithmetic is unavailable.');
     if(s.local===null&&s.instant===null)add('START_REQUIRED','start','Start requires a local time or an instant.');
     if(s.local!=null&&!/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(s.local))add('INVALID_LOCAL_TIME','start.local','Expected a real local clock time.');
     let formatter=null;
@@ -204,7 +288,7 @@ export function validateConversation(header,context={}) {
   }
   if(object(header.keep)) {
     const k=header.keep;
-    if(k.scope==='unknown')add('UNKNOWN_FACT','keep.scope','Sharing boundary is unknown; effective boundary is private.','warning');
+    if(k.scope==='unknown')add('UNKNOWN_FACT','keep.scope','Sharing boundary is unknown; effective boundary is private.');
     if(k.group!=null&&!repoPath(k.group))add('INVALID_GROUP_PATH','keep.group','Group reference must be workspace relative.');
     if(k.scope==='family'&&k.group===null)add('FAMILY_GROUP_REQUIRED','keep.group','Family sharing requires a permitted group.');
     if(k.scope==='family'&&k.decision?.kind!=='operator-decision')add('FAMILY_DECISION_REQUIRED','keep.decision','Family sharing requires an explicit group decision.');
@@ -219,16 +303,16 @@ export function validateConversation(header,context={}) {
   unique(header.participants,'id','participants');unique(header.sources,'id','sources');
   for(const [i,p] of (Array.isArray(header.participants)?header.participants:[]).entries())if(object(p)) {
     const f=`participants[${i}]`;
-    if(p.role==='unknown')add('UNKNOWN_FACT',`${f}.role`,'Participant role is unknown.','warning');
+    if(p.role==='unknown')add('UNKNOWN_FACT',`${f}.role`,'Participant role is unknown.');
     if(p.status==='unknown'&&p.person!==null)add('UNKNOWN_PERSON_REQUIRED',`${f}.person`,'Unknown identity must remain null.');
-    if(p.person===null)add('UNKNOWN_FACT',`${f}.person`,'Participant identity is unknown.','warning');
+    if(p.person===null)add('UNKNOWN_FACT',`${f}.person`,'Participant identity is unknown.');
     if(p.status==='confirmed'&&(p.person===null||!Array.isArray(p.evidence)||p.evidence.length===0))add('CONFIRMED_IDENTITY_EVIDENCE_REQUIRED',f,'Confirmed identity requires identifying evidence.');
   }
   for(const [i,c] of (Array.isArray(header.sources)?header.sources:[]).entries())if(object(c)) {
     const f=`sources[${i}]`;
-    if(c.type===null)add('UNKNOWN_FACT',`${f}.type`,'Capture type is unknown.','warning');
-    if(c.availability==='unknown')add('UNKNOWN_FACT',`${f}.availability`,'Capture availability is unknown.','warning');
-    if(c.roles.includes('unknown'))add('UNKNOWN_FACT',`${f}.roles`,'Source coverage role is unknown.','warning');
+    if(c.type===null)add('UNKNOWN_FACT',`${f}.type`,'Capture type is unknown.');
+    if(c.availability==='unknown')add('UNKNOWN_FACT',`${f}.availability`,'Capture availability is unknown.');
+    if(c.roles.includes('unknown'))add('UNKNOWN_FACT',`${f}.roles`,'Source coverage role is unknown.');
     if(c.type==='cloud_recording') {
       if(c.service==null||c.recording_id==null||c.vendor_id!==null)add('CLOUD_IDENTITY_INVALID',f,'Cloud recordings require exact service and recording id with no vendor id.');
       for(const [j,l] of (Array.isArray(c.locators)?c.locators:[]).entries())if(l?.kind==='service'&&l.service_id!==c.recording_id)add('SOURCE_ID_CONFLICT',`${f}.locators[${j}].service_id`,'Service locator identity must match the cloud recording.');
@@ -289,17 +373,21 @@ export function validateConversation(header,context={}) {
   }
   return out;
 }
-/** The header with `standard` directly after `kind`, or unchanged when it already has the key.
- * Writers serialize this, so a record they emit always names its standard. */
+/** The header naming STANDARD: added directly after `kind` when missing, and the bare
+ * unversioned URL upgraded in place. Any other value is left for the writer to refuse, so a
+ * record from a future version is never silently downgraded. Writers serialize this. */
 export function withStandard(header) {
-  if(!object(header)||Object.hasOwn(header,'standard'))return header;
+  if(!object(header))return header;
+  if(header.standard===STANDARD_UNVERSIONED)return {...header,standard:STANDARD};
+  if(Object.hasOwn(header,'standard'))return header;
   const out={};let placed=false;
   for(const [key,value] of Object.entries(header)){out[key]=value;if(key==='kind'){out.standard=STANDARD;placed=true;}}
   return placed?out:{standard:STANDARD,...out};
 }
 /** Plan the byte-preserving edit that makes a record name its standard. Pure.
  * status: 'stamped' (output differs), 'current', 'no-header', 'not-conversation' or 'refused'
- * (a header this codec will not interpret; reason is its diagnostic code). Only the one
+ * (a header this codec will not interpret, or a standard version it does not implement; reason
+ * is the diagnostic code). The bare unversioned URL is upgraded to STANDARD. Only the one
  * `standard` line is inserted (after `kind:`) or rewritten in place; every other byte,
  * line order and CRLF are kept, and the result is reparsed to prove it. */
 export function stampPlan(input) {
@@ -311,6 +399,8 @@ export function stampPlan(input) {
   if(!parsed.header)return parsed.diagnostics.length?keep('refused',parsed.diagnostics[0].code):keep('no-header','NO_HEADER');
   if(parsed.header.kind!=='conversation')return keep('not-conversation','NOT_CONVERSATION');
   if(parsed.header.standard===STANDARD)return keep('current');
+  // Never rewrite a version this package does not implement: that would downgrade the record.
+  if(standardFinding(parsed.header.standard)?.code===SELF_DOC_VERSION)return keep('refused',SELF_DOC_VERSION);
   const start=parsed.rawHeader.byteOffset-bytes.byteOffset,end=start+parsed.rawHeader.length;
   const lines=[];for(let at=start;at<end;){const lf=bytes.indexOf(10,at);lines.push({start:at,end:lf+1});at=lf+1;}
   const line=prefix=>lines.find(l=>bytes.subarray(l.start,l.end).toString('utf8').startsWith(prefix));

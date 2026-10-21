@@ -13,6 +13,7 @@ function archive(yaml){
  assert.ok(files.includes('lib/'));
  const collect=url=>{for(const entry of readdirSync(url,{withFileTypes:true}))entry.isDirectory()?collect(new URL(entry.name+'/',url)):names.push(fileURLToPath(new URL(entry.name,url)).slice(fileURLToPath(new URL('../',import.meta.url)).length));};
  collect(new URL('../lib/',import.meta.url));
+ assert.ok(files.includes('standards/'));collect(new URL('../standards/',import.meta.url));
  const parts=[];
  for(const name of names){const bytes=name==='lib/frontmatter/yaml.mjs'?Buffer.from(yaml):readFileSync(new URL('../'+name,import.meta.url)),h=Buffer.alloc(512);h.write('package/'+name,0,100);h.write('0000644\0',100);h.write('0000000\0',108);h.write('0000000\0',116);h.write(bytes.length.toString(8).padStart(11,'0')+'\0',124);h.write('00000000000\0',136);h.fill(32,148,156);h.write('0',156);h.write('ustar\0',257);h.write('00',263);const sum=h.reduce((a,b)=>a+b,0);h.write(sum.toString(8).padStart(6,'0')+'\0 ',148);parts.push(h,bytes,Buffer.alloc((512-bytes.length%512)%512));}
  parts.push(Buffer.alloc(1024));const path=join(mkdtempSync(join(process.env.TRANSCRIPT_MD_OWNED,'payload-privacy-')),'fixture.tgz');writeFileSync(path,gzipSync(Buffer.concat(parts)));return path;
@@ -27,5 +28,6 @@ test('payload audit rejects the inherited private-source phone comment',()=>{
 });
 test('payload audit accepts a generic quoted-string comment',()=>{
  const yaml=readFileSync(new URL('../lib/frontmatter/yaml.mjs',import.meta.url),'utf8').replace(/\+\d{10,15}/g,'example');
- assert.equal(probe(verifyPayload,[archive(yaml)]).files.length,25);
+ const audited=probe(verifyPayload,[archive(yaml)]);assert.equal(audited.files.length,26);
+ assert.ok(audited.files.some(f=>f.path==='package/standards/conversation/v1.json'));
 });

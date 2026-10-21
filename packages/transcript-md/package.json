@@ -15,7 +15,8 @@
     "./citations": "./lib/freedom-conversation-citations.mjs",
     "./schema": "./lib/frontmatter/conversation.schema.json",
     "./python": "./lib/freedom_conversations.py",
-    "./cli": "./lib/freedom-conversations-cli.mjs"
+    "./cli": "./lib/freedom-conversations-cli.mjs",
+    "./standards/conversation/v1.json": "./standards/conversation/v1.json"
   },
   "bin": {
     "transcript-md": "lib/freedom-conversations-cli.mjs"
@@ -23,6 +24,7 @@
   "files": [
     "index.mjs",
     "lib/",
+    "standards/",
     "LICENSE",
     "NOTICE",
     "README.md",

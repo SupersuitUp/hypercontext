@@ -29,13 +29,16 @@ def _diagnostics(value):
     return value
 
 
-# A record that does not name its standard is reported at level error so checkers count it,
-# but it never stops a read: records written before the rule must stay readable.
+# A record that does not name its standard, names the bare pre-version URL, or names a version
+# this package does not implement is reported at level error so checkers count it, but it never
+# stops a read: records written before the rule (or by a newer writer) must stay readable.
 SELF_DOC_MISSING = "self-doc:missing"
+SELF_DOC_VERSION = "self-doc:version"
+SELF_DOC_CODES = (SELF_DOC_MISSING, SELF_DOC_VERSION)
 
 
 def _blocking(diagnostics):
-    return any(d["severity"] == "error" and d["code"] != SELF_DOC_MISSING for d in diagnostics)
+    return any(d["severity"] == "error" and d["code"] not in SELF_DOC_CODES for d in diagnostics)
 
 
 def _run(args, workspace=None):

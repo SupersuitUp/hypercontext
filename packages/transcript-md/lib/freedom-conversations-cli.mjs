@@ -10,10 +10,10 @@ if(args.length===1&&args[0]==='--help') {
  const json=args.includes('--json');
  const diagnostic=code=>({code,severity:'error',path:null,field:null,message:'Conversation command could not complete; check arguments and record diagnostics.'});
  const conflict=code=>['LOCKED','STALE_PIN','STALE_TURN_PIN','STALE_REVISION_RETRY','RECOVERY_THIRD_STATE','REVISION_INCOMPLETE','REVISION_ID_COLLISION'].includes(code)||code.endsWith('_COLLISION');
- // A missing `standard` (self-doc:missing) is an error only where it is the question asked:
- // `validate` refuses on it; readers report it and keep their exit code.
- const SELF_DOC='self-doc:missing';
- const exitFor=(all,strict=false)=>{const diagnostics=strict?all:all.filter(d=>d.code!==SELF_DOC);return diagnostics.some(d=>d.code==='PRIVACY_REFUSED')?4:diagnostics.some(d=>conflict(d.code))?3:diagnostics.some(d=>['ID_COLLISION','AMBIGUOUS_ALIAS'].includes(d.code))?3:diagnostics.some(d=>d.severity==='error'&&d.code!=='NOT_FOUND')?2:diagnostics.some(d=>d.code==='NOT_FOUND')?1:0;};
+ // A record that is not self-documenting (self-doc:missing, self-doc:version) is an error only
+ // where it is the question asked: `validate` refuses on it; readers report it and keep their exit code.
+ const selfDoc=code=>code==='self-doc:missing'||code==='self-doc:version';
+ const exitFor=(all,strict=false)=>{const diagnostics=strict?all:all.filter(d=>!selfDoc(d.code));return diagnostics.some(d=>d.code==='PRIVACY_REFUSED')?4:diagnostics.some(d=>conflict(d.code))?3:diagnostics.some(d=>['ID_COLLISION','AMBIGUOUS_ALIAS'].includes(d.code))?3:diagnostics.some(d=>d.severity==='error'&&d.code!=='NOT_FOUND')?2:diagnostics.some(d=>d.code==='NOT_FOUND')?1:0;};
  try {
   const command=args[0],options={},positionals=[];
   if(!commands.includes(command))throw new Error('INVALID_ARGUMENTS');
@@ -76,7 +76,7 @@ if(args.length===1&&args[0]==='--help') {
    return data;
   };
   let output={api_version:1,records:records.map(metadata),diagnostics};
-  if(['cite','seek'].includes(command)&&!diagnostics.some(d=>d.severity==='error'&&d.code!==SELF_DOC)) {
+  if(['cite','seek'].includes(command)&&!diagnostics.some(d=>d.severity==='error'&&!selfDoc(d.code))) {
    const citations=await import('./freedom-conversation-citations.mjs');
    if(command==='cite')output=citations.citeConversation(records[0],{turnIds:options['--turn']});
    else {
