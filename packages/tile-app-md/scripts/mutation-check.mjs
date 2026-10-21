@@ -105,8 +105,10 @@ for (const [name, source, suite, before, after] of cases) {
     if (!text.includes(before)) throw new Error(`Mutation anchor missing: ${name}`);
     if (text.split(before).length !== 2) throw new Error(`Mutation anchor is not unique: ${name}`);
     writeFileSync(file, text.replace(before, () => after));
-    const result = spawnSync(process.execPath, ['--test', join(dir, 'test', suite)], { encoding: 'utf8' });
+    const result = spawnSync(process.execPath, ['--test', '--test-reporter=spec', join(dir, 'test', suite)], { encoding: 'utf8' });
     if (result.status === 0) { survived.push(name); console.log(`SURVIVED: ${name}`); continue; }
+    // The spec reporter is named, because the default differs by Node version and by whether stdout is
+    // a terminal (Node 22 in CI prints TAP, with no "ℹ pass" line), and the counts below read its lines.
     // A mutation that breaks the module itself fails every test and proves nothing: the suite must
     // have loaded (some test passed) and a test must have failed.
     if (!/ℹ pass [1-9]/.test(result.stdout) || !/ℹ fail [1-9]/.test(result.stdout)) throw new Error(`Mutation failed without a failing test: ${name}\n${result.stdout}\n${result.stderr}`);
