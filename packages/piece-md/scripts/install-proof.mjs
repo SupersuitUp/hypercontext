@@ -108,8 +108,20 @@ try {
   cli(['find', 'documents', '--from', 'june'], 2);
   cli(['frobnicate'], 2);
 
+  // record: the unrecorded media becomes a piece in one call, and lint is clean again.
+  const REC = ['--summary', 'Dinner after the lake.', '--read-when', 'looking for the June reunion dinner', '--about', 'june-reunion', '--source', "the operator's phone camera", '--connection', '../2026-06-14-1812-nai-nai-at-the-lake/piece.md'];
+  const made = json(['record', 'documents', '--slug', 'reunion-dinner', '--at', '2026-06-14T20:05', ...REC, 'documents/media/raw/IMG_0001.jpg', 'documents/media/raw/IMG_0002.mov']);
+  assert.equal(made.created, true);
+  // Absolute paths, so a caller can rewrite its links (the temp folder may resolve through /private on macOS).
+  assert.deepEqual(made.files.map((p) => p.slice(p.indexOf('documents/'))), ['documents/2026-06-14-2005-reunion-dinner/IMG_0001.jpg', 'documents/2026-06-14-2005-reunion-dinner/IMG_0002.mov']);
+  assert.match(cli(['lint', 'documents']).stdout, /^clean: 3 pieces, 0 unrecorded media\n$/);
+  assert.match(cli(['record', 'documents', '--slug', 'reunion-dinner', '--at', '2026-06-14T20:05', 'documents/2026-06-14-2005-reunion-dinner/IMG_0001.jpg']).stdout, /updated 2026-06-14-2005-reunion-dinner\/piece.md: 0 added, 1 already recorded/);
+  put('inbox/IMG_0001.jpg');
+  assert.match(cli(['record', 'documents', '--slug', 'reunion-dinner', '--at', '2026-06-14T20:05', 'inbox/IMG_0001.jpg'], 1).stderr, /refused: IMG_0001\.jpg is already in 2026-06-14-2005-reunion-dinner/);
+  cli(['record', 'documents', 'inbox/IMG_0001.jpg'], 2);
+
   // 4. The library, imported by its package name.
-  const script = "import { lint, find, listPieces, checkPiece, toPiece, scan, readHeader, writeHeader, pieceText, stampStandard, stampPlan, STANDARD, TYPES, MANIFEST, CODES } from '@supersuit/piece-md'; const r = lint('documents'); if (readHeader(pieceText({ id: 'x' })).data.standard !== STANDARD || STANDARD !== 'https://hypercontext.wiki/standards/piece/v1' || MANIFEST.standard !== STANDARD || MANIFEST.codes.length !== Object.keys(CODES).length || stampStandard('') !== '' || stampPlan('---\\nkind: piece\\n---\\n').status !== 'added' || r.pieces !== 2 || find('documents', { person: 'nai-nai' }).length !== 1 || listPieces('documents').length !== 2 || !TYPES.includes('photo') || [checkPiece, toPiece, scan, readHeader, writeHeader].some((f) => typeof f !== 'function')) process.exit(1);";
+  const script = "import { lint, find, listPieces, checkPiece, toPiece, scan, recordPiece, RecordRefused, readHeader, writeHeader, pieceText, stampStandard, stampPlan, STANDARD, TYPES, MANIFEST, CODES } from '@supersuit/piece-md'; const r = lint('documents'); if (readHeader(pieceText({ id: 'x' })).data.standard !== STANDARD || STANDARD !== 'https://hypercontext.wiki/standards/piece/v1' || MANIFEST.standard !== STANDARD || MANIFEST.codes.length !== Object.keys(CODES).length || stampStandard('') !== '' || stampPlan('---\\nkind: piece\\n---\\n').status !== 'added' || r.pieces !== 3 || find('documents', { person: 'nai-nai' }).length !== 1 || listPieces('documents').length !== 3 || !TYPES.includes('photo') || [checkPiece, toPiece, scan, readHeader, writeHeader, recordPiece, RecordRefused].some((f) => typeof f !== 'function')) process.exit(1);";
   run(process.execPath, ['--input-type=module', '-e', script]);
 
   console.log(`Installed ${pack.filename} outside the source checkout; every documented command and the library import pass; ${pack.files.length} payload files audited`);

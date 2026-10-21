@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.1 (2026-10-21)
+
+Every tool that saves media can record it as a piece in one call, instead of each hand-building piece folders.
+
+- **`recordPiece({ home, slug, at, files, fields, move = true, copy = false })`** returns `{ dir, pieceMd, files, created, added }`. It makes `<home>/YYYY-MM-DD-HHMM-<slug>/`, moves the files in, and writes the record through `pieceText`, so it names `standard: .../piece/v1` and lints clean. A new piece needs `summary`, `read_when`, `about` and `source`; `keep` defaults to `keep`, `audience` to `self`, `type` from the first file, and `taken_from` to `stated` with `at` or `file-time` without it (then the first file's modification time names the moment). Per-file people come in as `fields.people`, keyed by path or file name.
+- **Adding to a moment.** When the piece exists, the files become new rows and only `as_of` changes besides; a file already listed changes nothing, so a tool can call it once per clip.
+- **It never overwrites.** A name already in the folder, two files of one name, a missing answer, or a record naming another standard throws `RecordRefused`, and every check runs before any file moves, so a refusal leaves the disk as it was.
+- **`move: false`** records a file where it sits as a `file://` link row, which is the only way the format records a file outside a piece's folder. A file inside the home is refused, since lint would still count it unrecorded. `copy: true` copies a file in and leaves the original.
+- **`piece-md record <home> --slug <s> [--at <iso>] --summary ... --read-when ... --about a,b --source ... [--type] [--keep] [--audience] [--taken-from] [--connection]... [--copy | --in-place] <files...> [--json]`**. Exit 0 recorded, 1 refused, 2 usage.
+- A patch release on purpose: the change is additive and the standard is still v1, and dependents pin `^0.3.0`, which in 0.x never reaches 0.4.0.
+
 ## 0.3.0 (2026-10-20)
 
 - The header codec now comes from `@supersuit/hypercontext-core` (one copy for every record package), a dependency at `^0.1.0`; this package's own copy and its codec tests moved there. Behaviour is unchanged.

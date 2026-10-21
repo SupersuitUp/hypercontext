@@ -18,6 +18,7 @@ documents/2026-06-14-1812-nai-nai-at-the-lake/
 npx @supersuit/piece-md lint documents
 npx @supersuit/piece-md find documents --person nai-nai --from 2026-06-01 --to 2026-06-30
 npx @supersuit/piece-md stamp documents --apply
+npx @supersuit/piece-md record documents --slug reunion-dinner --at 2026-06-14T20:05 --summary "Dinner after the lake." --read-when "looking for the June reunion dinner" --about june-reunion --source "the operator's phone camera" IMG_0001.jpg IMG_0002.mov
 ```
 
 Zero dependencies, Node 20 or later.
@@ -28,6 +29,9 @@ Zero dependencies, Node 20 or later.
 piece-md lint [<home>] [--json]
 piece-md find [<home>] [--person <id>] [--confirmed] [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--type <type>] [--json]
 piece-md stamp [<home>] [--apply] [--json]
+piece-md record <home> --slug <slug> [--at <iso>] --summary <s> --read-when <s> --about <id,id> --source <s>
+         [--type <type>] [--keep keep|home|share] [--audience <s>] [--taken-from <s>] [--connection <link>]...
+         [--copy | --in-place] <files...> [--json]
 ```
 
 `<home>` defaults to `documents/` in the current folder.
@@ -60,12 +64,29 @@ would upgrade  calls/2026-07-02-0930-lease-call/piece.md
 [exit 1]
 ```
 
-Exit codes: 0 clean, found, or nothing left to stamp; 1 findings, nothing found, or stamps pending or skipped; 2 usage.
+**record** files media as a piece in one call, so a tool that saves a photo, a clip or a screenshot never hand-builds a piece folder. It makes `<home>/YYYY-MM-DD-HHMM-<slug>/`, moves the files in and writes a `piece.md` that lints clean. Called again for the same moment, it adds the new files to that piece's rows and changes nothing else but `as_of`; a file the piece already lists changes nothing at all. It never overwrites: a name already in the folder is refused, and every check runs before any file moves, so a refusal leaves the disk as it was.
+
+```
+$ piece-md record documents --slug reunion-dinner --at 2026-06-14T20:05 --summary "Dinner after the lake." \
+    --read-when "looking for the June reunion dinner" --about june-reunion --source "the operator's phone camera" \
+    documents/media/raw/IMG_0001.jpg documents/media/raw/IMG_0002.mov
+added  2026-06-14-2005-reunion-dinner/IMG_0001.jpg
+added  2026-06-14-2005-reunion-dinner/IMG_0002.mov
+created 2026-06-14-2005-reunion-dinner/piece.md: 2 added, 0 already recorded
+[exit 0]
+```
+
+- `--at` names the moment. Without it, the first file's modification time is used and `taken_from` says `file-time`; with it, `taken_from` is `stated` unless `--taken-from` says otherwise.
+- `--copy` leaves the originals where they were. `--in-place` records a file outside the home where it sits, as a `file://` link row (the format allows a file elsewhere only as a link); a file inside the home is refused, because lint would still count it unrecorded.
+- A new piece needs `--summary`, `--read-when`, `--about` and `--source`, so what it writes passes lint. `--type` defaults from the first file (audio a `recording`, video a `video`, a PDF a `document`, anything else a `photo`: say `--type screenshot` for a screenshot). `--keep` defaults to `keep`, the tightest scope, and `--audience` to `self`.
+- `--json` prints `{dir, pieceMd, files, created, added}`: `files` is where each given file is now, in order, so the caller can rewrite its links.
+
+Exit codes: 0 clean, found, recorded, or nothing left to stamp; 1 findings, nothing found, stamps pending or skipped, or a record refused (nothing changed); 2 usage.
 
 ## Library
 
 ```js
-import { lint, find, listPieces, checkPiece } from '@supersuit/piece-md';
+import { lint, find, listPieces, checkPiece, recordPiece } from '@supersuit/piece-md';
 
 lint('documents');                                   // { findings, pieces, unrecorded }
 find('documents', { person: 'nai-nai', type: 'photo' });
@@ -74,6 +95,29 @@ pieceText({ id, type: 'photo', /* ... */ }, body);   // a new piece.md, stamped 
 stampStandard(existingText);                         // add or upgrade `standard:`, nothing else changes
 MANIFEST;                                            // the standard as data: standards/piece/v1.json
 ```
+
+### Recording media from a tool
+
+```js
+import { recordPiece, RecordRefused } from '@supersuit/piece-md';
+
+const { dir, pieceMd, files, created, added } = recordPiece({
+  home: '/path/to/documents',               // the documents folder the piece belongs in
+  slug: 'reunion-dinner',                   // kebab words
+  at: '2026-06-14T20:05',                   // a Date or an ISO time; omitted, the first file's mtime
+  files: ['/path/to/inbox/IMG_0001.jpg'],   // absolute paths
+  fields: {
+    summary: 'Dinner after the lake.', read_when: 'looking for the June reunion dinner',
+    about: ['june-reunion'], source: "the operator's phone camera",
+    // optional: type, keep ('keep'), audience ('self'), taken_from, connections ([]),
+    // people: { '/path/to/inbox/IMG_0001.jpg': [{ id: 'nai-nai', confirmed: true }] }  (keyed by path or file name)
+  },
+  // move: true (default) moves each file in; copy: true copies it; move: false records a file
+  // outside the home where it sits, as a file:// link row
+});
+```
+
+The same rules as the command: a new piece is written through `pieceText`, so it names `standard: https://hypercontext.wiki/standards/piece/v1`; an existing piece gains rows; a file already listed changes nothing; a name already in the folder, a missing answer, or a record naming another standard throws `RecordRefused` before anything on disk changes. An ISO time with no zone is the wall clock as written; a `Date`, or a time with a zone, is read in the machine's local time.
 
 ## The standard, as data
 
@@ -93,7 +137,7 @@ The two codes every hypercontext record package shares:
 - A record that does not name its standard version. Every `piece.md` carries `standard: https://hypercontext.wiki/standards/piece/v1`, so a reader with no memory of this format can find it.
 - Following a symbolic link. A link is another tree's file: one named like a piece is reported as `link:skipped`, never read.
 
-It reads only `.md` files. Media is seen by its name in a directory listing and never opened.
+It opens only `.md` files. Media is seen by its name in a directory listing; `record` moves or copies a file whole and never reads it.
 
 ## Develop
 
@@ -103,6 +147,6 @@ npm run mutation-check # every rule removed once; its test must go red
 npm run install-proof  # pack, install outside the repo, run every documented command
 ```
 
-Releases are a tag push through GitHub Actions with npm trusted publishing: bump the version, write the CHANGELOG entry, commit, then `git tag vX.Y.Z && git push origin vX.Y.Z`.
+Releases are a tag push through GitHub Actions with npm trusted publishing, from the hypercontext repository: bump the version, write the CHANGELOG entry, commit, then `git tag piece-md@X.Y.Z && git push origin piece-md@X.Y.Z`.
 
 MIT

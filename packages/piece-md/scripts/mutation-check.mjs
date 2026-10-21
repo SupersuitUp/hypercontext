@@ -73,6 +73,28 @@ const cases = [
   ['stamp exits 1 while changes are pending or skipped', BIN, 'cli.test.mjs', 'const code = pending || report.skipped.length ? 1 : 0;', 'const code = 0;'],
   ['--apply is only for stamp', BIN, 'cli.test.mjs', "if (opt.apply && name !== 'stamp') throw new Usage(", "if (false) throw new Usage("],
   ['the home defaults to documents/', BIN, 'cli.test.mjs', "const p = resolve(dir ?? 'documents');", 'const p = resolve(dir ?? ".");'],
+  // ---- the recorder
+  ['record never overwrites a file in the piece', 'record.mjs', 'record.test.mjs', 'if (existsSync(dest) || listed.has(file)) refuse(', 'if (false) refuse('],
+  ['record refuses two files of one name in one call', 'record.mjs', 'record.test.mjs', 'if (names.has(file)) refuse(', 'if (false) refuse('],
+  ['record checks every file before moving any', 'record.mjs', 'record.test.mjs', 'plan.push({ src, dest, place: true, row:', 'place(src, dest, copy), plan.push({ src, dest, place: false, row:'],
+  ['move: false records in place as a link row', 'record.mjs', 'record.test.mjs', 'if (!move && !copy) {', 'if (false) {'],
+  ['move: false refuses a file inside the home', 'record.mjs', 'record.test.mjs', 'if (inside(home, src)) refuse(', 'if (false) refuse('],
+  ['copy leaves the original', 'record.mjs', 'record.test.mjs', 'if (copy) { copyFileSync(src, dest, constants.COPYFILE_EXCL); return; }', 'if (false) { return; }'],
+  ['a file already in the piece is not listed twice', 'record.mjs', 'record.test.mjs', 'row: listed.has(rel) ? null :', 'row: false ? null :'],
+  ['a link already listed is not listed twice', 'record.mjs', 'record.test.mjs', 'row: listed.has(link) ? null :', 'row: false ? null :'],
+  ['nothing to add changes nothing', 'record.mjs', 'record.test.mjs', 'if (existing && !added.length) return result;', 'if (false) return result;'],
+  ['adding to a piece moves as_of', 'record.mjs', 'record.test.mjs', 'writeHeader(existing, { as_of: asOf, files:', 'writeHeader(existing, { files:'],
+  ['a new piece needs summary, read_when and source', 'record.mjs', 'record.test.mjs', 'if (!text(fields[key])) refuse(', 'if (false) refuse('],
+  ['a new piece needs about', 'record.mjs', 'record.test.mjs', 'if (!Array.isArray(fields.about) || !fields.about.some(text)) refuse(', 'if (false) refuse('],
+  ['keep defaults to the tightest scope', 'record.mjs', 'record.test.mjs', "const keep = fields.keep ?? 'keep';", "const keep = fields.keep ?? 'home';"],
+  ['no at means the time came from the file', 'record.mjs', 'record.test.mjs', "(at !== undefined ? 'stated' : 'file-time')", "'stated'"],
+  ['a face is confirmed only when the caller says so', 'record.mjs', 'record.test.mjs', "confirmed: p.confirmed === true || p.confirmed === 'true'", 'confirmed: true'],
+  ['an audio file is a recording', 'record.mjs', 'record.test.mjs', "if (AUDIO.includes(ext)) return 'recording';", "if (false) return 'recording';"],
+  ['a record naming another standard is left alone', 'record.mjs', 'record.test.mjs', 'if (data.standard !== STANDARD) refuse(', 'if (false) refuse('],
+  ['record refusals exit 1', BIN, 'cli.test.mjs', "say(`refused: ${error.message}`);\n      return 1;", "say(`refused: ${error.message}`);\n      return 0;"],
+  ['record --copy is wired', BIN, 'cli.test.mjs', 'copy: Boolean(opt.copy)', 'copy: false'],
+  ['record needs a slug', BIN, 'cli.test.mjs', "if (!opt.slug) throw new Usage(", "if (false) throw new Usage("],
+  ['record options are only for record', BIN, 'cli.test.mjs', "if (opt[only] !== undefined && name !== 'record') throw new Usage(", "if (false) throw new Usage("],
 ];
 
 let caught = 0;

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpHome, file, piece, LAKE } from './helpers.mjs';
 
@@ -112,4 +112,45 @@ test('stamp on a current home exits 0, and --json reports the plan', (t) => {
 test('--apply is only for stamp', (t) => {
   const { home } = tmpHome(t);
   assert.equal(run(['lint', home, '--apply']).status, 2);
+});
+
+const RECORD = ['--summary', 'Nai Nai at the lake.', '--read-when', 'looking for photos of Nai Nai', '--about', 'nai-nai,june-reunion', '--source', 'the phone camera'];
+
+test('record files media as a piece in one call and prints where it went', (t) => {
+  const { parent, home } = tmpHome(t);
+  const a = file(parent, 'inbox/dock.heic', 'A');
+  const r = run(['record', home, '--slug', 'nai-nai-at-the-lake', '--at', '2026-06-14T18:12', ...RECORD, a, '--json']);
+  assert.equal(r.status, 0, r.stderr);
+  const out = JSON.parse(r.stdout);
+  assert.equal(out.dir, join(home, LAKE));
+  assert.equal(out.pieceMd, join(home, LAKE, 'piece.md'));
+  assert.deepEqual(out.files, [join(home, LAKE, 'dock.heic')]);
+  assert.equal(out.created, true);
+  assert.equal(run(['lint', home]).status, 0);
+  const plain = run(['record', home, '--slug', 'nai-nai-at-the-lake', '--at', '2026-06-14T18:12', ...RECORD, file(parent, 'inbox/dock-2.heic')]);
+  assert.equal(plain.status, 0, plain.stderr);
+  assert.match(plain.stdout, /added  2026-06-14-1812-nai-nai-at-the-lake\/dock-2\.heic/);
+});
+
+test('record --copy leaves the original, and --keep and --audience are written', (t) => {
+  const { parent, home } = tmpHome(t);
+  const a = file(parent, 'a.jpg', 'A');
+  const r = run(['record', home, '--slug', 'lake', '--at', '2026-06-14T18:12', '--keep', 'home', '--audience', 'family', '--copy', ...RECORD, a, '--json']);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(existsSync(a), true, '--copy leaves the original');
+  const text = readFileSync(JSON.parse(r.stdout).pieceMd, 'utf8');
+  assert.match(text, /^keep: home$/m);
+  assert.match(text, /^audience: family$/m);
+});
+
+test('record refuses a collision with exit 1, and a missing slug or file with exit 2', (t) => {
+  const { parent, home } = tmpHome(t);
+  const args = ['record', home, '--slug', 'lake', '--at', '2026-06-14T18:12', ...RECORD];
+  assert.equal(run([...args, file(parent, 'x/a.jpg')]).status, 0);
+  const clash = run([...args, file(parent, 'y/a.jpg')]);
+  assert.equal(clash.status, 1);
+  assert.match(clash.stderr, /already/);
+  assert.equal(run(['record', home, '--at', '2026-06-14T18:12', ...RECORD, file(parent, 'z/b.jpg')]).status, 2);
+  assert.equal(run([...args]).status, 2);
+  assert.equal(run(['lint', home, '--copy']).status, 2, '--copy is only for record');
 });
