@@ -16,7 +16,15 @@ const cases = [
   // ---- the gates (lint.mjs)
   ['a record with no header is refused', 'lint.mjs', 'lint.test.mjs', "add('header:missing',", "void ('header:missing',"],
   ['root is one of the two', 'lint.mjs', 'lint.test.mjs', "if (!ROOTS.includes(d.root)) add(", "if (false) add("],
-  ['a record names this standard', 'lint.mjs', 'lint.test.mjs', "if (d.standard !== STANDARD) add(", "if (false) add("],
+  ['a record names this standard, not another kind\'s', 'lint.mjs', 'lint.test.mjs', "else if (std.state !== 'current' && std.state !== 'implemented') add(", "else if (false) add("],
+  ['the bare URL is reported as predating versions', 'lint.mjs', 'standard.test.mjs', "if (std.state === 'unversioned') add(", "if (false) add("],
+  ['a version not implemented is self-doc:version', 'lint.mjs', 'lint.test.mjs', "else if (std.state === 'unimplemented') add(", "else if (false) add("],
+  ['the standard names its version', 'record.mjs', 'standard.test.mjs', "export const STANDARD = `${STANDARD_LATEST}/v${IMPLEMENTED.at(-1)}`;", "export const STANDARD = STANDARD_LATEST;"],
+  ['every write stamps the standard', 'write.mjs', 'standard.test.mjs', "{ ...patch, standard: STANDARD, as_of: today }", "{ ...patch, as_of: today }"],
+  ['a calibration stamps the standard', 'write.mjs', 'standard.test.mjs', "const stamped = writeHeader(fresh.text, { standard: STANDARD });", "const stamped = fresh.text;"],
+  ['stamp is a dry run unless applied', 'stamp.mjs', 'standard.test.mjs', "if (apply) writeFileSync(", "if (true) writeFileSync("],
+  ['stamp never downgrades a future version', 'stamp.mjs', 'standard.test.mjs', "if (std.state === 'unimplemented') return { skip:", "if (false) return { skip:"],
+  ['stamp refreshes the note', 'stamp.mjs', 'standard.test.mjs', "+ setAbout(body);", "+ body;"],
   ['a record explains itself in its body', 'lint.mjs', 'lint.test.mjs', "if (!hasAbout(rec.body)) add(", "if (false) add("],
   ['every write keeps the note', 'render.mjs', 'write.test.mjs', "let s = setAbout(body);", "let s = body;"],
   ['the schema version is "1"', 'lint.mjs', 'lint.test.mjs', "if (d.superobjective_version !== VERSION) add(", "if (false) add("],
@@ -79,6 +87,7 @@ const cases = [
   ['lint exits 1 on an error', BIN, 'cli.test.mjs', "    return errors ? 1 : 0;\n  },\n\n  show(", "    return 0;\n  },\n\n  show("],
   ['pace exits 1 when behind', BIN, 'cli.test.mjs', "return behind ? 1 : 0;\n  },\n\n  add(", "return 0;\n  },\n\n  add("],
   ['a refusal exits 1', BIN, 'cli.test.mjs', "say(`refused (${error.code}): ${error.message}`); process.exitCode = 1;", "say(`refused (${error.code}): ${error.message}`); process.exitCode = 0;"],
+  ['stamp exits 1 when a record cannot be stamped', BIN, 'standard.test.mjs', "const status = r.skipped.length ? 1 : 0;", "const status = 0;"],
   ['show exits 1 with nothing active', BIN, 'cli.test.mjs', "if (!rows.length) { say('no active superobjective'); return 1; }", "if (!rows.length) { say('no active superobjective'); return 0; }"],
 ];
 
@@ -87,7 +96,7 @@ const survived = [];
 for (const [name, source, suite, before, after] of cases) {
   const dir = mkdtempSync(join(tmpdir(), 'superobjective-mutation-'));
   try {
-    for (const part of ['src', 'test', 'bin']) cpSync(join(root, part), join(dir, part), { recursive: true });
+    for (const part of ['src', 'test', 'bin', 'standards']) cpSync(join(root, part), join(dir, part), { recursive: true });
     cpSync(join(root, 'package.json'), join(dir, 'package.json'));
     const file = join(dir, 'src', source), text = readFileSync(file, 'utf8');
     if (!text.includes(before)) throw new Error(`Mutation anchor missing: ${name}`);

@@ -63,7 +63,8 @@ export function makeSigns(given, existing = []) {
 
 /** Write the header patch, re-render the body, append the ratchet line. Returns the re-read record and the line. */
 function commit(rec, patch, line, today) {
-  let next = writeHeader(rec.text, { ...patch, as_of: today });
+  // Every write stamps the version of the standard it was written to, so an older record upgrades on its next change.
+  let next = writeHeader(rec.text, { ...patch, standard: STANDARD, as_of: today });
   const { data, body } = readHeader(next);
   const full = { at: today, ...line, after: snapshot(data) };
   const ratchet = [...rec.ratchet, full];
@@ -285,7 +286,9 @@ export function calibrate(home, id, o = {}) {
   const line = { at: today, elapsed: p.elapsed, met: p.met, total: p.total, lead: p.lead, verdict: p.verdict, overdue: p.overdue, ...(text(o.note) ? { note: text(o.note) } : {}), by: whoFor(rec.data, o.who) };
   appendFileSync(join(rec.dir, CALIBRATIONS), `${JSON.stringify(line)}\n`);
   const fresh = readRecord(rec.dir);
-  const body = renderRegions(fresh.body, { data: fresh.data, ratchet: fresh.ratchet, calibrations: fresh.calibrations });
-  writeFileSync(join(rec.dir, FILE), fresh.text.slice(0, fresh.text.length - fresh.body.length) + body);
+  const stamped = writeHeader(fresh.text, { standard: STANDARD });
+  const { body: before } = readHeader(stamped);
+  const body = renderRegions(before, { data: fresh.data, ratchet: fresh.ratchet, calibrations: fresh.calibrations });
+  writeFileSync(join(rec.dir, FILE), stamped.slice(0, stamped.length - before.length) + body);
   return { record: readRecord(rec.dir), line, pace: p };
 }

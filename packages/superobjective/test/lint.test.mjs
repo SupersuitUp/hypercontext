@@ -34,6 +34,9 @@ redGreen('kind is something else', 'header:missing', (h, dir) => patchHeader(dir
 redGreen('root outside the list', 'header:value', (h, dir) => patchHeader(dir, { root: 'family' }));
 redGreen('another standard', 'self-doc:missing', (h, dir) => patchHeader(dir, { standard: 'https://example.com/goal' }));
 redGreen('no standard key at all', 'self-doc:missing', (h, dir) => patchHeader(dir, { standard: null }));
+redGreen('the bare, unversioned standard URL (written before versions)', 'self-doc:missing', (h, dir) => patchHeader(dir, { standard: 'https://hypercontext.wiki/standards/superobjective' }));
+redGreen('another kind\'s standard', 'self-doc:missing', (h, dir) => patchHeader(dir, { standard: 'https://hypercontext.wiki/standards/friend/v1' }));
+redGreen('a version this package does not implement', 'self-doc:version', (h, dir) => patchHeader(dir, { standard: 'https://hypercontext.wiki/standards/superobjective/v2' }));
 redGreen('the "What this file is" note was deleted', 'self-doc:missing', (h, dir) => editFile(dir, 'superobjective.md', (s) => s.replace(/<!-- superobjective:about -->[\s\S]*<!-- \/superobjective:about -->/, '')));
 redGreen('schema version two', 'header:value', (h, dir) => patchHeader(dir, { superobjective_version: '2' }));
 redGreen('id is not the folder', 'id:folder', (h, dir) => patchHeader(dir, { id: 'another-name' }));

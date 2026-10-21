@@ -1,0 +1,239 @@
+{
+  "manifest_version": 1,
+  "standard": "https://hypercontext.wiki/standards/superobjective/v1",
+  "kind": "superobjective",
+  "version": 1,
+  "title": "A superobjective",
+  "status": "current",
+  "superseded_by": null,
+  "latest": "https://hypercontext.wiki/standards/superobjective",
+  "record": {
+    "path": "self/calling/superobjectives/<id>/superobjective.md",
+    "format": "md"
+  },
+  "header": {
+    "required": [
+      "kind",
+      "superobjective_version",
+      "standard",
+      "id",
+      "root",
+      "statement",
+      "set",
+      "by",
+      "status",
+      "visibility",
+      "signs",
+      "summary",
+      "read_when",
+      "as_of",
+      "keep"
+    ],
+    "keys": {
+      "kind": {
+        "const": "superobjective"
+      },
+      "superobjective_version": {
+        "const": "1"
+      },
+      "standard": {
+        "const": "https://hypercontext.wiki/standards/superobjective/v1"
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-]*$"
+      },
+      "root": {
+        "enum": [
+          "personal",
+          "company"
+        ]
+      },
+      "set": {
+        "type": "string",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+      },
+      "by": {
+        "type": "string",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "active",
+          "achieved",
+          "missed",
+          "retired"
+        ]
+      },
+      "visibility": {
+        "enum": [
+          "private",
+          "members",
+          "public"
+        ]
+      },
+      "signs": {
+        "type": "array"
+      },
+      "as_of": {
+        "type": "string",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+      },
+      "keep": {
+        "enum": [
+          "keep",
+          "home",
+          "share"
+        ]
+      }
+    }
+  },
+  "validator": {
+    "package": "@supersuit/superobjective",
+    "implements_since": "0.1.0",
+    "check": "npx -y @supersuit/superobjective@^0.1.0 lint self/calling/superobjectives --json",
+    "backfill": "npx -y @supersuit/superobjective@^0.1.0 stamp self/calling/superobjectives --apply"
+  },
+  "codes": [
+    {
+      "code": "header:missing",
+      "level": "error",
+      "means": "the file has no YAML header, or its kind is not superobjective",
+      "fix": "give superobjective.md the header in the standard, or move the file out of the superobjectives home"
+    },
+    {
+      "code": "header:value",
+      "level": "error",
+      "means": "superobjective_version, root, status or visibility is outside the standard, or the statement or the owner(s) is missing",
+      "fix": "set the key to a value the standard allows; the header table lists them"
+    },
+    {
+      "code": "self-doc:missing",
+      "level": "error",
+      "means": "the record names no standard, the bare unversioned URL (written before versions), or another kind's; or its body has no generated \"What this file is\" note",
+      "fix": "superobjective stamp self/calling/superobjectives --apply"
+    },
+    {
+      "code": "self-doc:version",
+      "level": "error",
+      "means": "the record names a version of the superobjective standard that the installed package does not implement (from the future, or retired without a migration)",
+      "fix": "install a version of @supersuit/superobjective that implements it; a record is never downgraded"
+    },
+    {
+      "code": "id:folder",
+      "level": "error",
+      "means": "the id is not kebab-case, is not the folder name, supersedes itself, or reuses another record's id (retired included)",
+      "fix": "name the folder after the id; a new superobjective takes a new id"
+    },
+    {
+      "code": "date:missing",
+      "level": "error",
+      "means": "by, set or a sign's by is absent or not an exact YYYY-MM-DD",
+      "fix": "write the exact date as YYYY-MM-DD"
+    },
+    {
+      "code": "date:relative",
+      "level": "error",
+      "means": "the statement uses relative time (\"next October\", \"within twelve months\", \"a year from now\")",
+      "fix": "superobjective reword with the exact date written into the sentence"
+    },
+    {
+      "code": "date:mismatch",
+      "level": "error",
+      "means": "the date in the statement is not the header's by, or the statement names no date",
+      "fix": "make the sentence's date and by the same date, through reword, raise or lower"
+    },
+    {
+      "code": "date:horizon",
+      "level": "warn",
+      "means": "by is under 183 or over 548 days from set",
+      "fix": "check the date is about a year out; six to eighteen months is accepted"
+    },
+    {
+      "code": "statement:body",
+      "level": "error",
+      "means": "the body's bold statement line is missing or differs from the header statement",
+      "fix": "restore the bold line, or change the statement through reword, which keeps both in step"
+    },
+    {
+      "code": "rank:cap",
+      "level": "error",
+      "means": "more than three active personal superobjectives for one owner, or more than three active company ones for one organization",
+      "fix": "close, retire or lower one into a recurrent before setting another"
+    },
+    {
+      "code": "rank:gap",
+      "level": "error",
+      "means": "the active ranks in a group are not exactly 1..n",
+      "fix": "superobjective rerank with every active id once"
+    },
+    {
+      "code": "signs:count",
+      "level": "error",
+      "means": "an active superobjective has fewer than three or more than seven signs",
+      "fix": "superobjective add-sign, or lower to drop one"
+    },
+    {
+      "code": "signs:id",
+      "level": "error",
+      "means": "a sign has no kebab-case id, a repeated id, no text, or a state outside open, met, missed",
+      "fix": "give each sign a unique kebab-case id, text and a state of open, met or missed"
+    },
+    {
+      "code": "signs:vague",
+      "level": "warn",
+      "means": "a sign has no number, date, named thing or yes/no event",
+      "fix": "reword the sign so an observation could show it was not met"
+    },
+    {
+      "code": "ratchet:json",
+      "level": "error",
+      "means": "a line of ratchet.jsonl or calibrations.jsonl is not a JSON object",
+      "fix": "repair the line; the logs are append-only, one JSON object per line"
+    },
+    {
+      "code": "ratchet:silent",
+      "level": "error",
+      "means": "no ratchet line records the state, or the header's statement, by, rank, status or signs differ from the last after",
+      "fix": "make the change through a superobjective writer (raise, reword, lower, add-sign, meet-sign, close, retire, visibility), which records it"
+    },
+    {
+      "code": "ratchet:lowered",
+      "level": "error",
+      "means": "by moved later or a sign was removed without a lower; or a lower has no why, or was made by someone who is not an owner",
+      "fix": "superobjective lower --who <owner> --why \"<their words>\""
+    },
+    {
+      "code": "visibility:personal",
+      "level": "error",
+      "means": "a personal superobjective is public with no visibility line from its owner saying why",
+      "fix": "superobjective visibility <home> <id> public --who <owner> --why \"<their words>\", or set it back to private"
+    },
+    {
+      "code": "past:open",
+      "level": "error",
+      "means": "by has passed and status is still active",
+      "fix": "superobjective close --achieved or --missed"
+    },
+    {
+      "code": "serves:shape",
+      "level": "error",
+      "means": "a superproject's serves is not <personal|company>/<id>#<sign>",
+      "fix": "write serves as <root>/<id>#<sign>"
+    },
+    {
+      "code": "serves:dangling",
+      "level": "error",
+      "means": "serves names no active superobjective, or no such sign on it",
+      "fix": "point serves at an active superobjective and one of its signs"
+    },
+    {
+      "code": "serves:root",
+      "level": "error",
+      "means": "a company superproject serves a personal superobjective",
+      "fix": "a company superproject serves only a company superobjective"
+    }
+  ],
+  "umbrella": "npx -y @supersuit/hypercontext check <workspace>"
+}

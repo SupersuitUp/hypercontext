@@ -16,7 +16,7 @@ Three rules do most of the work:
 
 - **An exact date, never a season.** "Within twelve months" and "by next October" are refused; the date is written into the sentence and must equal `by`.
 - **Nothing changes silently.** Every write appends a ratchet line holding the new state, and `lint` reports any header that differs from it.
-- **Every file explains itself.** A `standard:` URL in the header and a generated "What this file is" note in the body, so a stranger or a fresh agent can read any record cold; lint refuses one without them.
+- **Every file explains itself.** A versioned `standard:` URL in the header (`https://hypercontext.wiki/standards/superobjective/v1`) and a generated "What this file is" note in the body, so a stranger or a fresh agent can read any record cold; lint refuses one without them, and `stamp` upgrades a record written before versions.
 - **Never lowered quietly.** Only `lower` may move the date later or drop a sign, and only with an owner's name and their own words.
 
 ## Use
@@ -36,6 +36,7 @@ superobjective show [<home>] [--id <id>] [--json]
 superobjective pace [<home>] [--id <id>] [--record] [--note "<text>"] [--json]
 superobjective add <home> --id <id> --statement "<sentence with its date>" (--owner <id> | --root company --owners a,b --organization "<name>") [--sign "<text>"]...
 superobjective add-sign | meet-sign | raise | reword | lower | rerank | close | retire | visibility ...
+superobjective stamp [<home>...] [--apply] [--json]
 superobjective migrate <legacy-file> --to <home> [--id <id> | --ids a,b] [--owner <id>] [--dry-run]
 ```
 
@@ -65,6 +66,10 @@ garden-book-in-print  ahead  1/3 signs met, 5% of the time gone, 320 days left
 **Exit codes:** 0 clean or written; 1 lint errors, a refusal, nothing to show, or a superobjective behind pace; 2 usage. Warnings alone exit 0.
 
 **lint** runs every gate in [the table](docs/FORMAT.md#3-validation): dates, ids, ranks and caps, signs, the ratchet log, visibility, and (with `--superprojects`) every superproject's `serves: <root>/<id>#<sign>`. Each finding is one line: `error  date:relative  kits-in-every-store  "Within twelve months" is relative time; write the exact date into the statement`.
+
+**stamp** writes the versioned standard into records that name the bare URL (written before versions) or none, and refreshes their "What this file is" note. A dry run unless `--apply`; nothing else in the file changes, no ratchet line is written, and a second run changes nothing.
+
+**The manifest.** [`standards/superobjective/v1.json`](standards/superobjective/v1.json) is the standard as data: the URL, the header's required keys and constraints, the validator commands, and every lint code with its level, meaning and fix. It ships in the package (`import { MANIFEST } from '@supersuit/superobjective'`) and is published unchanged at `https://hypercontext.wiki/standards/superobjective/v1.json`; a test proves its codes are exactly `CODES`. See [docs/FORMAT.md section 7](docs/FORMAT.md#7-the-manifest).
 
 **migrate** reads the two shapes that came before this package (a company's single `SUPEROBJECTIVE.md`, and a person's ranked `## Superobjective <n>` file) and writes folders. Every quote, sign and ratchet row is kept verbatim; the legacy file is left untouched; nothing is reworded.
 

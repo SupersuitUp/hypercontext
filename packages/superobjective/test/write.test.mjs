@@ -19,7 +19,7 @@ test('set writes the folder, the header, the body, the first ratchet line and an
   const d = headerOf(dir);
   assert.equal(d.kind, 'superobjective');
   assert.equal(d.superobjective_version, '1');
-  assert.equal(d.standard, 'https://hypercontext.wiki/standards/superobjective');
+  assert.equal(d.standard, 'https://hypercontext.wiki/standards/superobjective/v1');
   assert.deepEqual([d.id, d.root, d.owner, d.rank, d.by, d.status, d.visibility, d.keep], [GARDEN, 'personal', 'maya', '1', '2027-10-18', 'active', 'private', 'keep']);
   assert.deepEqual(d.audacity, { first_answer: 'Finally start the book.', pushed: 'true', accepted: SET_DAY });
   for (const k of ['summary', 'read_when', 'as_of', 'keep']) assert.ok(d[k], k);
@@ -28,7 +28,7 @@ test('set writes the folder, the header, the body, the first ratchet line and an
   assert.match(body, /Finally start the book/);
   // self-documenting: the note sits right under the statement and names the standard, the log and the way to change it
   assert.match(body, /\*\*\n\n## What this file is\n\n<!-- superobjective:about -->\nThis is a \*\*superobjective\*\*/);
-  for (const needle of ['https://hypercontext.wiki/standards/superobjective', 'ratchet.jsonl', 'calibrations.jsonl', 'npx @supersuit/superobjective', 'barely believe']) assert.ok(body.includes(needle), needle);
+  for (const needle of ['https://hypercontext.wiki/standards/superobjective/v1', 'ratchet.jsonl', 'calibrations.jsonl', 'npx @supersuit/superobjective', 'barely believe']) assert.ok(body.includes(needle), needle);
   assert.match(body, /2\. A publisher has signed the book\. \*\(by 2027-03-01\)\*/);
   const [line] = readRecord(dir).ratchet;
   assert.equal(line.change, 'set');

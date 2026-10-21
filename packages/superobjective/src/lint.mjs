@@ -1,6 +1,6 @@
 // The gates: every deterministic check on a superobjective, each a coded finding. A judge (is it
 // audacious? is it theirs?) is never here; those live in the superskill, which reads people.
-import { STANDARD, VERSION, ROOTS, STATUSES, VISIBILITIES, SIGN_STATES, CAP, SIGNS, SLUG, signsOf, ownersOf, groupOf, snapshot, text, isMap } from './record.mjs';
+import { STANDARD, STANDARD_LATEST, IMPLEMENTED, standardOf, VERSION, ROOTS, STATUSES, VISIBILITIES, SIGN_STATES, CAP, SIGNS, SLUG, signsOf, ownersOf, groupOf, snapshot, text, isMap } from './record.mjs';
 import { relativePhrase, datesIn, isDate, daysBetween, HORIZON } from './date.mjs';
 import { statementInBody, hasAbout } from './render.mjs';
 import { listRecords } from './read.mjs';
@@ -8,7 +8,7 @@ import { resolveServes } from './serves.mjs';
 
 /** Every code lint can report, with its level. */
 export const CODES = Object.freeze({
-  'header:missing': 'error', 'header:value': 'error', 'self-doc:missing': 'error',
+  'header:missing': 'error', 'header:value': 'error', 'self-doc:missing': 'error', 'self-doc:version': 'error',
   'id:folder': 'error',
   'date:missing': 'error', 'date:relative': 'error', 'date:mismatch': 'error', 'date:horizon': 'warn',
   'statement:body': 'error',
@@ -53,7 +53,10 @@ export function checkRecord(rec, { today } = {}) {
   }
   if (d.superobjective_version !== VERSION) add('header:value', `superobjective_version is "${d.superobjective_version ?? ''}"; this standard is "${VERSION}"`);
   // Self-documenting: a stranger or a fresh agent can read the file with no other context.
-  if (d.standard !== STANDARD) add('self-doc:missing', `standard must be ${STANDARD}, so the file names the rules it follows`);
+  const std = standardOf(d.standard);
+  if (std.state === 'unversioned') add('self-doc:missing', `standard is ${STANDARD_LATEST}, which predates versions; any write through the package upgrades it to ${STANDARD}, or run superobjective stamp --apply`);
+  else if (std.state === 'unimplemented') add('self-doc:version', `standard names v${std.version} of the superobjective standard; this package implements ${IMPLEMENTED.map((n) => `v${n}`).join(', ')} only`);
+  else if (std.state !== 'current' && std.state !== 'implemented') add('self-doc:missing', `standard must be ${STANDARD}, so the file names the rules it follows; superobjective stamp --apply writes it`);
   if (!hasAbout(rec.body)) add('self-doc:missing', 'the body has no generated "What this file is" note; any write through the package adds it');
   if (!ROOTS.includes(d.root)) add('header:value', `root "${d.root ?? ''}" must be one of ${ROOTS.join(', ')}`);
   if (!STATUSES.includes(d.status)) add('header:value', `status "${d.status ?? ''}" must be one of ${STATUSES.join(', ')}`);

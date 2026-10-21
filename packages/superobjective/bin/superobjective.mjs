@@ -4,7 +4,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { lint, listRecords, ranked, pace, readSuperprojects, migrate, today as localToday, isDate, daysBetween,
-  set, raise, reword, lower, addSign, meetSign, rerank, close, retire, setVisibility, calibrate, Refusal } from '../src/index.mjs';
+  set, raise, reword, lower, addSign, meetSign, rerank, close, retire, setVisibility, calibrate, stamp, STANDARD, Refusal } from '../src/index.mjs';
 
 const HELP = `superobjective: one exact-dated sentence a year out, its signs, and every change to it
 
@@ -29,6 +29,10 @@ Usage:
   superobjective close <home> <id> --achieved|--missed --why "<text>"
   superobjective retire <home> <id> --why "<text>"
   superobjective visibility <home> <id> private|members|public --why "<text>" [--who <owner>]
+  superobjective stamp [<home>...] [--apply] [--json]
+      Write the versioned standard into records written before versions (or with none) and refresh
+      their "What this file is" note. A dry run unless --apply; nothing else in the file changes, and a
+      second run changes nothing. Exit 1 when a record names a version this package does not implement.
   superobjective migrate <legacy-file> --to <home> [--id <id> | --ids <a,b,c>] [--owner <id>] [--dry-run] [--json]
   superobjective --help | --version
 
@@ -40,7 +44,7 @@ two when no home is named.
 Exit codes: 0 clean or written, 1 findings, a refusal, or behind pace, 2 usage.
 `;
 
-const FLAGS = new Set(['json', 'help', 'version', 'achieved', 'missed', 'record', 'dry-run']);
+const FLAGS = new Set(['json', 'help', 'version', 'achieved', 'missed', 'record', 'dry-run', 'apply']);
 const REPEAT = new Set(['sign', 'drop-sign']);
 const OPTIONS = new Set(['id', 'ids', 'statement', 'by', 'why', 'who', 'today', 'root', 'owner', 'owners', 'organization', 'words', 'number',
   'first-answer', 'visibility', 'area', 'supersedes', 'text', 'sign-id', 'order', 'superprojects', 'superprojects-root', 'note', 'to', 'title', ...REPEAT]);
@@ -173,6 +177,17 @@ const commands = {
   },
   retire([h, id], opt) { return wrote(opt, 'retired', retire(home(h), need(id, '<id>'), { why: opt.why, who: opt.who, today: opt.today })); },
   visibility([h, id, v], opt) { return wrote(opt, `made ${v}`, setVisibility(home(h), need(id, '<id>'), { visibility: need(v, 'private|members|public'), why: opt.why, who: opt.who, today: opt.today })); },
+
+  stamp(pos, opt) {
+    const r = stamp(homes(pos), { apply: Boolean(opt.apply) });
+    const status = r.skipped.length ? 1 : 0;
+    if (opt.json) { json(r); return status; }
+    for (const c of r.changed) print(`${r.applied ? 'stamped' : 'would stamp'} ${c.id}: ${c.from ?? '(no standard)'} -> ${r.standard}`);
+    for (const s of r.skipped) print(`skipped ${s.id} (${s.code}): ${s.message}`);
+    if (!r.changed.length && !r.skipped.length) print(`nothing to stamp: ${plural(r.unchanged, 'superobjective')} already names ${STANDARD}`);
+    else if (r.changed.length && !r.applied) print('a dry run: nothing written; run again with --apply');
+    return status;
+  },
 
   migrate([file], opt) {
     need(file, '<legacy-file>');

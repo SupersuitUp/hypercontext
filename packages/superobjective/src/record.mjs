@@ -1,7 +1,31 @@
 // The vocabulary of the standard, and the pure helpers every other module shares.
 // Every header value reads as a string (see header.mjs); this module decides what it means.
 
-export const STANDARD = 'https://hypercontext.wiki/standards/superobjective';
+/**
+ * The standard's latest page, which lists every version. A record never names it: a record names the
+ * version it was written to, because a version's meaning never changes once published.
+ */
+export const STANDARD_LATEST = 'https://hypercontext.wiki/standards/superobjective';
+/** The versions of the standard this package implements. */
+export const IMPLEMENTED = Object.freeze([1]);
+/** The version every writer stamps: the newest one implemented. */
+export const STANDARD = `${STANDARD_LATEST}/v${IMPLEMENTED.at(-1)}`;
+
+/**
+ * What a record's `standard:` names, relative to this package:
+ * `current` (this version), `implemented` (an older version still read), `unversioned` (the bare URL,
+ * written before versions existed), `unimplemented` (a /v<N> this package does not implement),
+ * `other` (another kind's standard, or anything else) or `missing`.
+ */
+export function standardOf(value) {
+  const v = typeof value === 'string' ? value.trim() : '';
+  if (!v) return { state: 'missing', version: null };
+  if (v === STANDARD) return { state: 'current', version: IMPLEMENTED.at(-1) };
+  if (v === STANDARD_LATEST || v === `${STANDARD_LATEST}/`) return { state: 'unversioned', version: null };
+  const m = v.startsWith(`${STANDARD_LATEST}/v`) ? /^\/v(\d+)$/.exec(v.slice(STANDARD_LATEST.length)) : null;
+  if (m) return { state: IMPLEMENTED.includes(Number(m[1])) ? 'implemented' : 'unimplemented', version: Number(m[1]) };
+  return { state: 'other', version: null };
+}
 export const VERSION = '1';
 export const FILE = 'superobjective.md';
 export const RATCHET = 'ratchet.jsonl';

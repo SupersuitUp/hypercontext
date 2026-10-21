@@ -1,6 +1,6 @@
 # The superobjective format
 
-Version "1" of the standard (`superobjective_version: "1"`). This page is the reference; the README is the tour. Where this page and the code disagree, this page is the intent and the code has a bug.
+Version 1 of the standard, <https://hypercontext.wiki/standards/superobjective/v1> (`superobjective_version: "1"`). Its machine-readable twin is [`standards/superobjective/v1.json`](../standards/superobjective/v1.json) (section 7). This page is the reference; the README is the tour. Where this page and the code disagree, this page is the intent and the code has a bug.
 
 ## 1. What a superobjective is
 
@@ -60,7 +60,7 @@ A record may sit at any depth under its home (for example `retired/<id>/`). Fold
 ```yaml
 kind: superobjective
 superobjective_version: "1"
-standard: "https://hypercontext.wiki/standards/superobjective"
+standard: "https://hypercontext.wiki/standards/superobjective/v1"
 id: garden-book-in-print
 root: personal
 owner: maya
@@ -88,7 +88,7 @@ keep: keep
 |---|---|---|
 | `kind` | yes | the literal `superobjective` |
 | `superobjective_version` | yes | `"1"` |
-| `standard` | yes | `https://hypercontext.wiki/standards/superobjective` |
+| `standard` | yes | `https://hypercontext.wiki/standards/superobjective/v1`: the version of the standard the record was written to, never the bare unversioned URL |
 | `id` | yes | kebab-case, equals the folder name, never reused, never the rank |
 | `root` | yes | `personal` or `company` |
 | `owner` | personal | the owner's id |
@@ -136,6 +136,14 @@ The four region names are `about`, `signs`, `calibration`, `ratchet`. A region m
 ### Self-documenting
 
 **Every superobjective explains itself to a stranger or a fresh agent with no other context**, the way every hypercontext record does. Two things carry that, and lint refuses a record without either (`self-doc:missing`): the `standard:` URL in the header, which names the rules the file follows, and the "What this file is" note in the body. Every write through the package re-renders the note, so an old record gains it on its next write and a migrated one has it from the start.
+
+**The link names the version.** `https://hypercontext.wiki/standards/superobjective/v1` is version 1, and its meaning never changes once published; a correction that changes what a valid record is becomes `v2`. The bare `https://hypercontext.wiki/standards/superobjective` is the latest page, which lists every version, and a record never names it. A record that does was written before versions existed: lint reports it as `self-doc:missing`, every write through the package upgrades it, and `superobjective stamp --apply` upgrades a whole home at once. A record naming a version this package does not implement (`/v2` and later) is `self-doc:version`, and is never downgraded.
+
+```
+superobjective stamp [<home>...] [--apply] [--json]
+```
+
+`stamp` is a dry run unless `--apply`. It writes `standard:` (inserting it when absent) and re-renders the "What this file is" note through the package's own write path, so every other byte stays put: unknown header keys, a person's prose, the three data regions. It is not a change to the superobjective, so it appends no ratchet line. A second run changes nothing. It exits 1 when a record names a version it does not implement.
 
 ### ratchet.jsonl
 
@@ -200,7 +208,8 @@ The package ships the gates: deterministic checks, each a coded finding. Judges 
 |---|---|---|
 | `header:missing` | error | no YAML header, or `kind` is not `superobjective` |
 | `header:value` | error | version, root, status or visibility outside the standard, or statement or owner(s) missing |
-| `self-doc:missing` | error | `standard:` is missing or names another standard, or the body has no generated "What this file is" note |
+| `self-doc:missing` | error | `standard:` is missing, names the bare unversioned URL (written before versions; `stamp` upgrades it), or names another kind's standard; or the body has no generated "What this file is" note |
+| `self-doc:version` | error | `standard:` names a version of this standard the package does not implement (only `v1`) |
 | `id:folder` | error | `id` is not kebab-case, is not the folder name, supersedes itself, or reuses another record's id (retired included) |
 | `date:missing` | error | `by`, `set` or a sign's `by` absent or not an exact `YYYY-MM-DD` |
 | `date:relative` | error | the statement uses relative time ("next October", "within twelve months", "this year", "by next fall", "a year from now") |
@@ -247,3 +256,11 @@ serves: "personal/garden-book-in-print#proof-in-hand"
 ```
 
 `<root>/<id>#<sign>`, all three parts required. A superproject may list several. The superobjective never lists its superprojects. `readSuperprojects(dir)` reads `serves` and `root` from every `SUPERPROJECT.md` (or legacy `PROJECT.md`) under a folder; a superproject with no `root` takes the root given by the caller.
+
+## 7. The manifest
+
+Beside each version of the standard is its machine-readable twin. This package owns it: [`standards/superobjective/v1.json`](../standards/superobjective/v1.json) ships in the tarball, is exported as `MANIFEST` (and as `@supersuit/superobjective/standards/superobjective/v1.json`), and is published unchanged at `https://hypercontext.wiki/standards/superobjective/v1.json`.
+
+It says, as data, what a reader needs to check a record without installing anything: the `standard` URL, the header's required keys and their constraints (`const` for `kind`, `superobjective_version` and `standard`; `enum` for `root`, `status`, `visibility` and `keep`; `pattern` for `id` and the dates), the validator (`@supersuit/superobjective`, implementing this version since `0.1.0`, its `lint ... --json` check and its `stamp ... --apply` backfill), and every code lint can report, with its level, what it means and how to fix it.
+
+A test in this package proves the manifest says what the package enforces: its `standard` is `STANDARD`, its header enums are the package's own lists, and its codes and levels are exactly `CODES`. A new code, a changed level, or a new version cannot ship without the manifest moving with it.
