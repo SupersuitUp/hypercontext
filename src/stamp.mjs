@@ -9,7 +9,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { KINDS } from './kinds.mjs';
+import { KINDS, bareStandard } from './kinds.mjs';
 import { findRecords, superprojectRoots, fsDefault } from './find.mjs';
 import { judge, acceptedFor, standardOf, stampStandard } from './selfdoc.mjs';
 import { resolvePackage, packageVersion } from './packages.mjs';
@@ -84,7 +84,7 @@ export async function stamp(workspace, { kinds, apply = false, packagesDir, fs =
     let changed = 0; const reasons = {};
     for (const rel of missing) {
       const p = join(workspace, rel);
-      const r = stampStandard(readFileSync(p, 'utf8'), k.standard);
+      const r = stampStandard(readFileSync(p, 'utf8'), k.standard, bareStandard(k.kind));
       if (r.changed) { changed++; if (apply) writeFileSync(p, r.text); }
       else reasons[r.reason] = (reasons[r.reason] ?? 0) + 1;
     }

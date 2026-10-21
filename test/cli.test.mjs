@@ -54,7 +54,7 @@ test('kinds lists every kind with its standard', () => {
   assert.equal(r.status, 0);
   const rows = JSON.parse(r.stdout);
   assert.ok(rows.length >= 15);
-  for (const x of rows) assert.match(x.standard, /^https:\/\/hypercontext\.wiki\/standards\/[a-z-]+$/);
+  for (const x of rows) assert.match(x.standard, /^https:\/\/hypercontext\.wiki\/standards\/[a-z-]+\/v1$/);
 });
 
 test('a report too big for one pipe write still arrives whole', () => {

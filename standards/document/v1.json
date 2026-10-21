@@ -1,0 +1,77 @@
+{
+  "manifest_version": 1,
+  "standard": "https://hypercontext.wiki/standards/document/v1",
+  "kind": "document",
+  "version": 1,
+  "title": "A document",
+  "status": "current",
+  "superseded_by": null,
+  "latest": "https://hypercontext.wiki/standards/document",
+  "record": {
+    "path": "documents/YYYY-MM-DD-HHMMSS-<slug>.md, or <superproject>/documents/",
+    "format": "md"
+  },
+  "header": {
+    "required": [
+      "standard",
+      "audience"
+    ],
+    "keys": {
+      "standard": {
+        "const": "https://hypercontext.wiki/standards/document/v1"
+      },
+      "kind": {
+        "enum": [
+          "brief",
+          "spec",
+          "design",
+          "plan",
+          "decision",
+          "draft",
+          "analysis",
+          "transcript",
+          "other"
+        ]
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "active",
+          "approved",
+          "final",
+          "shipped",
+          "superseded"
+        ]
+      },
+      "audience": {
+        "type": "string"
+      },
+      "created": {
+        "type": "date"
+      }
+    }
+  },
+  "validator": null,
+  "checked_by": {
+    "package": "@supersuit/hypercontext",
+    "implements_since": "0.1.0",
+    "check": "npx -y @supersuit/hypercontext@^0.1.0 check . --kind document --json",
+    "backfill": "npx -y @supersuit/hypercontext@^0.1.0 stamp . --kind document --apply",
+    "note": "No package checks this shape yet; only the shared property (the record names this standard) is checked."
+  },
+  "codes": [
+    {
+      "code": "self-doc:missing",
+      "level": "error",
+      "means": "the record names no standard, the unversioned URL written before versions, or another kind's standard",
+      "fix": "npx -y @supersuit/hypercontext@^0.1.0 stamp . --kind document --apply"
+    },
+    {
+      "code": "self-doc:version",
+      "level": "error",
+      "means": "the record names a version of this standard that the checker here does not implement",
+      "fix": "upgrade @supersuit/hypercontext, or rewrite the record to a version it implements"
+    }
+  ],
+  "umbrella": "npx -y @supersuit/hypercontext check <workspace>"
+}

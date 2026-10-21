@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { judge, stampStandard, standardOf } from '../src/selfdoc.mjs';
 import { byKind } from '../src/kinds.mjs';
-import { md, STD } from './helpers.mjs';
+import { md, STD, BARE } from './helpers.mjs';
 
 const friend = byKind('friend');
 
@@ -15,7 +15,7 @@ test('a record naming its standard is self-documenting', () => {
 test('a record naming no standard is not, and says which it should name', () => {
   const v = judge(md('kind: friend\nid: jo'), friend);
   assert.equal(v.selfDocumenting, false);
-  assert.match(v.problem, /^names no standard; it should carry standard: https:\/\/hypercontext\.wiki\/standards\/friend$/);
+  assert.match(v.problem, /^names no standard; it should carry standard: https:\/\/hypercontext\.wiki\/standards\/friend\/v1$/);
 });
 
 test('a record naming another kind\'s standard is not', () => {
@@ -89,4 +89,37 @@ test('stamp fills an empty standard key in place', () => {
   assert.equal(r.changed, true);
   assert.equal(standardOf(r.text).standard, STD('friend'));
   assert.equal((r.text.match(/standard:/g) ?? []).length, 1);
+});
+
+test('the unversioned link written before versions is refused, and says stamp upgrades it', () => {
+  const v = judge(md(`kind: friend\nstandard: ${BARE('friend')}`), friend);
+  assert.equal(v.selfDocumenting, false);
+  assert.equal(v.code, 'self-doc:missing');
+  assert.match(v.problem, /predates versions/);
+});
+
+test('a version the validator does not implement is its own code', () => {
+  const v = judge(md(`kind: friend\nstandard: ${STD('friend', 2)}`), friend);
+  assert.equal(v.code, 'self-doc:version');
+  assert.equal(judge(md(`kind: friend\nstandard: ${STD('friend', 2)}`), friend, { versions: [1, 2] }).selfDocumenting, true);
+});
+
+test('a URL that only looks like a version is another standard', () => {
+  assert.equal(judge(md(`kind: friend\nstandard: ${BARE('friend')}/v1x`), friend).code, 'self-doc:missing');
+  assert.equal(judge(md(`kind: friend\nstandard: ${BARE('friends')}/v1`), friend).code, 'self-doc:missing');
+});
+
+test('stamp upgrades its own kind\'s unversioned link in place', () => {
+  const src = `---\r\nkind: friend\r\nstandard: ${BARE('friend')}\r\nid: jo\r\n---\r\n`;
+  const r = stampStandard(src, STD('friend'), BARE('friend'));
+  assert.equal(r.changed, true);
+  assert.equal(r.text, `---\r\nkind: friend\r\nstandard: "${STD('friend')}"\r\nid: jo\r\n---\r\n`);
+  assert.equal(stampStandard(r.text, STD('friend'), BARE('friend')).changed, false);
+});
+
+test('stamp never rewrites another kind\'s link or another version', () => {
+  for (const other of [BARE('group'), STD('friend', 2)]) {
+    const src = md(`kind: friend\nstandard: ${other}`);
+    assert.equal(stampStandard(src, STD('friend'), BARE('friend')).text, src);
+  }
 });

@@ -3,7 +3,8 @@ import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 
-export const STD = (k) => `https://hypercontext.wiki/standards/${k}`;
+export const STD = (k, v = 1) => `https://hypercontext.wiki/standards/${k}/v${v}`;
+export const BARE = (k) => `https://hypercontext.wiki/standards/${k}`;
 
 export function tree(files) {
   const root = mkdtempSync(join(tmpdir(), 'hypercontext-'));
@@ -48,8 +49,12 @@ export function mayaWorkspace(extra = {}) {
 // arguments to `log` and prints `{}`).
 export function stubPackages(specs) {
   const root = mkdtempSync(join(tmpdir(), 'hypercontext-pkgs-'));
-  for (const [repo, { name, bin, json, log, exit = 0 }] of Object.entries(specs)) {
+  for (const [repo, { name, bin, json, log, exit = 0, manifests = {} }] of Object.entries(specs)) {
     mkdirSync(join(root, repo, dirname(bin)), { recursive: true });
+    for (const [rel, body] of Object.entries(manifests)) {
+      mkdirSync(join(root, repo, dirname(rel)), { recursive: true });
+      writeFileSync(join(root, repo, rel), JSON.stringify(body));
+    }
     writeFileSync(join(root, repo, 'package.json'), JSON.stringify({ name, version: '9.9.9' }));
     const script = [
       "import { appendFileSync } from 'node:fs';",

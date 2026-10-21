@@ -11,12 +11,14 @@ A hypercontext workspace keeps a life or a company as plain files: a person in `
 ```yaml
 ---
 kind: friend
-standard: "https://hypercontext.wiki/standards/friend"
+standard: "https://hypercontext.wiki/standards/friend/v1"
 id: maya-lin
 ...
 ```
 
-A record without it is not self-documenting however complete the rest of it is, because the reader cannot tell which rules it is supposed to keep. This package refuses it as `self-doc:missing`. The shared context keys (`id`, `summary`, `read_when`, `as_of`, `keep`) are counted beside it and reported per kind; whether an empty one is a defect is each kind's own package's call.
+The link names a **version**. The page at `/v1` never changes meaning, so the record says which rules it was written to; `/standards/friend` is the latest page, for people. A record without the line, or with the unversioned link written before versions, is not self-documenting however complete the rest of it is: refused as `self-doc:missing`. A version of its own standard that the installed checker does not implement is `self-doc:version`.
+
+Every version also has a **manifest**, `/standards/<kind>/v<N>.json`: the same rules as data (required header keys, every code its checker can report with what it means and how to fix it, the exact commands), so an agent can validate a record with nothing installed. The package that owns a kind ships its manifest, and a test there proves the manifest names exactly the codes its lint reports. [docs/STANDARDS.md](docs/STANDARDS.md) is the format. The shared context keys (`id`, `summary`, `read_when`, `as_of`, `keep`) are counted beside it and reported per kind; whether an empty one is a defect is each kind's own package's call.
 
 This package defines no record type. A kind's shape belongs to its package. The list below only says where each kind lives and whom to ask.
 
@@ -31,15 +33,21 @@ This package defines no record type. A kind's shape belongs to its package. The 
 | conversation | /standards/conversation | @supersuit/transcript-md |
 | document, checkpoint, hdsop, workflow-catalog, recurrent, tile-app | /standards/<kind> | no package yet: the shared property only, and a warning saying so |
 
-Every standard lives at `https://hypercontext.wiki/standards/<kind>`. `hypercontext kinds` prints the list.
+Every standard lives at `https://hypercontext.wiki/standards/<kind>/v<N>`. `hypercontext kinds` prints the list.
 
 ## Use
 
 ```sh
 npx @supersuit/hypercontext check .          # every kind, one row each; exit 1 on any error
 npx @supersuit/hypercontext stamp .          # what the backfill would add (dry run)
-npx @supersuit/hypercontext stamp . --apply  # add the missing standard: to existing records
+npx @supersuit/hypercontext stamp . --apply  # add the missing standard: to existing records, or upgrade an unversioned one
+npx @supersuit/hypercontext check . --online # also prove every standard the records name opens, onto its owner's manifest
+npx @supersuit/hypercontext manifests --out static/standards   # every kind's manifest, copied from its owner, for a site to publish
 ```
+
+### Airtight, both ways
+
+`check --online` fetches every distinct standard the workspace's records name. A page that does not answer is `standard:unreachable`; a page whose `.json` manifest differs from the one the installed owner ships is `standard:drift`. So every link a record carries opens, onto the rules the checker actually enforced.
 
 ```
 kind               records  names standard  context  validated by
@@ -51,7 +59,7 @@ document               663         472/663  663/663  none: no package checks thi
 
 ### The backfill goes through each kind's own package
 
-`stamp` never writes a packaged kind's records itself. It runs the backfill that kind's package ships (`friend-md stamp`, `group-md migrate`, `superprojects migrate --stamp-standard`, `self-md stamp-standard`, `transcript-md stamp-standard`, piece-md's `stampStandard`), because the package knows its own key order and everything else its writers keep. A kind with no package is stamped here, by one byte-preserving edit: the line goes directly after `kind:` (or first), and every other byte of the file, line endings included, is unchanged. A file with no header is never given one; it is reported, because a record with no header needs writing, not stamping. A file that already names a standard, right or wrong, is left alone and the wrong one is reported.
+`stamp` never writes a packaged kind's records itself. It runs the backfill that kind's package ships (`friend-md stamp`, `group-md migrate`, `superprojects migrate --stamp-standard`, `self-md stamp-standard`, `transcript-md stamp-standard`, piece-md's `stampStandard`), because the package knows its own key order and everything else its writers keep. A kind with no package is stamped here, by one byte-preserving edit: the line goes directly after `kind:` (or first), or an unversioned link of the same kind is upgraded where it stands, and every other byte of the file, line endings included, is unchanged. A file with no header is never given one; it is reported, because a record with no header needs writing, not stamping. A file that already names a standard, right or wrong, is left alone and the wrong one is reported.
 
 Two kinds are never stamped here, and the report says why: a recurrent (its fields are bold labels in the body, and a header beside them would hold a second "last run" that drifts), and a tile app (the host reads `app.json`).
 

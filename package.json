@@ -6,7 +6,7 @@
   "type": "module",
   "bin": { "hypercontext": "bin/hypercontext.mjs" },
   "exports": { ".": "./src/index.mjs", "./package.json": "./package.json" },
-  "files": ["bin/", "src/", "docs/", "README.md", "CHANGELOG.md", "LICENSE"],
+  "files": ["bin/", "src/", "docs/", "standards/", "README.md", "CHANGELOG.md", "LICENSE"],
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "mutation-check": "node scripts/mutation-check.mjs"

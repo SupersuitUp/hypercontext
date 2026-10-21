@@ -13,13 +13,25 @@
 // same command that would close it.
 
 export const STANDARD_BASE = 'https://hypercontext.wiki/standards/';
-const url = (slug) => `${STANDARD_BASE}${slug}`;
+// A record names one VERSION of its standard (docs/STANDARDS.md): the page at /v<N> never changes
+// meaning, so the link says which rules the record was written to. The bare /standards/<kind>
+// is the latest page, for people; a record carrying it predates versions.
+export const CURRENT_VERSION = 1;
+const url = (slug, v = CURRENT_VERSION) => `${STANDARD_BASE}${slug}/v${v}`;
+export const bareStandard = (kind) => `${STANDARD_BASE}${kind}`;
+/** The version a URL names for a kind: a number, 0 for the bare URL, null for another kind's. */
+export function versionOf(kind, standardUrl) {
+  const s = String(standardUrl ?? '');
+  if (s === bareStandard(kind)) return 0;
+  const m = s.startsWith(`${bareStandard(kind)}/v`) ? s.slice(bareStandard(kind).length + 2).match(/^(\d+)$/) : null;
+  return m ? Number(m[1]) : null;
+}
 
 /**
  * @typedef {object} Kind
  * @property {string} kind       the record kind, as the report names it
  * @property {string} label      what a person calls it
- * @property {string} standard   the page its `standard:` field must name
+ * @property {string} standard   the versioned page its `standard:` field must name
  * @property {'md'|'json'} format where the field lives: a YAML header or a JSON key
  * @property {string[]} context  the shared context keys this kind's standard requires
  * @property {object|null} pkg   the package that checks its shape, or null when none exists

@@ -1,0 +1,58 @@
+{
+  "manifest_version": 1,
+  "standard": "https://hypercontext.wiki/standards/tile-app/v1",
+  "kind": "tile-app",
+  "version": 1,
+  "title": "A tile app",
+  "status": "current",
+  "superseded_by": null,
+  "latest": "https://hypercontext.wiki/standards/tile-app",
+  "record": {
+    "path": "helm/tile-apps/<id>/app.json",
+    "format": "json"
+  },
+  "header": {
+    "required": [
+      "standard",
+      "id",
+      "title"
+    ],
+    "keys": {
+      "standard": {
+        "const": "https://hypercontext.wiki/standards/tile-app/v1"
+      },
+      "id": {
+        "type": "string"
+      },
+      "title": {
+        "type": "string"
+      },
+      "summary": {
+        "type": "string"
+      }
+    }
+  },
+  "validator": null,
+  "checked_by": {
+    "package": "@supersuit/hypercontext",
+    "implements_since": "0.1.0",
+    "check": "npx -y @supersuit/hypercontext@^0.1.0 check . --kind tile-app --json",
+    "backfill": null,
+    "note": "The Helm host reads app.json; the key is added once the host accepts it, so no backfill runs."
+  },
+  "codes": [
+    {
+      "code": "self-doc:missing",
+      "level": "error",
+      "means": "the record names no standard, the unversioned URL written before versions, or another kind's standard",
+      "fix": "npx -y @supersuit/hypercontext@^0.1.0 stamp . --kind tile-app --apply"
+    },
+    {
+      "code": "self-doc:version",
+      "level": "error",
+      "means": "the record names a version of this standard that the checker here does not implement",
+      "fix": "upgrade @supersuit/hypercontext, or rewrite the record to a version it implements"
+    }
+  ],
+  "umbrella": "npx -y @supersuit/hypercontext check <workspace>"
+}

@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 import { resolve, join } from 'node:path';
 import { readFileSync } from 'node:fs';
-import { check, stamp, KINDS, readBaseline, applyBaseline, writeBaseline, renderReport, renderStamp } from '../src/index.mjs';
+import { check, stamp, KINDS, readBaseline, applyBaseline, writeBaseline, renderReport, renderStamp, exportManifests } from '../src/index.mjs';
 
 const HELP = `hypercontext: one check over a whole workspace, for every kind of record in it
 
 Usage:
-  hypercontext check [<workspace>] [--baseline <file>] [--kind <k>[,<k>]] [--packages <dir>] [--no-shapes] [--json]
-      Every record names the standard it follows (the hypercontext property), and every kind's
-      own package passes it. One row per kind. Exit 1 on any error, or with --baseline on any
-      error the baseline does not already hold.
+  hypercontext check [<workspace>] [--baseline <file>] [--kind <k>[,<k>]] [--packages <dir>] [--no-shapes] [--online] [--json]
+      Every record names the version of the standard it follows (the hypercontext property), and
+      every kind's own package passes it. One row per kind. --online also proves every standard
+      the records name opens, and that its published manifest is the one its owner ships. Exit 1
+      on any error, or with --baseline on any error the baseline does not already hold.
   hypercontext stamp [<workspace>] [--kind <k>[,<k>]] [--packages <dir>] [--apply] [--json]
       Add the missing standard: to existing records, each kind through its own package's
       backfill. A dry run unless --apply. Never commits.
@@ -17,6 +18,9 @@ Usage:
       Record today's errors as known debt. Without --accept it only ever shrinks.
   hypercontext kinds [--json]
       Every kind, its standard and the package that checks it.
+  hypercontext manifests --out <dir> [--packages <dir>]
+      Copy every kind's manifest from the package that owns it into <dir>/<kind>/v<N>.json, plus
+      <dir>/index.json, for a site to publish unchanged. Exit 1 when an owner is not installed.
   hypercontext --help | --version
 
 <workspace> defaults to the current folder. --packages names a folder of package checkouts,
@@ -28,7 +32,7 @@ const argv = process.argv.slice(2);
 const cmd = argv[0];
 const flag = (n) => argv.includes(n);
 const opt = (n) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : undefined; };
-const valued = new Set(['--baseline', '--kind', '--packages', '--write']);
+const valued = new Set(['--baseline', '--kind', '--packages', '--write', '--out']);
 const positional = argv.slice(1).filter((a, i, all) => !a.startsWith('--') && !valued.has(all[i - 1]));
 const ws = resolve(positional[0] ?? '.');
 const json = flag('--json');
@@ -55,7 +59,7 @@ if (cmd === 'check') {
   let baseline = null;
   try { baseline = readBaseline(baseFile); } catch (e) { usage(`cannot read the baseline ${baseFile}: ${e.message}`); }
   if (baseFile && !baseline) usage(`no baseline at ${baseFile}; write one with hypercontext baseline --write`);
-  const r = applyBaseline(await check(ws, { kinds, packagesDir, shapes: !flag('--no-shapes') }), baseline);
+  const r = applyBaseline(await check(ws, { kinds, packagesDir, shapes: !flag('--no-shapes'), online: flag('--online') }), baseline);
   finish(json ? JSON.stringify(r, null, 2) + '\n' : renderReport(r) + '\n', r.ok ? 0 : 1);
 }
 
@@ -72,5 +76,13 @@ if (cmd === 'baseline') {
   finish(json ? JSON.stringify(w) + '\n' : `baseline: ${w.count} known error(s) written to ${file}; ${w.dropped} fixed since the last one${w.refused ? `; ${w.refused} new error(s) NOT accepted (pass --accept to record them)` : ''}\n`, w.refused ? 1 : 0);
 }
 
+if (cmd === 'manifests') {
+  const out = opt('--out');
+  if (!out) usage('manifests needs --out <dir>');
+  const index = exportManifests(resolve(out), { packagesDir });
+  const missing = index.filter((x) => x.missing);
+  finish(json ? JSON.stringify(index, null, 2) + '\n' : index.map((x) => `${x.kind.padEnd(18)} ${x.missing ? `MISSING: ${x.owner} is not installed` : x.versions.join(' ')}`).join('\n') + '\n', missing.length ? 1 : 0);
+}
+
 // finish() exits only once the output has drained, so nothing below may run after a command.
-if (!['kinds', 'check', 'stamp', 'baseline'].includes(cmd)) usage(`unknown command: ${cmd}`);
+if (!['kinds', 'check', 'stamp', 'baseline', 'manifests'].includes(cmd)) usage(`unknown command: ${cmd}`);
