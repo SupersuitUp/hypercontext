@@ -44,7 +44,34 @@ These commands use the record from the JavaScript example. `transcript-md` is al
 ./node_modules/.bin/transcript-md cite ./records/meeting-transcripts/example-call/transcript.md --turn t-000001 --json
 ```
 
-Commands: `list`, `read`, `validate`, `sources`, `resolve`, `cite`, `seek`, `create`, `annotate`, `revise`, `recover`. Help lists the exact flags. `--capabilities --json` is versioned. Exit codes: 0 success, 1 missing record/no seek candidate, 2 invalid/incomplete, 3 stale pin/lock/collision, 4 privacy refusal. Help and capabilities do no root/config discovery.
+Commands: `list`, `read`, `validate`, `sources`, `resolve`, `cite`, `seek`, `create`, `annotate`, `revise`, `recover`, `stamp-standard`. Help lists the exact flags. `--capabilities --json` is versioned. Exit codes: 0 success, 1 missing record/no seek candidate, 2 invalid/incomplete, 3 stale pin/lock/collision, 4 privacy refusal. Help and capabilities do no root/config discovery.
+
+## Self-documenting
+
+Every transcript.md names the standard it follows, so an agent that has never seen Supersuit can open the file and find its rules:
+
+```yaml
+---
+schema_version: 1
+kind: "conversation"
+standard: "https://hypercontext.wiki/standards/conversation"
+id: "example-call"
+```
+
+`STANDARD` is exported. The schema allows `standard` with that one value. `validateConversation` reports a header without it, or naming any other URL, as `self-doc:missing` at level error, and `transcript-md validate` exits 2 on it. Readers (`read`, `list`, `resolve`, `sources`, `cite`, `seek`, the JavaScript reader and the Python companion) report the diagnostic but keep reading, interpreting and sharing the record exactly as before, because thousands of records predate the rule; refusing them would hide an archive behind a missing line.
+
+Every writer stamps it, directly after `kind`: `createConversation` (whether or not the caller's header carried it), `annotateConversation` and `reviseConversation` (on the record they rewrite, even one that predates the rule), and the shared transaction refuses to emit any record that does not name it. `recoverConversationRevision` replays a journal's recorded bytes exactly, so resuming a revision journaled before 0.2.0 yields what that version wrote; `stamp-standard` then fixes it. A no-op revision writes nothing and so stamps nothing.
+
+Backfill existing records with `stamp-standard`, a dry run unless `--apply` is passed:
+
+```sh
+./node_modules/.bin/transcript-md stamp-standard --workspace ./records --json          # lists, writes nothing, exit 0
+./node_modules/.bin/transcript-md stamp-standard --workspace ./records --apply --json  # writes
+```
+
+It looks only at `<id>/transcript.md` entries, inserts `standard:` after `kind:` (rewriting a wrong URL in place), keeps every other byte, the header line order and CRLF, proves the result by reparsing it, and changes nothing on a second run. It never touches a file with no header (`NO_HEADER`), a header the codec refuses (its diagnostic code, such as `INVALID_JSON_VALUE`), a redirect (`NOT_CONVERSATION`) or a symlink. `--json` prints `{api_version, applied, locked, standard, transcripts, changed:[{id,path}], current:[{id,path}], skipped:[{id,path,reason}]}`. Exit codes: 0 done (skips are listed, not failures), 2 invalid arguments, no workspace for `--apply` (`WORKSPACE_REQUIRED`) or an unreadable journal, 3 another writer holds the lock. `--transcripts-dir` alone is enough for a dry run; `--apply` needs the workspace (given, or the one whose configured transcript folder is that directory) because it holds the mutation lock. `stampStandard(bytes|text)` is the same edit as a pure function, returning the type it was given; `stampPlan` also returns the status and reason.
+
+**Why the backfill is a byte edit rather than a revision, and why that is safe for the hash guards.** No revision operation changes metadata alone, revisions need a `turns-v1` body (most archives are `legacy`), and each journal keeps two full copies of the file. So `--apply` writes the planned bytes with the writers' own atomic rename, under the mutation lock, and only if the file still hashes to what was read. What each stored hash covers decides the rest: protected-turn baselines hash speech, speaker and captures (not the header line); `legacy.raw_header_sha256` covers the retained original header inside `legacy`, which is untouched; body hashes are unchanged. The one hash that covers the whole file is a SHA-256 citation of a version, which resolves from the current file only while its bytes match, otherwise from a journal. Revisions and annotations always change the file after citing it, so their cited versions already live in journals. A record whose current SHA-256 appears in any transcript.md or annotations.md in the transcripts folder is skipped as `CITED_VERSION`, and a record with an incomplete journal as `REVISION_INCOMPLETE`. Callers holding an `expectedSha` for a stamped record get `STALE_PIN` and re-read, as for any write; reversing a revision that was completed before its record was stamped is refused as a third state, as for any later edit.
 
 ## Python companion
 

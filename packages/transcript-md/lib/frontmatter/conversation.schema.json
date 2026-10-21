@@ -29,6 +29,9 @@
     "kind": {
       "const": "conversation"
     },
+    "standard": {
+      "const": "https://hypercontext.wiki/standards/conversation"
+    },
     "id": {
       "type": "string",
       "minLength": 1

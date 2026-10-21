@@ -2,6 +2,8 @@
 
 A canonical record is `<record-id>/transcript.md`. Its UTF-8 header has LF `---` delimiters and one top-level snake_case key per line followed by a compact JSON value: valid YAML with exact JSON types. Strict decoding rejects duplicate keys (including nested keys), non-JSON values, prototype keys, malformed delimiters and invalid UTF-8. Body bytes are preserved independently of header serialization.
 
+Every record names its standard: `standard: "https://hypercontext.wiki/standards/conversation"`, directly after `kind`, the only value the schema allows. Writers always emit it; a header without it still reads, and validation reports `self-doc:missing` at level error.
+
 Required header keys: `schema_version`, `kind`, `id`, `title`, `description`, `read_when`, `date`, `start`, `as_of`, `audience`, `keep`, `participants`, `sources`, `connections`, `aliases`, `review`, `body_format`, `legacy`, `extensions`. Schema version is integer1, kind conversation, body_format turns-v1 or legacy. Unknown facts use null/unknown with diagnostics; new records require an explicit audience. The packaged JSON schema and shared validator define exact nested fields. Unknown keys fail except declared extensions.
 
 Ids are stable, portable NFC directory components, with full default Unicode case-fold collision checks. New ids are lowercase kebab case. Participant ids, capture ids and turn ids are separate; person references never follow a label guess. Source Capture locators are bundled, external-local or service references; availability and backup are explicit facts. Bundled paths may not escape their entry or traverse symlinks. Date is a calendar day; instants require an RFC3339 zone. Clock-looking speech is never timing evidence.

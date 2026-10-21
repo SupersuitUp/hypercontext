@@ -3,10 +3,10 @@
 import {readFileSync,readdirSync,lstatSync,realpathSync,existsSync,mkdirSync,openSync,writeFileSync,fsyncSync,closeSync,renameSync,unlinkSync,rmdirSync,chmodSync,constants} from 'node:fs';
 import {resolve,relative,join,dirname,basename,isAbsolute,sep} from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
-import {enclosingWorkspace} from './freedom-workspace.mjs';
+import {enclosingWorkspace,paths} from './freedom-workspace.mjs';
 import {peopleDir,recordPath} from './freedom-people.mjs';
 import {workspaceFile} from './freedom-self.mjs';
-import {parseConversationHeader,serializeConversationHeader,validateConversation} from './frontmatter/conversation.mjs';
+import {parseConversationHeader,serializeConversationHeader,validateConversation,blockingDiagnostics,withStandard,stampPlan,STANDARD,SELF_DOC_MISSING} from './frontmatter/conversation.mjs';
 import {readConversation,parseConversation,listConversationDirectory,indexConversations,canProjectConversation} from './freedom-conversations.mjs';
 import {resolveCitation} from './freedom-conversation-citations.mjs';
 import {conversationIdCollisionKey} from './freedom-conversation-casefold.mjs';
@@ -23,7 +23,9 @@ const stable=v=>JSON.stringify(normalize(v));
 function normalize(v){return Array.isArray(v)?v.map(normalize):object(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,normalize(v[k])])):v;}
 const equal=(a,b)=>stable(a)===stable(b);
 const refuse=(code,extra={})=>{throw Object.assign(new Error(`${code}: Conversation mutation refused.`),{code,...extra});};
-const errors=diagnostics=>diagnostics.filter(d=>d.severity==='error');
+// A pre-image that predates `standard` is still a valid input; every writer stamps its output,
+// and transaction() refuses to emit a record that does not name its standard.
+const errors=blockingDiagnostics;
 const inside=(root,path)=>{const r=relative(root,path);return !isAbsolute(r)&&r!=='..'&&!r.startsWith('..'+sep);};
 const relPath=s=>text(s)&&!isAbsolute(s)&&!/[\\\x00-\x1f\x7f]/.test(s)&&!s.split('/').some(p=>!p||p==='.'||p==='..'||p.startsWith('.'));
 const fileBytes=path=>{try{const s=lstatSync(path);if(s.isSymbolicLink())refuse('SYMLINK_REFUSED');if(!s.isFile())refuse('FILE_REQUIRED');return readFileSync(path);}catch(e){if(e.code==='ENOENT')return null;throw e;}};
@@ -307,6 +309,7 @@ function runJournal(c,j,action,afterOperation){
  j.state=action==='reverse'?'reversed':'complete';saveJournal(j);return result(j,true,action);
 }
 function transaction(c,{id,kind,spec,before,after,writes=[],assets=[],protectionBefore=null,protectionAfter=null,reviewedInput=null,turnIds=[],line=null,proof=[]},afterOperation){
+ if((before===null||!before.equals(after))&&parseConversationHeader(after).header?.standard!==STANDARD)refuse(SELF_DOC_MISSING);
  recheckContext(c);noIncomplete(c);const priorJournals=journals(c);const existing=readJournal(c,id);if(existing)refuse('REVISION_ID_COLLISION');
  const operations=[...writes.map(w=>pinFile(w.path,fileBytes(w.path),w.bytes)),pinFile(c.file,before,after)].filter((o,i,a)=>a.findIndex(p=>p.path===o.path)===i);
  const changedPaths=new Set(operations.map(o=>o.path));
@@ -329,7 +332,7 @@ export function createConversation(options){
  const {root,spec,pid,by}=options;
  if(!exact(spec,['header','body','assets','annotations'])||typeof spec.body!=='string'||spec.annotations!==null&&typeof spec.annotations!=='string')refuse('CREATE_SPEC_INVALID');
  const c0=conversationLockContext(root);const file=join(c0.transcripts,String(spec.header?.id),'transcript.md');
- let bytes=serializeConversationHeader(spec.header,Buffer.from(spec.body));validRecord(bytes,file,true,true);
+ let bytes=serializeConversationHeader(withStandard(spec.header),Buffer.from(spec.body));validRecord(bytes,file,true,true);
  const c=contextForFile(file,root);const pre=validRecord(bytes,file,true,true);let state=protection(pre,c);
  if(state.protected_turns.length){const h=clone(pre.header);h.extensions.conversation_revision=state;bytes=serializeConversationHeader(h,pre.body);validRecord(bytes,file,true,true);}
  if(pre.header.body_format==='turns-v1'){const h=clone(pre.header);if(state.protected_turns.length)h.extensions.conversation_revision=state;bytes=serializeConversationHeader(h,renderGaps(pre));validRecord(bytes,file,true);}
@@ -385,7 +388,7 @@ export function annotateConversation(options){
   // before citation loading, protection initialization or journal creation.
   if(pinned&&digest(old)!==spec.expected_annotations_sha256)refuse('STALE_PIN');
   for(const citation of spec.citations){const resolved=resolveCitation(citation,{readVersion:options.readVersion??defaultVersionLoader(c)});if(errors(resolved.diagnostics).length)refuse(resolved.diagnostics[0].code);}
-  historyProtection(record,c);const state=protection(record,c),h=clone(record.header);h.extensions.conversation_revision=state;if(spec.processing!==null)h.review.processing=spec.processing;
+  historyProtection(record,c);const state=protection(record,c),h=withStandard(clone(record.header));h.extensions.conversation_revision=state;if(spec.processing!==null)h.review.processing=spec.processing;
   const id='annotate-'+hash(Buffer.from(stable({expectedSha,spec}))).slice(0,32),line=logLine(id,spec.log,[],record.header.review,state);
   const body=appendLog(record,line),after=serializeConversationHeader(h,body);validRecord(after,c.file);
   const addition=Buffer.from(`\n## Generated interpretation\n\n${spec.markdown}${spec.markdown.endsWith('\n')?'':'\n'}\n<!-- citations ${stable(spec.citations)} -->\n`);
@@ -413,7 +416,7 @@ function validRevision(spec,expected,h){
 }
 function buildRevision(c,record,spec){
  historyProtection(record,c);const originalState=record.header.extensions.conversation_revision??null;
- const state=protection(record,c),h=clone(record.header),turns=record.turns.map(inputTurn),assets=[],retirements=[],changedIds=new Set(),protectedAffected=new Set();
+ const state=protection(record,c),h=withStandard(clone(record.header)),turns=record.turns.map(inputTurn),assets=[],retirements=[],changedIds=new Set(),protectedAffected=new Set();
  let changed=false,transcription=false,attribution=false,processing=false;
  const protectedOriginal=new Map(state.protected_turns.filter(p=>!p.retired).map(p=>[p.turn_id,p]));
  const touchProtected=()=>{
@@ -542,5 +545,72 @@ export function recoverConversationRevision(options){
   recheckContext(c);const j=readJournal(c,revisionId);if(!j)refuse('NOT_FOUND');noIncomplete(c,revisionId);
   if(j.state==='reversed'&&action==='resume')refuse('STALE_REVISION_RETRY');
   return runJournal(c,j,action,options.afterOperation);
+ });
+}
+
+/** Backfill `standard` into existing records. Dry run unless `apply`. Only immediate
+ * `<id>/transcript.md` entries are considered; flat legacy files have nothing to stamp.
+ * The edit is stampPlan's: one inserted or rewritten header line, every other byte kept.
+ * It is not journaled (it changes no speech, sections, review or protection state), so it
+ * refuses any record whose current bytes another record or annotation cites by SHA-256,
+ * any record with an incomplete journal, and any file that changes between read and rename.
+ * Applying needs a workspace so the mutation lock and journal checks run. */
+export function stampConversationStandards({root,transcriptsDir,apply=false,pid,by}={}){
+ if(root!==undefined&&transcriptsDir!==undefined)refuse('INVALID_ARGUMENTS');
+ let dir,workspace=null;
+ if(root!==undefined){workspace=realpathSync(resolve(root));dir=resolve(paths(workspace).transcripts);}
+ else{
+  if(typeof transcriptsDir!=='string'||!transcriptsDir)refuse('WORKSPACE_REQUIRED');
+  dir=realpathSync(resolve(transcriptsDir));const enclosing=enclosingWorkspace(dir);
+  if(enclosing&&existsSync(paths(enclosing).transcripts)&&realpathSync(paths(enclosing).transcripts)===dir)workspace=enclosing;
+ }
+ if(apply&&!workspace)refuse('WORKSPACE_REQUIRED');
+ const scan=(incomplete=new Set())=>{
+  const report={changed:[],current:[],skipped:[]},planned=[],cited=new Set();
+  if(!existsSync(dir))return {report,planned};
+  noLinks(anchor(dir),dir);
+  for(const id of readdirSync(dir).sort()){
+   if(id.startsWith('.'))continue;
+   const folder=join(dir,id),file=join(folder,'transcript.md');
+   const folderStat=lstatSync(folder);
+   if(folderStat.isSymbolicLink()){report.skipped.push({id,path:folder,reason:'SYMLINK_REFUSED'});continue;}
+   if(!folderStat.isDirectory())continue;
+   for(const name of ['transcript.md','annotations.md']){
+    const path=join(folder,name);let s;try{s=lstatSync(path);}catch{continue;}
+    if(s.isFile())for(const token of readFileSync(path,'latin1').match(/[a-f0-9]{64}/g)??[])cited.add(token);
+   }
+   let s;try{s=lstatSync(file);}catch{continue;}
+   if(s.isSymbolicLink()||!s.isFile()){report.skipped.push({id,path:file,reason:'SYMLINK_REFUSED'});continue;}
+   const before=readFileSync(file),plan=stampPlan(before);
+   if(plan.status==='current'){report.current.push({id,path:file});continue;}
+   if(plan.status!=='stamped'){report.skipped.push({id,path:file,reason:plan.reason});continue;}
+   planned.push({id,path:file,before,after:plan.output,mode:s.mode&0o777});
+  }
+  for(const p of planned){
+   if(cited.has(hash(p.before)))report.skipped.push({id:p.id,path:p.path,reason:'CITED_VERSION'});
+   else if(incomplete.has(p.path))report.skipped.push({id:p.id,path:p.path,reason:'REVISION_INCOMPLETE'});
+   else report.changed.push(p);
+  }
+  return {report,planned};
+ };
+ const finish=(report,applied,locked)=>({applied,locked,standard:STANDARD,transcripts:dir,changed:report.changed.map(({id,path})=>({id,path})),current:report.current,skipped:report.skipped});
+ if(!apply)return finish(scan().report,false,false);
+ return withConversationLock(workspace,{pid,by},()=>{
+  const c=conversationLockContext(workspace);
+  // Read every journal for this repository once; an unreadable one fails the whole run closed.
+  const incomplete=new Set();
+  if(existsSync(c.journalDir)){
+   noLinks(anchor(c.journalDir),c.journalDir);const prefix=hash(c.gitCommonDir??c.transcripts)+'-';
+   for(const name of readdirSync(c.journalDir).filter(n=>n.startsWith(prefix)&&n.endsWith('.json'))){
+    let j;try{j=JSON.parse(fileBytes(join(c.journalDir,name)));}catch{refuse('JOURNAL_INVALID');}
+    if(j?.state!=='complete'&&j?.state!=='reversed')incomplete.add(j?.file);
+   }
+  }
+  const {report}=scan(incomplete),done=[];
+  for(const p of report.changed){
+   try{noLinks(dir,p.path);atomic(p.path,p.after,p.mode,hash(p.before));done.push(p);}
+   catch(e){if(!['RECOVERY_THIRD_STATE','SYMLINK_REFUSED','TARGET_MISMATCH'].includes(e.code))throw e;report.skipped.push({id:p.id,path:p.path,reason:e.code==='RECOVERY_THIRD_STATE'?'STALE_PIN':e.code});}
+  }
+  report.changed=done;return finish(report,true,true);
  });
 }

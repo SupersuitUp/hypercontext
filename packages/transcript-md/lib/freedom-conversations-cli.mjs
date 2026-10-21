@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 // Keep informational commands ahead of imports: even schema/config IO is unnecessary there.
-const commands=['list','read','validate','sources','resolve','cite','seek','create','annotate','revise','recover'];
+const commands=['list','read','validate','sources','resolve','cite','seek','create','annotate','revise','recover','stamp-standard'];
 const args=process.argv.slice(2);
 if(args.length===1&&args[0]==='--help') {
- console.log('Conversation records\n\nlist [--workspace DIR | --transcripts-dir DIR] [--include-sections] [--json]\nread FILE [--workspace DIR] [--include-body] [--json]\nvalidate FILE [--workspace DIR] [--json]\nsources FILE [--workspace DIR] [--json]\nresolve ID [--workspace DIR] [--json]\ncite FILE --turn ID [--turn ID] [--workspace DIR] [--json]\nseek FILE --turn ID [--capture ID] [--workspace DIR] [--json]\ncreate --workspace DIR --spec FILE [--json]\nannotate FILE --spec FILE --expected-sha SHA [--workspace DIR] [--json]\nrevise FILE --spec FILE --expected-sha SHA [--workspace DIR] [--json]\nrecover FILE --revision-id ID --action resume|reverse [--workspace DIR] [--json]\n--capabilities --json');
+ console.log('Conversation records\n\nlist [--workspace DIR | --transcripts-dir DIR] [--include-sections] [--json]\nread FILE [--workspace DIR] [--include-body] [--json]\nvalidate FILE [--workspace DIR] [--json]\nsources FILE [--workspace DIR] [--json]\nresolve ID [--workspace DIR] [--json]\ncite FILE --turn ID [--turn ID] [--workspace DIR] [--json]\nseek FILE --turn ID [--capture ID] [--workspace DIR] [--json]\ncreate --workspace DIR --spec FILE [--json]\nannotate FILE --spec FILE --expected-sha SHA [--workspace DIR] [--json]\nrevise FILE --spec FILE --expected-sha SHA [--workspace DIR] [--json]\nrecover FILE --revision-id ID --action resume|reverse [--workspace DIR] [--json]\nstamp-standard [--workspace DIR | --transcripts-dir DIR] [--apply] [--json]\n--capabilities --json');
 } else if(args.length===2&&args.includes('--capabilities')&&args.includes('--json')) {
  console.log(JSON.stringify({api_version:1,schema_versions:[1],commands,revision:null}));
 } else {
  const json=args.includes('--json');
  const diagnostic=code=>({code,severity:'error',path:null,field:null,message:'Conversation command could not complete; check arguments and record diagnostics.'});
  const conflict=code=>['LOCKED','STALE_PIN','STALE_TURN_PIN','STALE_REVISION_RETRY','RECOVERY_THIRD_STATE','REVISION_INCOMPLETE','REVISION_ID_COLLISION'].includes(code)||code.endsWith('_COLLISION');
- const exitFor=diagnostics=>diagnostics.some(d=>d.code==='PRIVACY_REFUSED')?4:diagnostics.some(d=>conflict(d.code))?3:diagnostics.some(d=>['ID_COLLISION','AMBIGUOUS_ALIAS'].includes(d.code))?3:diagnostics.some(d=>d.severity==='error'&&d.code!=='NOT_FOUND')?2:diagnostics.some(d=>d.code==='NOT_FOUND')?1:0;
+ // A missing `standard` (self-doc:missing) is an error only where it is the question asked:
+ // `validate` refuses on it; readers report it and keep their exit code.
+ const SELF_DOC='self-doc:missing';
+ const exitFor=(all,strict=false)=>{const diagnostics=strict?all:all.filter(d=>d.code!==SELF_DOC);return diagnostics.some(d=>d.code==='PRIVACY_REFUSED')?4:diagnostics.some(d=>conflict(d.code))?3:diagnostics.some(d=>['ID_COLLISION','AMBIGUOUS_ALIAS'].includes(d.code))?3:diagnostics.some(d=>d.severity==='error'&&d.code!=='NOT_FOUND')?2:diagnostics.some(d=>d.code==='NOT_FOUND')?1:0;};
  try {
   const command=args[0],options={},positionals=[];
   if(!commands.includes(command))throw new Error('INVALID_ARGUMENTS');
@@ -20,16 +23,26 @@ if(args.length===1&&args[0]==='--help') {
     if(!args[i+1]||args[i+1].startsWith('--'))throw new Error('INVALID_ARGUMENTS');(options[arg]??=[]).push(args[++i]);
    } else if(['--workspace','--transcripts-dir','--capture','--spec','--expected-sha','--revision-id','--action'].includes(arg)) {
     if(Object.hasOwn(options,arg)||!args[i+1]||args[i+1].startsWith('--'))throw new Error('INVALID_ARGUMENTS');options[arg]=args[++i];
-   } else if(['--json','--include-body','--include-sections'].includes(arg)) {
+   } else if(['--json','--include-body','--include-sections','--apply'].includes(arg)) {
     if(Object.hasOwn(options,arg))throw new Error('INVALID_ARGUMENTS');options[arg]=true;
    } else if(arg.startsWith('--'))throw new Error('INVALID_ARGUMENTS');
    else positionals.push(arg);
   }
-  if(options['--workspace']&&options['--transcripts-dir']||options['--transcripts-dir']&&command!=='list'||options['--include-body']&&command!=='read'||options['--include-sections']&&command!=='list'||positionals.length!==(['list','create'].includes(command)?0:1))throw new Error('INVALID_ARGUMENTS');
+  if(options['--workspace']&&options['--transcripts-dir']||options['--transcripts-dir']&&!['list','stamp-standard'].includes(command)||options['--apply']&&command!=='stamp-standard'||options['--include-body']&&command!=='read'||options['--include-sections']&&command!=='list'||positionals.length!==(['list','create','stamp-standard'].includes(command)?0:1))throw new Error('INVALID_ARGUMENTS');
   if(options['--turn']&&!['cite','seek'].includes(command)||options['--capture']&&command!=='seek'||['cite','seek'].includes(command)&&!options['--turn']?.length||command==='seek'&&options['--turn'].length!==1)throw new Error('INVALID_ARGUMENTS');
   const mutations=['create','annotate','revise','recover'];
   if(options['--spec']&&!['create','annotate','revise'].includes(command)||options['--expected-sha']&&!['annotate','revise'].includes(command)||options['--revision-id']&&command!=='recover'||options['--action']&&command!=='recover')throw new Error('INVALID_ARGUMENTS');
-  if(mutations.includes(command)) {
+  if(command==='stamp-standard') {
+   const writer=await import('./freedom-conversation-write.mjs');
+   const result=writer.stampConversationStandards({...(options['--transcripts-dir']?{transcriptsDir:options['--transcripts-dir']}:{root:options['--workspace']??process.cwd()}),apply:!!options['--apply'],pid:process.pid,by:'conversation-cli'});
+   if(json)console.log(JSON.stringify({api_version:1,...result}));
+   else {
+    const verb=result.applied?'stamped':'would stamp';
+    for(const r of result.changed)console.log(`${verb}\t${r.path}`);
+    for(const r of result.skipped)console.error(`skipped: ${r.reason}\t${r.path}`);
+    console.log(`${result.changed.length} ${verb}, ${result.current.length} current, ${result.skipped.length} skipped${result.applied?'':' (dry run; --apply writes)'}`);
+   }
+  }else if(mutations.includes(command)) {
    if(['create','annotate','revise'].includes(command)&&!options['--spec']||['annotate','revise'].includes(command)&&!options['--expected-sha']||command==='recover'&&(!options['--revision-id']||!['resume','reverse'].includes(options['--action'])))throw new Error('INVALID_ARGUMENTS');
    const writer=await import('./freedom-conversation-write.mjs');
    const {readFileSync}=await import('node:fs');
@@ -63,7 +76,7 @@ if(args.length===1&&args[0]==='--help') {
    return data;
   };
   let output={api_version:1,records:records.map(metadata),diagnostics};
-  if(['cite','seek'].includes(command)&&!diagnostics.some(d=>d.severity==='error')) {
+  if(['cite','seek'].includes(command)&&!diagnostics.some(d=>d.severity==='error'&&d.code!==SELF_DOC)) {
    const citations=await import('./freedom-conversation-citations.mjs');
    if(command==='cite')output=citations.citeConversation(records[0],{turnIds:options['--turn']});
    else {
@@ -77,7 +90,7 @@ if(args.length===1&&args[0]==='--help') {
    for(const r of output.records??[])console.log(`${r.id??'(invalid)'}\t${r.path}`);
    for(const d of diagnostics)console.error(`${d.severity}: ${d.code}`);
   }
-  process.exitCode=command==='seek'&&output.candidates?.length===0?1:exitFor(diagnostics);
+  process.exitCode=command==='seek'&&output.candidates?.length===0?1:exitFor(diagnostics,command==='validate');
   }
  }catch(e) {
   const d=diagnostic(e.code&&/^[A-Z][A-Z0-9_]+$/.test(e.code)?e.code:e.message==='INVALID_ARGUMENTS'?'INVALID_ARGUMENTS':'READ_INCOMPLETE');

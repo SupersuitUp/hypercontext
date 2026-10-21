@@ -3,7 +3,9 @@ import {readFileSync,readdirSync,lstatSync,realpathSync} from 'node:fs';
 import {resolve,relative,basename,dirname,join,isAbsolute,sep} from 'node:path';
 import {createHash} from 'node:crypto';
 import {paths} from './freedom-workspace.mjs';
-import {parseConversationHeader,validateConversation} from './frontmatter/conversation.mjs';
+import {parseConversationHeader,validateConversation,blockingDiagnostics} from './frontmatter/conversation.mjs';
+// A missing `standard` is reported in diagnostics but never stops a read: records predate the rule.
+const blocks=diagnostics=>blockingDiagnostics(diagnostics).length>0;
 import {parseConversationInstant,compareConversationInstants} from './freedom-conversation-time.mjs';
 import {normalizeLegacy} from './freedom-conversation-legacy.mjs';
 import {conversationIdCollisionKey as foldId} from './freedom-conversation-casefold.mjs';
@@ -99,7 +101,7 @@ function validTiming(t,captures) {
  return false;
 }
 function turnsFor(record) {
- if(record.header.body_format!=='turns-v1'||record.diagnostics.some(d=>d.severity==='error'))return [];
+ if(record.header.body_format!=='turns-v1'||blocks(record.diagnostics))return [];
  const section=record.sections.find(s=>s.kind==='transcript');if(!section)return [];
  const lines=physicalLines(section.bytes,section.startLine),starts=[],turns=[],ids=new Set();let fence=null;
  const fail=(code,field='body')=>record.diagnostics.push(diagnostic(code,record.file,field));
@@ -140,7 +142,7 @@ function turnsFor(record) {
   const textStart=lines[index+1].end,textEnd=end<lines.length?lines[end].start:section.bytes.length;
   turns.push({id,...meta,text:section.bytes.subarray(textStart,textEnd),startLine:lines[index].line,endLine:lines[end-1].line});
  }
- if(record.diagnostics.some(d=>d.severity==='error'))return [];
+ if(blocks(record.diagnostics))return [];
  const empty=turns.map(turn=>!turn.text.toString('utf8').trim());
  for(let i=0;i<turns.length;i++)if(empty[i])record.diagnostics.push(diagnostic('TURN_EMPTY',record.file,`turns[${i}].text`,'warning'));
  if(empty.every(Boolean))record.diagnostics.push(diagnostic('TRANSCRIPT_EMPTY',record.file,'body','warning'));
@@ -170,7 +172,7 @@ export function parseConversation(bytes,{file,layout}) {
   }
   record.id=typeof parsed.header.id==='string'?parsed.header.id:null;
   record.diagnostics=validateConversation(parsed.header,(layout==='canonical'||layout===undefined&&basename(file)==='transcript.md')?{folderId:basename(dirname(file))}:{});
-  if(record.diagnostics.some(d=>d.severity==='error'))return attachGaps(record);
+  if(blocks(record.diagnostics))return attachGaps(record);
  } else record=normalizeLegacy(bytes,{file});
  if(record.header) {
   const prefix=bytes.subarray(0,bytes.length-record.body.length);
@@ -296,7 +298,7 @@ export function resolveConversation(records,idOrAlias,{root}={}) {
  return {record:null,diagnostics:[diagnostic('NOT_FOUND')]};
 }
 export function conversationSourceRefs(record) {
- if(record.header?.schema_version!==1||record.header.kind!=='conversation'||!Array.isArray(record.header.sources)||validateConversation(record.header).some(d=>d.severity==='error'))return [];
+ if(record.header?.schema_version!==1||record.header.kind!=='conversation'||!Array.isArray(record.header.sources)||blocks(validateConversation(record.header)))return [];
  return record.header.sources.flatMap(c=>(Array.isArray(c.locators)&&c.locators.length?c.locators:[null]).flatMap(l=>(Array.isArray(c.roles)?c.roles:[]).map(role=>({capture:c.id,type:c.type,service:c.service,recordingId:c.recording_id,vendorId:c.vendor_id,role,path:l?.path??null,url:l?.url??null,serviceId:l?.service_id??null,availability:c.availability}))));
 }
 export const conversationSections=record=>record.sections;
@@ -323,7 +325,7 @@ export function effectiveSharing(record) {
  if(!record||typeof record!=='object')return sharingDecision('home','INVALID_SCHEMA');
  const restriction=retainedSharingRestriction(record);
  if(restriction==='RESTRICTION_UNRESOLVED')return sharingDecision('home',restriction);
- if(validateConversation(record.header).some(d=>d.severity==='error')||record.diagnostics?.some(d=>d.severity==='error'))return sharingDecision('home','INVALID_SCHEMA');
+ if(blocks(validateConversation(record.header))||blocks(record.diagnostics))return sharingDecision('home','INVALID_SCHEMA');
  if(restriction)return sharingDecision('home',restriction);
  const scope=record.header.keep.scope;
  if(scope==='unknown')return sharingDecision('home','SHARING_UNKNOWN');
@@ -337,7 +339,7 @@ export function canProjectConversation(record,target,context={}) {
  if(boundary.effectiveScope==='home')return boundary;
  const h=record.header,scope=boundary.effectiveScope;
  // Reuse the scoped schema for Evidence and group-path shape, without another parser.
- const checkKeep=keep=>validateConversation({...h,keep}).some(d=>d.severity==='error');
+ const checkKeep=keep=>blocks(validateConversation({...h,keep}));
  if(context?.decision!==undefined&&(context.decision===null||checkKeep({scope:'home',group:null,decision:context.decision})))return sharingDecision('home','INVALID_CONTEXT_DECISION');
  if(!target||!['public','group'].includes(target.kind))return sharingDecision(scope,'INVALID_PROJECTION_TARGET');
  if(target.kind==='group'&&(typeof target.group!=='string'||checkKeep({scope:'home',group:target.group,decision:null})))return sharingDecision(scope,'INVALID_PROJECTION_TARGET');
@@ -352,7 +354,7 @@ export function canProjectConversation(record,target,context={}) {
 
 export function conversationCount(root) {
  const {records,diagnostics}=listConversations(root);
- const blocking=diagnostics.filter(d=>d.severity==='error');
+ const blocking=blockingDiagnostics(diagnostics);
  if(blocking.length)throw Object.assign(new Error('Conversation count is unavailable because discovery is incomplete or conflicting.'),{code:blocking[0].code,diagnostics:blocking});
  return records.length;
 }

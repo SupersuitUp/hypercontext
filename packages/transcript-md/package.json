@@ -1,6 +1,6 @@
 {
   "name": "@supersuit/transcript-md",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Local transcript.md records: lossless codec, validation, revisions and citations",
   "type": "module",
   "license": "SEE LICENSE IN LICENSE",

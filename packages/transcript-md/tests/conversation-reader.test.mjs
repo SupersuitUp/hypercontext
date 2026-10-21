@@ -106,7 +106,7 @@ test('CLI outside repository emits versioned metadata and explicit text payloads
  assert.equal(run(f,['list','--unexpected','--json']).status,2);
 });
 test('CLI help and capabilities work without workspace and advertise only implemented commands',t=>{
- const f=setup(t);const p=run(f,['--capabilities','--json']);assert.equal(p.status,0);assert.deepEqual(JSON.parse(p.stdout),{api_version:1,schema_versions:[1],commands:['list','read','validate','sources','resolve','cite','seek','create','annotate','revise','recover'],revision:null});assert.equal(run(f,['--help']).status,0);
+ const f=setup(t);const p=run(f,['--capabilities','--json']);assert.equal(p.status,0);assert.deepEqual(JSON.parse(p.stdout),{api_version:1,schema_versions:[1],commands:['list','read','validate','sources','resolve','cite','seek','create','annotate','revise','recover','stamp-standard'],revision:null});assert.equal(run(f,['--help']).status,0);
  const file=f.put('old.md',legacy),text=run(f,['read',file]);assert.equal(text.status,0);assert.match(text.stderr,/UNKNOWN_FACT/);assert.ok(!text.stdout.includes('UNKNOWN_FACT'));
 });
 

@@ -16,6 +16,12 @@ function checkSchema(schema) {
   for (const key of ['oneOf','anyOf']) for (const child of schema[key] ?? []) checkSchema(child);
 }
 checkSchema(conversationSchema);
+/** The page that defines this format. Every transcript.md names it in its `standard` key. */
+export const STANDARD='https://hypercontext.wiki/standards/conversation';
+/** Error-level, so checkers count it; it never stops a read, because records predate the rule. */
+export const SELF_DOC_MISSING='self-doc:missing';
+/** Error diagnostics that stop interpretation: every error except a missing standard. */
+export const blockingDiagnostics=diagnostics=>(Array.isArray(diagnostics)?diagnostics:[]).filter(d=>d?.severity==='error'&&d.code!==SELF_DOC_MISSING);
 const diagnostic = (code,field,message,severity='error') => ({code,severity,path:null,field,message});
 const object = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const protoKeys = new Set(['__proto__','prototype','constructor']);
@@ -155,6 +161,7 @@ export function validateConversation(header,context={}) {
   const out=schemaErrors(conversationSchema,header);
   const add=(code,field,message,severity)=>out.push(diagnostic(code,field,message,severity));
   if(!object(header))return out;
+  if(header.standard!==STANDARD)add(SELF_DOC_MISSING,'standard',`Record does not name its standard, ${STANDARD}.`,'error');
   if(header.schema_version!==1)add('UNSUPPORTED_SCHEMA_VERSION','schema_version','Unsupported conversation schema version.');
   if(typeof header.id==='string'&&!validId(header.id))add('INVALID_RECORD_ID','id','Record id is not a portable directory component.');
   if(context.folderId!==undefined&&header.id!==context.folderId)add('ID_FOLDER_MISMATCH','id','Record id must match its parent folder.');
@@ -282,3 +289,42 @@ export function validateConversation(header,context={}) {
   }
   return out;
 }
+/** The header with `standard` directly after `kind`, or unchanged when it already has the key.
+ * Writers serialize this, so a record they emit always names its standard. */
+export function withStandard(header) {
+  if(!object(header)||Object.hasOwn(header,'standard'))return header;
+  const out={};let placed=false;
+  for(const [key,value] of Object.entries(header)){out[key]=value;if(key==='kind'){out.standard=STANDARD;placed=true;}}
+  return placed?out:{standard:STANDARD,...out};
+}
+/** Plan the byte-preserving edit that makes a record name its standard. Pure.
+ * status: 'stamped' (output differs), 'current', 'no-header', 'not-conversation' or 'refused'
+ * (a header this codec will not interpret; reason is its diagnostic code). Only the one
+ * `standard` line is inserted (after `kind:`) or rewritten in place; every other byte,
+ * line order and CRLF are kept, and the result is reparsed to prove it. */
+export function stampPlan(input) {
+  const buffer=Buffer.isBuffer(input);
+  if(!buffer&&typeof input!=='string')throw new TypeError('stampPlan takes a Buffer or a string');
+  const bytes=buffer?input:Buffer.from(input,'utf8');
+  const keep=(status,reason=null)=>({output:input,status,reason});
+  const parsed=parseConversationHeader(bytes);
+  if(!parsed.header)return parsed.diagnostics.length?keep('refused',parsed.diagnostics[0].code):keep('no-header','NO_HEADER');
+  if(parsed.header.kind!=='conversation')return keep('not-conversation','NOT_CONVERSATION');
+  if(parsed.header.standard===STANDARD)return keep('current');
+  const start=parsed.rawHeader.byteOffset-bytes.byteOffset,end=start+parsed.rawHeader.length;
+  const lines=[];for(let at=start;at<end;){const lf=bytes.indexOf(10,at);lines.push({start:at,end:lf+1});at=lf+1;}
+  const line=prefix=>lines.find(l=>bytes.subarray(l.start,l.end).toString('utf8').startsWith(prefix));
+  const eol=l=>bytes[l.end-2]===13?'\r\n':'\n';
+  const value=`standard: ${JSON.stringify(STANDARD)}`;
+  const existing=line('standard: '),kind=line('kind: ');
+  let out;
+  if(existing)out=Buffer.concat([bytes.subarray(0,existing.start),Buffer.from(value+eol(existing)),bytes.subarray(existing.end)]);
+  // kind is "conversation" here, so its line exists: the parser admits only `key: value` lines.
+  else out=Buffer.concat([bytes.subarray(0,kind.end),Buffer.from(value+eol(kind)),bytes.subarray(kind.end)]);
+  const check=parseConversationHeader(out),{standard:_old,...was}=parsed.header,{standard,...now}=check.header??{};
+  if(!check.header||standard!==STANDARD||JSON.stringify(now)!==JSON.stringify(was)||!check.body.equals(parsed.body))return keep('refused','STAMP_UNVERIFIED');
+  return {output:buffer?out:out.toString('utf8'),status:'stamped',reason:null};
+}
+/** `input` naming STANDARD, as the same type (Buffer or string). Idempotent; anything stampPlan
+ * will not stamp comes back unchanged. */
+export const stampStandard=input=>stampPlan(input).output;

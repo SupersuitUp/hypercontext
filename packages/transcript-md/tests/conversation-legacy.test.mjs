@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {normalizeLegacy,legacySourceRefs} from './helpers/guarded-freedom-conversation-legacy.mjs';
 import {parseConversationHeader,serializeConversationHeader} from './helpers/guarded-frontmatter-conversation.mjs';
+// Writers stamp a projection when they emit it as a canonical record.
+import {withStandard} from '../lib/frontmatter/conversation.mjs';
 import {parseConversation,conversationSourceRefs} from './helpers/guarded-freedom-conversations.mjs';
 
 const read=(header,body='\n## Transcript\nExact words.\n',file='/synthetic/call.md')=>normalizeLegacy(Buffer.from(`---\n${header}---\n${body}`),{file});
@@ -80,7 +82,7 @@ test('cloud-only source keeps exact service recording identity and unknown cover
  assert.equal(c.locators[0].url,null);assert.equal(c.locators[0].path,null);assert.equal(c.locators[0].service_id,'987654321');assert.equal(c.locators[0].backup.status,'unverified');
  assert.ok(r.header.aliases.some(a=>a.namespace==='cloud:zoom'&&a.value==='987654321'));
  assert.deepEqual(legacySourceRefs(r.legacyFields).map(x=>[x.service,x.recordingId,x.role,x.path,x.url]),[['zoom','987654321','unknown',null,null]]);
- const round=parseConversationHeader(serializeConversationHeader(r.header,r.body));assert.deepEqual(round.body,r.body);assert.ok(!round.diagnostics.some(d=>d.severity==='error'));
+ const round=parseConversationHeader(serializeConversationHeader(withStandard(r.header),r.body));assert.deepEqual(round.body,r.body);assert.ok(!round.diagnostics.some(d=>d.severity==='error'));
 });
 test('multiple source maps retain order roles exact locators and independent cloud services',()=>{
  const r=read('sources:\n  - type: audio\n    path: ~/missing-original.wav\n    role: supplemental\n  - type: cloud_recording\n    service: zoom\n    recording_id: "A/1:Case"\n    url: https://example.test/recording\n    role: transcript-body\n  - type: cloud_recording\n    service: teams\n    recording_id: "A/1:Case"\n');

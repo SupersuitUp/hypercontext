@@ -2,7 +2,7 @@
 import {createHash} from 'node:crypto';
 import {basename,resolve} from 'node:path';
 import {parseFlat,stripTrailingComment} from './frontmatter/yaml.mjs';
-import {validateConversation} from './frontmatter/conversation.mjs';
+import {validateConversation,SELF_DOC_MISSING} from './frontmatter/conversation.mjs';
 
 const hash=b=>createHash('sha256').update(b).digest('hex');
 const text=v=>typeof v==='string'&&v.length>0?v:null;
@@ -160,7 +160,9 @@ export function normalizeLegacy(bytes,{file}) {
  for(const key of ['participants','attendees'])for(const label of list(f[key]).filter(text))h.participants.push({id:`p-${String(h.participants.length+1).padStart(3,'0')}`,label,person:null,status:'unknown',role:key==='attendees'?'attendee':'unknown',evidence:evidence(key)});
  if(text(f.id)&&f.id!==id)h.aliases.push({kind:'record-id',value:f.id,namespace:null});
  if(text(f.meeting_key))h.extensions.meeting_key=f.meeting_key;
- diagnostics.push(...validateConversation(h));
+ // This header is the reader's projection of a flat legacy file, not stored bytes; there is
+ // no transcript.md to stamp, so a missing standard is not a finding about this record.
+ diagnostics.push(...validateConversation(h).filter(d=>d.code!==SELF_DOC_MISSING));
  if(h.sources.length===0)diagnostics.push(diag('SOURCE_UNKNOWN','sources','warning'));
  base.header=h;base.diagnostics=diagnostics;base.gaps=diagnostics.filter(d=>d.severity==='warning'||d.code.endsWith('_UNRESOLVED'));
  return base;

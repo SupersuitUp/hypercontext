@@ -3,6 +3,7 @@ import {createHash} from 'node:crypto';
 import {resolve} from 'node:path';
 import {isDeepStrictEqual} from 'node:util';
 import {parseConversation} from './freedom-conversations.mjs';
+import {blockingDiagnostics} from './frontmatter/conversation.mjs';
 import {parseConversationInstant,conversationCaptureOffsetMs} from './freedom-conversation-time.mjs';
 
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
@@ -12,7 +13,7 @@ const turnIds=ids=>Array.isArray(ids)&&ids.length>0&&ids.every(id=>typeof id==='
 const revisionValid=(r,repository)=>r&&Object.keys(r).sort().join(',')==='kind,value'&&(r.kind==='sha256'&&sha(r.value)||r.kind==='git'&&nonempty(repository)&&/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(r.value));
 const diagnostic=code=>({code,severity:'error',path:null,field:null,message:'Citation or timing could not be resolved from the supplied version and explicit mapping.'});
 const refuse=code=>{throw Object.assign(new Error('Conversation citation could not be created.'),{code});};
-const blocked=record=>!record?.header||record.diagnostics.some(d=>d.severity==='error');
+const blocked=record=>!record?.header||blockingDiagnostics(record.diagnostics).length>0;
 const selectedTurns=(record,ids)=>ids.map(id=>record.turns.find(t=>t.id===id));
 
 export function citeConversation(record,{turnIds:ids,repository=null,revision={kind:'sha256',value:record.fileSha256}}={}) {
