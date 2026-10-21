@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// piece-md: the checker and the finder over a home of pieces. Text in, text out, --json on every command.
+// piece-md: the checker, the finder and the stamp over a home of pieces. Text in, text out, --json on every command.
 // Exit codes: 0 found or clean, 1 nothing found or findings, 2 usage.
-import { readFileSync, statSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { lint, find, TYPES } from '../src/index.mjs';
+import { readFileSync, writeFileSync, statSync } from 'node:fs';
+import { resolve, relative } from 'node:path';
+import { lint, find, scan, stampPlan, TYPES, STANDARD } from '../src/index.mjs';
 
 const HELP = `piece-md: records for the pieces of a life (photos, recordings, video, images, documents)
 
@@ -16,6 +16,12 @@ Usage:
       alone. Exit 0 with matches, 1 with none.
       --confirmed  count a person in a file only when someone confirmed them
       --type       one of ${TYPES.join(', ')}
+  piece-md stamp [<home>] [--apply] [--json]
+      Name ${STANDARD} in every piece.md: add a missing standard:, or upgrade
+      the bare unversioned URL that 0.2.0 wrote, in place, every other byte unchanged. A dry run
+      that lists the changes unless --apply. Never gives a headerless file a header, and never
+      rewrites a record naming another standard: those are listed as skipped.
+      Exit 0 when nothing is left to do, 1 when changes are pending (a dry run) or skipped.
   piece-md --help | --version
 
 <home> is the folder pieces live under, default documents/ in the current folder. A piece is a
@@ -26,7 +32,7 @@ Exit codes: 0 found or clean, 1 nothing found or findings, 2 usage.
 It reads only .md files. Media is seen by name in a listing and never opened.
 `;
 
-const FLAGS = new Set(['json', 'confirmed', 'help', 'version']);
+const FLAGS = new Set(['json', 'confirmed', 'help', 'version', 'apply']);
 const OPTIONS = new Set(['person', 'from', 'to', 'type']);
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -61,6 +67,30 @@ const json = (value) => print(JSON.stringify(value, null, 2));
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 const commands = {
+  stamp([dir], opt) {
+    const root = home(dir);
+    const report = { applied: Boolean(opt.apply), changed: [], current: [], skipped: [] };
+    const lines = [];
+    for (const p of scan(root).pieces.filter((x) => x.path)) {
+      const rel = relative(root, p.path).split('\\').join('/');
+      const plan = stampPlan(readFileSync(p.path, 'utf8'));
+      if (plan.status === 'current') { report.current.push(rel); continue; }
+      if (plan.status === 'no-header' || plan.status === 'other') {
+        report.skipped.push({ path: rel, reason: plan.status });
+        lines.push(`skipped  ${rel}  ${plan.status}`);
+        continue;
+      }
+      if (opt.apply) writeFileSync(p.path, plan.text);
+      report.changed.push({ path: rel, change: plan.status });
+      lines.push(`${opt.apply ? plan.status : `would ${plan.status === 'added' ? 'add' : 'upgrade'}`}  ${rel}`);
+    }
+    const pending = !opt.apply && report.changed.length > 0;
+    const code = pending || report.skipped.length ? 1 : 0;
+    if (opt.json) { json(report); return code; }
+    print([...lines, `${report.changed.length} ${opt.apply ? 'stamped' : 'to stamp'}, ${report.current.length} already current, ${report.skipped.length} skipped`].join('\n'));
+    return code;
+  },
+
   lint([dir], opt) {
     const { findings, pieces, unrecorded } = lint(home(dir));
     const errors = findings.filter((f) => f.level === 'error').length;
@@ -95,6 +125,7 @@ function main(argv) {
   const [name, ...rest] = positional;
   if (!name) throw new Usage('no command given');
   if (!Object.hasOwn(commands, name)) throw new Usage(`unknown command "${name}"`);
+  if (opt.apply && name !== 'stamp') throw new Usage('--apply is only for stamp');
   return commands[name](rest, opt);
 }
 

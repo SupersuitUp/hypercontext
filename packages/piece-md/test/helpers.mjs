@@ -25,7 +25,7 @@ export function header(id, over = {}) {
   const keys = {
     kind: 'piece',
     context_version: '"1"',
-    standard: '"https://hypercontext.wiki/standards/piece"',
+    standard: '"https://hypercontext.wiki/standards/piece/v1"',
     id,
     type: 'photo',
     summary: '"Nai Nai at the lake, the evening before the reunion."',

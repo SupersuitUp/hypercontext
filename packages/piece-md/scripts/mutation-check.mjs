@@ -22,7 +22,7 @@ const cases = [
   ['about names something', 'piece.mjs', 'lint.test.mjs', "else if (!data.about.length) add('about:empty',", "else if (false) add('about:empty',"],
   ['taken says where its time came from', 'piece.mjs', 'lint.test.mjs', "else if (!TIME_SOURCES.includes(data.taken_from)) add('taken_from:value',", "else if (false) add('taken_from:value',"],
   ['taken is a time or unknown', 'piece.mjs', 'lint.test.mjs', "else if (!(DATE.test(data.taken) || DATETIME.test(data.taken) || data.taken === 'unknown')) add('taken:value',", "else if (false) add('taken:value',"],
-  ['no connections only warns', 'piece.mjs', 'lint.test.mjs', "'connections is empty, so nothing links to this piece', 'warn');", "'connections is empty, so nothing links to this piece');"],
+  ['no connections only warns', 'codes.mjs', 'lint.test.mjs', "'connections:empty': { level: 'warn',", "'connections:empty': { level: 'error',"],
   ['media needs file rows', 'piece.mjs', 'lint.test.mjs', 'if (rows === undefined ? media : !Array.isArray(rows))', 'if (rows === undefined ? false : !Array.isArray(rows))'],
   ['a path stays inside the folder', 'piece.mjs', 'lint.test.mjs', "if (row.path.startsWith('/') || row.path.split('/').includes('..'))", 'if (false)'],
   ['every row says who is in it', 'piece.mjs', 'lint.test.mjs', "if (!Array.isArray(row.people)) { add('file:people',", "if (!Array.isArray(row.people)) { void ('file:people',"],
@@ -30,17 +30,26 @@ const cases = [
   ['media is always a folder', 'piece.mjs', 'lint.test.mjs', "if (media) add('single:media',", "if (false) add('single:media',"],
   ['a single file that gains a file is a folder', 'piece.mjs', 'lint.test.mjs', "else if (listed.size) add('single:outgrown',", "else if (false) add('single:outgrown',"],
   ['unlisted media in a piece warns', 'piece.mjs', 'lint.test.mjs', "if (unlisted.length) add('file:unlisted',", "if (false) add('file:unlisted',"],
-  ['a piece names its standard', 'piece.mjs', 'lint.test.mjs', "if (data.standard === undefined) add('standard:missing',", "if (false) add('standard:missing',"],
-  ['a piece names the piece standard, not another', 'piece.mjs', 'lint.test.mjs', "else if (data.standard !== STANDARD) add('standard:value',", "else if (false) add('standard:value',"],
+  ['a piece names its standard', 'piece.mjs', 'lint.test.mjs', "if (data.standard === undefined) add('self-doc:missing',", "if (false) add('self-doc:missing',"],
+  ['the bare unversioned URL predates versions, and says stamp upgrades it', 'piece.mjs', 'lint.test.mjs', "else if (data.standard === STANDARD_LATEST) add('self-doc:missing',", "else if (false) add('self-doc:missing',"],
+  ['an unimplemented version is self-doc:version', 'piece.mjs', 'lint.test.mjs', 'if (!IMPLEMENTED_VERSIONS.includes(', 'if (false && !IMPLEMENTED_VERSIONS.includes('],
+  ['another kind\'s standard is refused', 'piece.mjs', 'lint.test.mjs', "else add('self-doc:missing', `standard", "else void ('self-doc:missing', `standard"],
+  ['a finding\'s level comes from the code table', 'piece.mjs', 'manifest.test.mjs', 'out.push({ level: CODES[code].level, code, message })', "out.push({ level: 'error', code, message })"],
+  ['the code table and the manifest agree on levels', 'codes.mjs', 'manifest.test.mjs', "'connections:empty': { level: 'warn',", "'connections:empty': { level: 'error',"],
   // ---- the writer
   ['a writer always stamps the piece standard', 'write.mjs', 'write.test.mjs', "standard: STANDARD, ...rest });", "...rest });"],
+  ['stamp never gives a headerless file a header', 'write.mjs', 'write.test.mjs', "if (raw === '') return { text: src, status: 'no-header' };", "if (false) return { text: src, status: 'no-header' };"],
+  ['stamp leaves another standard alone', 'write.mjs', 'write.test.mjs', "if (data.standard !== STANDARD_LATEST) return { text: src, status: 'other' };", "if (false) return { text: src, status: 'other' };"],
+  ['stamp upgrades the bare URL in place, byte for byte', 'write.mjs', 'write.test.mjs', "return { text: lines.join('\\n'), status: 'upgraded' };", "return { text: writeHeader(src, { standard: STANDARD }), status: 'upgraded' };"],
   ['a writer cannot be given another standard', 'write.mjs', 'write.test.mjs', "const { kind, context_version, standard, ...rest } = fields ?? {};", "const { kind, context_version, ...rest } = fields ?? {};"],
   // ---- the walk
   ['media outside a piece is unrecorded', 'store.mjs', 'lint.test.mjs', '} else if (isMedia(e.name)) {', '} else if (false) {'],
   ['dot folders and node_modules are skipped', 'store.mjs', 'lint.test.mjs', "const skip = (name) => name.startsWith('.') || name === 'node_modules';", 'const skip = () => false;'],
   ['a folder named like a piece is a piece', 'store.mjs', 'lint.test.mjs', "if (!existsSync(record) && !NAME.test(e.name)) { go(p); continue; }", "if (!existsSync(record)) { go(p); continue; }"],
   ['a bare .md is a piece only by kind', 'store.mjs', 'lint.test.mjs', "if (data.kind === 'piece') pieces.push(", 'pieces.push('],
-  ['a piece without a record is reported', 'lint.mjs', 'lint.test.mjs', "if (!p.path) { findings.push({ level: 'error', code: 'piece:missing',", "if (!p.path) { continue; findings.push({ level: 'error', code: 'piece:missing',"],
+  ['a symbolic link is never followed', 'store.mjs', 'lint.test.mjs', 'if (e.isSymbolicLink()) {', 'if (false) {'],
+  ['a link named like a piece is reported', 'store.mjs', 'lint.test.mjs', "if (e.name.endsWith('.md') || NAME.test(e.name)) links.push(", 'if (false) links.push('],
+  ['a piece without a record is reported', 'lint.mjs', 'lint.test.mjs', "if (!p.path) { at('piece:missing',", "if (!p.path) { continue; at('piece:missing',"],
   // ---- the finder
   ['a person in a file row is found', 'find.mjs', 'find.test.mjs', '!p.files.some((f) => f.people.some((x) => x.id === person && (!confirmed || x.confirmed)))', 'true'],
   ['confirmed drops the unconfirmed', 'find.mjs', 'find.test.mjs', '(!confirmed || x.confirmed)', 'true'],
@@ -51,6 +60,9 @@ const cases = [
   // ---- the command line
   ['lint exits 1 on an error', BIN, 'cli.test.mjs', 'return errors ? 1 : 0;\n  },', 'return 0;\n  },'],
   ['find exits 1 with nothing', BIN, 'cli.test.mjs', "if (!pieces.length) { say('no piece matches'); return 1; }", "if (!pieces.length) { say('no piece matches'); return 0; }"],
+  ['stamp is a dry run without --apply', BIN, 'cli.test.mjs', 'if (opt.apply) writeFileSync(p.path, plan.text);', 'writeFileSync(p.path, plan.text);'],
+  ['stamp exits 1 while changes are pending or skipped', BIN, 'cli.test.mjs', 'const code = pending || report.skipped.length ? 1 : 0;', 'const code = 0;'],
+  ['--apply is only for stamp', BIN, 'cli.test.mjs', "if (opt.apply && name !== 'stamp') throw new Usage(", "if (false) throw new Usage("],
   ['the home defaults to documents/', BIN, 'cli.test.mjs', "const p = resolve(dir ?? 'documents');", 'const p = resolve(dir ?? ".");'],
 ];
 
@@ -59,7 +71,7 @@ const survived = [];
 for (const [name, source, suite, before, after] of cases) {
   const dir = mkdtempSync(join(tmpdir(), 'piece-md-mutation-'));
   try {
-    for (const part of ['src', 'test', 'bin']) cpSync(join(root, part), join(dir, part), { recursive: true });
+    for (const part of ['src', 'test', 'bin', 'standards']) cpSync(join(root, part), join(dir, part), { recursive: true });
     cpSync(join(root, 'package.json'), join(dir, 'package.json'));
     const file = join(dir, 'src', source), text = readFileSync(file, 'utf8');
     if (!text.includes(before)) throw new Error(`Mutation anchor missing: ${name}`);

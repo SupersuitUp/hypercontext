@@ -24,7 +24,7 @@ A **piece** is anything made or captured in a life: a photo, a screenshot, a rec
 ---
 kind: piece
 context_version: "1"
-standard: "https://hypercontext.wiki/standards/piece"   # the standard this file upholds
+standard: "https://hypercontext.wiki/standards/piece/v1"   # the standard version this file upholds
 id: 2026-06-14-1812-nai-nai-at-the-lake      # equals the folder name
 type: photo                                   # see below
 summary: "Nai Nai at the lake, the evening before the reunion."
@@ -47,7 +47,7 @@ What it is, in plain words. For a written piece, the body is the writing itself.
 
 | Key | Rule |
 | --- | --- |
-| `standard` | always `https://hypercontext.wiki/standards/piece`, so an agent with no memory of this format can open the rules from the file itself. Missing or naming another standard is an error |
+| `standard` | always `https://hypercontext.wiki/standards/piece/v1`, so an agent with no memory of this format can open the rules from the file itself. A version's meaning never changes once published; `https://hypercontext.wiki/standards/piece` (no version) is the latest and lists them all. Missing, the bare unversioned URL, or another kind's standard is `self-doc:missing`; a version this package does not implement is `self-doc:version`. `piece-md stamp --apply` adds or upgrades it |
 | `type` | `photo`, `screenshot`, `recording`, `video`, `image` (media), or `document`, `note`, `deck`, `page` (written) |
 | `keep` | chosen, never inferred. A piece showing other people starts at the tightest scope until someone chooses |
 | `taken_from` | `device`, `filename`, `file-time`, `stated`, `inferred`, `unknown`. A camera timestamp is one answer of five, never the whole record |
@@ -58,4 +58,6 @@ Records made by other tools are linked, never restated: a generated image's `.re
 
 ## What the checker reports
 
-`piece-md lint <home>` reports, per piece, every rule above that fails, and every media file (by extension) that no piece holds, counted per folder. Errors exit 1. Warnings: `connections:empty`, and `file:unlisted` for media inside a piece's folder that no row names.
+`piece-md lint <home>` reports, per piece, every rule above that fails, and every media file (by extension) that no piece holds, counted per folder. Errors exit 1. Warnings: `connections:empty`, `file:unlisted` for media inside a piece's folder that no row names, and `link:skipped` for a symbolic link named like a piece, which is another tree's file and is never followed.
+
+Every code, with its level, meaning and fix, is in [`standards/piece/v1.json`](../standards/piece/v1.json), the manifest published at `https://hypercontext.wiki/standards/piece/v1.json`.

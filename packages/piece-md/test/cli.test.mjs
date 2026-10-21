@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { tmpHome, file, piece, LAKE } from './helpers.mjs';
 
 const BIN = fileURLToPath(new URL('../bin/piece-md.mjs', import.meta.url));
@@ -67,4 +69,47 @@ test('bad usage exits 2', (t) => {
 test('--help and --version', () => {
   assert.match(run(['--help']).stdout, /piece-md lint/);
   assert.match(run(['--version']).stdout, /^\d+\.\d+\.\d+/);
+});
+
+const BARE = '"https://hypercontext.wiki/standards/piece"';
+
+test('stamp is a dry run by default: it lists what it would change and writes nothing', (t) => {
+  const { home } = tmpHome(t);
+  const dir = piece(home, LAKE, { standard: BARE });
+  const before = readFileSync(join(dir, 'piece.md'), 'utf8');
+  const r = run(['stamp', home]);
+  assert.equal(r.status, 1, 'a dry run with changes pending exits 1');
+  assert.match(r.stdout, new RegExp(`would upgrade  ${LAKE}/piece.md`));
+  assert.match(r.stdout, /1 to stamp, 0 already current, 0 skipped/);
+  assert.equal(readFileSync(join(dir, 'piece.md'), 'utf8'), before);
+});
+
+test('stamp --apply upgrades and adds, byte for byte, then reports everything current', (t) => {
+  const { home } = tmpHome(t);
+  const a = piece(home, LAKE, { standard: BARE });
+  const b = piece(home, '2026-06-15-0900-b', { id: '2026-06-15-0900-b', standard: null });
+  file(home, '2026-06-16-0900-headerless/piece.md', 'no header here\n');
+  const beforeA = readFileSync(join(a, 'piece.md'), 'utf8');
+  const r = run(['stamp', home, '--apply']);
+  assert.equal(r.status, 1, 'a skipped record still needs a person');
+  assert.match(r.stdout, /2 stamped, 0 already current, 1 skipped/);
+  assert.match(r.stdout, /skipped  2026-06-16-0900-headerless\/piece.md  no-header/);
+  assert.equal(readFileSync(join(a, 'piece.md'), 'utf8'), beforeA.replace('standards/piece"', 'standards/piece/v1"'));
+  assert.match(readFileSync(join(b, 'piece.md'), 'utf8'), /standard: "https:\/\/hypercontext.wiki\/standards\/piece\/v1"/);
+  assert.equal(readFileSync(join(home, '2026-06-16-0900-headerless/piece.md'), 'utf8'), 'no header here\n');
+  assert.deepEqual(run(['lint', home, '--json']).stdout && JSON.parse(run(['lint', home, '--json']).stdout).findings.map((f) => f.code), ['header:missing']);
+});
+
+test('stamp on a current home exits 0, and --json reports the plan', (t) => {
+  const { home } = tmpHome(t);
+  piece(home, LAKE);
+  const r = run(['stamp', home, '--json']);
+  assert.equal(r.status, 0);
+  assert.deepEqual(JSON.parse(r.stdout), { applied: false, changed: [], current: [`${LAKE}/piece.md`], skipped: [] });
+  assert.equal(run(['stamp', home, '--apply']).status, 0);
+});
+
+test('--apply is only for stamp', (t) => {
+  const { home } = tmpHome(t);
+  assert.equal(run(['lint', home, '--apply']).status, 2);
 });

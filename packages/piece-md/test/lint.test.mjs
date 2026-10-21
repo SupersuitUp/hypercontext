@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { symlinkSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { lint } from '../src/lint.mjs';
 import { tmpHome, file, piece, header, LAKE } from './helpers.mjs';
 
@@ -206,11 +208,60 @@ test('findings are sorted by piece then code, each naming its piece', (t) => {
 test('a piece names the standard it upholds', (t) => {
   const { home } = tmpHome(t);
   piece(home, LAKE, { standard: null });
-  assert.deepEqual(codes(lint(home)), ['standard:missing']);
+  const r = lint(home);
+  assert.deepEqual(codes(r), ['self-doc:missing']);
+  assert.match(r.findings[0].message, /^standard is missing/);
 });
 
-test('a piece naming another standard is refused', (t) => {
+test('a piece naming another kind\'s standard is refused as self-doc:missing', (t) => {
   const { home } = tmpHome(t);
-  piece(home, LAKE, { standard: '"https://hypercontext.wiki/standards/friend"' });
-  assert.deepEqual(codes(lint(home)), ['standard:value']);
+  piece(home, LAKE, { standard: '"https://hypercontext.wiki/standards/friend/v1"' });
+  assert.deepEqual(codes(lint(home)), ['self-doc:missing']);
+});
+
+test('the bare unversioned URL predates versions, and the message says stamp upgrades it', (t) => {
+  const { home } = tmpHome(t);
+  piece(home, LAKE, { standard: '"https://hypercontext.wiki/standards/piece"' });
+  const [f, ...rest] = lint(home).findings;
+  assert.deepEqual(rest, []);
+  assert.equal(f.code, 'self-doc:missing');
+  assert.equal(f.level, 'error');
+  assert.match(f.message, /predates versions/);
+  assert.match(f.message, /stamp/);
+});
+
+test('a version of the piece standard this validator does not implement is self-doc:version', (t) => {
+  const { home } = tmpHome(t);
+  piece(home, LAKE, { standard: '"https://hypercontext.wiki/standards/piece/v2"' });
+  assert.deepEqual(lint(home).findings.map((f) => [f.code, f.level]), [['self-doc:version', 'error']]);
+});
+
+test('v1 is implemented and clean', (t) => {
+  const { home } = tmpHome(t);
+  piece(home, LAKE, { standard: '"https://hypercontext.wiki/standards/piece/v1"' });
+  assert.deepEqual(lint(home).findings, []);
+});
+
+test('a dangling symlink named like a one-file piece is skipped with a warning, never a crash', (t) => {
+  const { home } = tmpHome(t);
+  piece(home, LAKE);
+  symlinkSync('/missing/path.md', join(home, '2026-09-20-043645-love-letter.md'));
+  symlinkSync('/missing/folder', join(home, '2026-09-20-0500-a-linked-folder'));
+  const r = lint(home);
+  assert.deepEqual(r.findings.map((f) => [f.code, f.level, f.piece]), [
+    ['link:skipped', 'warn', '2026-09-20-043645-love-letter.md'],
+    ['link:skipped', 'warn', '2026-09-20-0500-a-linked-folder'],
+  ]);
+  assert.equal(r.pieces, 1);
+});
+
+test('a symlink to a real piece elsewhere is not read as this tree\'s piece', (t) => {
+  const { parent, home } = tmpHome(t);
+  const elsewhere = join(parent, 'elsewhere');
+  mkdirSync(elsewhere);
+  piece(elsewhere, LAKE);
+  symlinkSync(join(elsewhere, LAKE), join(home, LAKE));
+  const r = lint(home);
+  assert.equal(r.pieces, 0);
+  assert.deepEqual(codes(r), ['link:skipped']);
 });

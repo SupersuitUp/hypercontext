@@ -1,6 +1,7 @@
 // The piece shape: what a piece.md header must answer, and the findings when it does not.
 // Every value arrives as a string, a list or a one-level map (see header.mjs); this file decides
 // what each one means.
+import { CODES } from './codes.mjs';
 
 /** Things captured or generated. Always a folder, since there is always the original and its record. */
 export const MEDIA_TYPES = ['photo', 'screenshot', 'recording', 'video', 'image'];
@@ -18,8 +19,13 @@ export const MEDIA_EXTENSIONS = [
   'pdf',
 ];
 export const RECORD_FILE = 'piece.md';
-/** The page a piece.md names as the standard it upholds, so an agent with no memory can look it up. */
-export const STANDARD = 'https://hypercontext.wiki/standards/piece';
+/** The unversioned page: always the newest version of the piece standard, and the list of all of them. */
+export const STANDARD_LATEST = 'https://hypercontext.wiki/standards/piece';
+/** The versions of the piece standard this package implements. */
+export const IMPLEMENTED_VERSIONS = [1];
+/** The version a piece.md names as the standard it upholds, so an agent with no memory can look it up. */
+export const STANDARD = `${STANDARD_LATEST}/v1`;
+const VERSIONED = /^https:\/\/hypercontext\.wiki\/standards\/piece\/v(\d+)$/;
 
 /** YYYY-MM-DD-HHMM-slug, or superwrite's YYYY-MM-DD-HHMMSS-slug. */
 export const NAME = /^(\d{4}-\d{2}-\d{2})-(?:\d{4}|\d{6})-[a-z0-9][a-z0-9-]*$/;
@@ -40,13 +46,16 @@ export const isMedia = (name) => MEDIA_EXTENSIONS.includes(name.split('.').pop()
  */
 export function checkPiece(data, { name, single = false, members = [], hasHeader = true }) {
   const out = [];
-  const add = (code, message, level = 'error') => out.push({ level, code, message });
+  // The level always comes from the code table, so a finding cannot disagree with the manifest.
+  const add = (code, message) => out.push({ level: CODES[code].level, code, message });
   if (!hasHeader) { add('header:missing', `${RECORD_FILE} has no header, so none of the five questions is answered`); return out; }
 
   if (!NAME.test(name)) add('name:pattern', `"${name}" is not YYYY-MM-DD-HHMM-slug`);
   if (data.kind !== 'piece') add('kind:missing', data.kind ? `kind is "${data.kind}", expected "piece"` : 'kind: piece is missing');
-  if (data.standard === undefined) add('standard:missing', `standard is missing: ${STANDARD}`);
-  else if (data.standard !== STANDARD) add('standard:value', `standard "${data.standard}" is not ${STANDARD}`);
+  if (data.standard === undefined) add('self-doc:missing', `standard is missing: ${STANDARD}`);
+  else if (data.standard === STANDARD_LATEST) add('self-doc:missing', `standard is the bare ${STANDARD_LATEST}, which predates versions; piece-md stamp --apply upgrades it to ${STANDARD}`);
+  else if (VERSIONED.test(data.standard)) { if (!IMPLEMENTED_VERSIONS.includes(Number(data.standard.match(VERSIONED)[1]))) add('self-doc:version', `standard "${data.standard}" is a version this validator does not implement (it implements ${STANDARD})`); }
+  else add('self-doc:missing', `standard "${data.standard}" is not the piece standard: ${STANDARD}`);
   if (data.context_version !== '1') add(data.context_version ? 'context_version:value' : 'context_version:missing', 'context_version must be "1"');
   if (!text(data.id)) add('id:missing', 'id is missing');
   else if (data.id !== name) add('id:mismatch', `id "${data.id}" does not equal the name "${name}"`);
@@ -64,7 +73,7 @@ export function checkPiece(data, { name, single = false, members = [], hasHeader
   else if (!TIME_SOURCES.includes(data.taken_from)) add('taken_from:value', `taken_from "${data.taken_from}" is not one of ${TIME_SOURCES.join(', ')}`);
 
   if (!Array.isArray(data.connections)) add('connections:missing', 'connections is missing (an empty list is allowed)');
-  else if (!data.connections.length) add('connections:empty', 'connections is empty, so nothing links to this piece', 'warn');
+  else if (!data.connections.length) add('connections:empty', 'connections is empty, so nothing links to this piece');
 
   const media = MEDIA_TYPES.includes(data.type);
   const rows = data.files;
@@ -87,7 +96,7 @@ export function checkPiece(data, { name, single = false, members = [], hasHeader
     else if (listed.size) add('single:outgrown', `it names a file of its own, so it is a folder now: move it to ${name}/${RECORD_FILE}`);
   }
   const unlisted = members.filter((m) => isMedia(m) && !listed.has(m));
-  if (unlisted.length) add('file:unlisted', `media with no row: ${unlisted.join(', ')}`, 'warn');
+  if (unlisted.length) add('file:unlisted', `media with no row: ${unlisted.join(', ')}`);
   return out;
 }
 

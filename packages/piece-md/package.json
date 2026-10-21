@@ -1,12 +1,12 @@
 {
   "name": "@supersuit/piece-md",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A written standard for a piece of a life's record (a photo, a recording, a video, a generated image, a document): a folder whose piece.md answers the five hypercontext questions, with a checker and a finder.",
   "keywords": ["piece", "media", "photos", "markdown", "frontmatter", "records", "hypercontext", "agents"],
   "type": "module",
   "bin": { "piece-md": "bin/piece-md.mjs" },
   "exports": { ".": "./src/index.mjs", "./package.json": "./package.json" },
-  "files": ["bin/", "src/", "docs/", "README.md", "CHANGELOG.md", "LICENSE"],
+  "files": ["bin/", "src/", "docs/", "standards/", "README.md", "CHANGELOG.md", "LICENSE"],
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "mutation-check": "node scripts/mutation-check.mjs",

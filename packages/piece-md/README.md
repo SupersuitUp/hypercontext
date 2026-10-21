@@ -15,6 +15,7 @@ documents/2026-06-14-1812-nai-nai-at-the-lake/
 ```bash
 npx @supersuit/piece-md lint documents
 npx @supersuit/piece-md find documents --person nai-nai --from 2026-06-01 --to 2026-06-30
+npx @supersuit/piece-md stamp documents --apply
 ```
 
 Zero dependencies, Node 20 or later.
@@ -24,6 +25,7 @@ Zero dependencies, Node 20 or later.
 ```
 piece-md lint [<home>] [--json]
 piece-md find [<home>] [--person <id>] [--confirmed] [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--type <type>] [--json]
+piece-md stamp [<home>] [--apply] [--json]
 ```
 
 `<home>` defaults to `documents/` in the current folder.
@@ -47,7 +49,16 @@ $ piece-md find documents --person nai-nai
 [exit 0]
 ```
 
-Exit codes: 0 clean or found, 1 findings or nothing found, 2 usage.
+**stamp** makes every `piece.md` name the standard version it upholds: it adds a missing `standard:`, and upgrades the bare unversioned URL that 0.2.0 wrote to `/v1`, in place, every other byte unchanged. It is a dry run that lists the changes unless `--apply`. It never gives a file with no header a header, and never rewrites a record naming another standard; those are listed as skipped.
+
+```
+$ piece-md stamp documents
+would upgrade  calls/2026-07-02-0930-lease-call/piece.md
+1 to stamp, 1 already current, 0 skipped
+[exit 1]
+```
+
+Exit codes: 0 clean, found, or nothing left to stamp; 1 findings, nothing found, or stamps pending or skipped; 2 usage.
 
 ## Library
 
@@ -58,8 +69,18 @@ lint('documents');                                   // { findings, pieces, unre
 find('documents', { person: 'nai-nai', type: 'photo' });
 checkPiece(header, { name: '2026-06-14-1812-nai-nai-at-the-lake' });   // findings for one header
 pieceText({ id, type: 'photo', /* ... */ }, body);   // a new piece.md, stamped with kind and standard
-stampStandard(existingText);                         // add `standard:` to a record, nothing else changes
+stampStandard(existingText);                         // add or upgrade `standard:`, nothing else changes
+MANIFEST;                                            // the standard as data: standards/piece/v1.json
 ```
+
+## The standard, as data
+
+Every `piece.md` names `standard: https://hypercontext.wiki/standards/piece/v1`. Beside that page is its machine-readable twin, `v1.json`, which this package ships as [`standards/piece/v1.json`](standards/piece/v1.json) and exports as `MANIFEST`: the header keys a record must carry and the constraints a reader can check without installing anything, the exact commands to check and backfill, and **every** code `lint` can report with its level, what it means and how to fix it. The tests prove the manifest says exactly what `lint` enforces.
+
+The two codes every hypercontext record package shares:
+
+- `self-doc:missing` (error): no standard, the bare unversioned URL (written before versions; `stamp` upgrades it), or another kind's standard.
+- `self-doc:version` (error): a version of the piece standard this package does not implement.
 
 ## What it refuses
 
@@ -67,7 +88,8 @@ stampStandard(existingText);                         // add `standard:` to a rec
 - A face without `confirmed`. A model may name someone; only a person confirms them.
 - A scope that was not chosen: `keep` must be `keep`, `home` or `share`.
 - A photo or recording as a bare file. Media is always a folder.
-- A record that does not name its standard. Every `piece.md` carries `standard: https://hypercontext.wiki/standards/piece`, so a reader with no memory of this format can find it.
+- A record that does not name its standard version. Every `piece.md` carries `standard: https://hypercontext.wiki/standards/piece/v1`, so a reader with no memory of this format can find it.
+- Following a symbolic link. A link is another tree's file: one named like a piece is reported as `link:skipped`, never read.
 
 It reads only `.md` files. Media is seen by its name in a directory listing and never opened.
 
