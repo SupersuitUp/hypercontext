@@ -1,0 +1,99 @@
+{
+  "manifest_version": 1,
+  "standard": "https://hypercontext.wiki/standards/workflow-catalog/v1",
+  "kind": "workflow-catalog",
+  "version": 1,
+  "title": "The workflow catalog",
+  "status": "current",
+  "superseded_by": null,
+  "latest": "https://hypercontext.wiki/standards/workflow-catalog",
+  "record": {
+    "path": "workflows/CATALOG.md",
+    "format": "md"
+  },
+  "header": {
+    "required": [
+      "standard"
+    ],
+    "keys": {
+      "standard": {
+        "const": "https://hypercontext.wiki/standards/workflow-catalog/v1"
+      }
+    }
+  },
+  "validator": {
+    "package": "@supersuit/hdsop-md",
+    "implements_since": "0.1.0",
+    "check": "npx -y @supersuit/hdsop-md@^0.1.0 lint workflows --json",
+    "backfill": "npx -y @supersuit/hdsop-md@^0.1.0 stamp workflows --apply"
+  },
+  "codes": [
+    {
+      "code": "self-doc:missing",
+      "level": "error",
+      "means": "CATALOG.md names no standard (it has no header, or its header names none), the bare unversioned URL, or another kind's standard",
+      "fix": "a catalog with a header: hdsop-md stamp <workflows-dir> --apply. One with no header waits until Supersuit's catalog writer keeps a header, because today it refuses to rewrite a catalog that has one"
+    },
+    {
+      "code": "self-doc:version",
+      "level": "error",
+      "means": "CATALOG.md names a version of the workflow-catalog standard this validator does not implement",
+      "fix": "install the hdsop-md version that implements it, or rewrite it to https://hypercontext.wiki/standards/workflow-catalog/v1"
+    },
+    {
+      "code": "catalog:missing",
+      "level": "info",
+      "means": "the workflows folder has no CATALOG.md yet",
+      "fix": "map a workflow with map-a-workflow, which starts the catalog"
+    },
+    {
+      "code": "catalog:not-writable",
+      "level": "warn",
+      "means": "Supersuit's catalog writer would refuse to rewrite this CATALOG.md, because regenerating it would drop lines or misplace columns, so no row can be added or updated through it",
+      "fix": "move the prose under \"The honest read\", keep one table with the catalog's seven columns in order, or write the rows by hand"
+    },
+    {
+      "code": "row:doc",
+      "level": "error",
+      "means": "a row's Doc is not unmapped, drafting or proven",
+      "fix": "set it to unmapped, drafting or proven"
+    },
+    {
+      "code": "row:automation",
+      "level": "error",
+      "means": "a row's Automation is not manual, assisted, skill-partial, mostly-automated or judgment-core",
+      "fix": "set it to one of manual, assisted, skill-partial, mostly-automated, judgment-core"
+    },
+    {
+      "code": "row:duplicate",
+      "level": "error",
+      "means": "two rows name the same workflow (ignoring case)",
+      "fix": "keep one row per workflow"
+    },
+    {
+      "code": "row:map-missing",
+      "level": "error",
+      "means": "a row's map link points at a file that does not exist",
+      "fix": "point the link at the map, or set the cell to - when there is none"
+    },
+    {
+      "code": "row:proven-unmapped",
+      "level": "error",
+      "means": "a row is marked proven with no map to point at",
+      "fix": "link the map, or lower Doc to drafting or unmapped"
+    },
+    {
+      "code": "row:automated-by",
+      "level": "error",
+      "means": "a row claims skill-partial or mostly-automated and names nothing that automates it",
+      "fix": "fill Automated by: skill, script, cron, agent-loop, hook, mcp, external, or what actually does it"
+    },
+    {
+      "code": "row:judgment-core",
+      "level": "warn",
+      "means": "a row is judgment-core, which means it stays human, and still names something as automating it",
+      "fix": "clear Automated by, or move the row off judgment-core"
+    }
+  ],
+  "umbrella": "npx -y @supersuit/hypercontext check <workspace>"
+}

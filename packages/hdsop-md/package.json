@@ -1,0 +1,21 @@
+{
+  "name": "@supersuit/hdsop-md",
+  "version": "0.1.0",
+  "description": "The written standard for a workflows folder: each workflow map (an HDSOP) and the catalog that scores them, with a checker and a byte-preserving stamp.",
+  "keywords": ["hdsop", "workflow", "sop", "catalog", "markdown", "frontmatter", "records", "hypercontext", "agents"],
+  "type": "module",
+  "bin": { "hdsop-md": "bin/hdsop-md.mjs" },
+  "exports": { ".": "./src/index.mjs", "./package.json": "./package.json" },
+  "files": ["bin/", "src/", "standards/", "README.md", "CHANGELOG.md", "LICENSE"],
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "manifests": "node scripts/build-manifests.mjs",
+    "mutation-check": "node scripts/mutation-check.mjs",
+    "install-proof": "node scripts/install-proof.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "license": "MIT",
+  "publishConfig": { "access": "public" },
+  "repository": { "type": "git", "url": "git+https://github.com/SupersuitUp/hypercontext.git", "directory": "packages/hdsop-md" },
+  "dependencies": { "@supersuit/hypercontext-core": "^0.1.0" }
+}
