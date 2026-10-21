@@ -53,3 +53,12 @@ test('no baseline means every error counts', () => {
   assert.equal(r.ok, false);
   assert.equal(r.fresh, 1);
 });
+
+test('two findings on one record are one known entry, never a refusal', () => {
+  const f = file();
+  const r = report(['a.md', 'a.md']);
+  const w = writeBaseline(f, r);
+  assert.equal(w.count, 1);
+  assert.equal(w.refused, 0);
+  assert.equal(writeBaseline(f, r).refused, 0);
+});

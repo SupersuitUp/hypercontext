@@ -35,9 +35,10 @@ export function applyBaseline(report, baseline) {
  */
 export function writeBaseline(file, report, { accept = false, today = new Date().toISOString().slice(0, 10) } = {}) {
   const prior = readBaseline(file);
-  const now = report.findings.filter((f) => f.level === 'error').map(keyOf);
+  // One entry per record and code: two findings on one record are one piece of debt.
+  const now = [...new Set(report.findings.filter((f) => f.level === 'error').map(keyOf))];
   const known = prior && !accept ? now.filter((k) => prior.known.has(k)) : now;
-  const sorted = [...new Set(known)].sort();
+  const sorted = [...known].sort();
   writeFileSync(file, JSON.stringify({
     about: 'Error findings @supersuit/hypercontext tolerates in this workspace because they predate the check. Each fixed one drops out the next time this is written; a new one fails the check. https://hypercontext.wiki/standards',
     written: today,
