@@ -49,7 +49,7 @@ test('writeRecord creates <dir>/<id>/group.md with a Now section', (t) => {
   assert.equal(path, join(dir, 'dana-theo', 'group.md'));
   assert.equal(readFileSync(path, 'utf8'), `---
 kind: group
-standard: "https://hypercontext.wiki/standards/group"
+standard: "https://hypercontext.wiki/standards/group/v1"
 id: dana-theo
 name: "Dana, Theo"
 origin: census

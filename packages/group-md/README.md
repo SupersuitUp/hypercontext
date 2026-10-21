@@ -23,7 +23,7 @@ A group is a folder `<groups-dir>/<id>/` holding `group.md`:
 ```markdown
 ---
 kind: group
-standard: "https://hypercontext.wiki/standards/group"
+standard: "https://hypercontext.wiki/standards/group/v1"
 id: launch-crew
 name: "Launch Crew"
 origin: census
@@ -60,10 +60,11 @@ Any other key in the header is left exactly as it is by every writer, byte for b
 
 ## Self-documenting
 
-Every record names the standard it follows, so an agent that has never seen this package can open the file and find its rules. The header carries `standard: "https://hypercontext.wiki/standards/group"` directly after `kind:`. The package exports the URL as `STANDARD`.
+Every record names the version of the standard it follows, so an agent that has never seen this package can open the file and find its rules. The header carries `standard: "https://hypercontext.wiki/standards/group/v1"` directly after `kind:`. The package exports the URL as `STANDARD`. A version's meaning never changes once published; the unversioned `https://hypercontext.wiki/standards/group` is the page for the latest one, and a record never names it.
 
-- **Every write stamps it.** `writeRecord`, `addAlias`, `applyPlan` (so `reconcile --apply`) and `migrate --apply` put `standard:` after `kind:` when it is missing and correct it in place when it names another URL. No other line moves.
-- **`lint` refuses a record without it.** A missing `standard:`, or one naming any other URL, is `self-doc:missing` at level error.
+- **Every write stamps it.** `writeRecord`, `addAlias`, `applyPlan` (so `reconcile --apply`) and `migrate --apply` put `standard:` after `kind:` when it is missing, upgrade the bare unversioned URL in place to `/v1`, and correct it in place when it names another URL. A record naming a version this package does not implement is never rewritten. No other line moves.
+- **`lint` refuses a record without it.** A missing `standard:`, the bare unversioned URL, or any other URL (another kind's included) is `self-doc:missing` at level error. A version this package does not implement is `self-doc:version`, also an error.
+- **The standard ships as data.** `standards/group/v1.json` is the manifest hypercontext.wiki publishes for this version: the header keys lint enforces, the validator commands, and every lint code with its level, meaning and fix. It is exported as `MANIFEST` (and as `@supersuit/group-md/standards/group/v1.json`), and a test proves it matches `STANDARD` and `CODES`.
 - **`migrate` backfills it.** `group-md migrate <dir>` lists every record that needs the stamp; `--apply` writes it, one inserted line, every other byte kept, CRLF line endings included. A second run changes nothing. `stampStandard(text)` is the same thing as a pure function.
 
 ## Feeding it threads
@@ -189,7 +190,8 @@ It exits 1 when any finding is an error. Warnings alone exit 0.
 
 | code | level | meaning |
 | --- | --- | --- |
-| `self-doc:missing` | error | `standard:` is missing or is not `https://hypercontext.wiki/standards/group`; `group-md migrate <dir> --apply` stamps it |
+| `self-doc:missing` | error | `standard:` is missing, is the bare unversioned `https://hypercontext.wiki/standards/group` (written before versions), or names another URL; `group-md migrate <dir> --apply` stamps or upgrades it to `/v1` |
+| `self-doc:version` | error | `standard:` names a version of the group standard this package does not implement (it implements v1) |
 | `kind:missing` | error | `kind` is not `group` |
 | `id:mismatch` | error | `id` is missing, is not the folder name, or is not a slug |
 | `name:missing` | error | no `name` |
@@ -215,7 +217,7 @@ migrate  night-shift  threads from imessage_group
 1 record migrated
 ```
 
-`migrate` also stamps `standard:` on every record that lacks it (the line reads `migrate  <id>  standard stamped`, or `...; standard stamped` after the threads). The legacy keys stay in place, so a reader that predates this package keeps working. `--drop-legacy` removes them once nothing reads them. Nothing is renamed and no file moves.
+`migrate` also stamps `standard:` on every record that lacks it, and upgrades the bare unversioned URL to `/v1` in place (the line reads `migrate  <id>  standard stamped`, or `...; standard stamped` after the threads). The legacy keys stay in place, so a reader that predates this package keeps working. `--drop-legacy` removes them once nothing reads them. Nothing is renamed and no file moves.
 
 ## Commands
 
@@ -261,7 +263,7 @@ const plan = reconcile(records, threads, { today: '2026-10-13' }); // pure: read
 applyPlan('groups', plan);                                          // the only half that writes
 ```
 
-Also exported: `readRecord`, `writeRecord`, `migrate`, `planMigration`, `readHeader`, `writeHeader`, `toRecord`, `fromRecord`, `norm`, `slugify`, `STANDARD`, `stampStandard`.
+Also exported: `readRecord`, `writeRecord`, `migrate`, `planMigration`, `readHeader`, `writeHeader`, `toRecord`, `fromRecord`, `norm`, `slugify`, `STANDARD`, `LATEST`, `VERSIONS`, `standardStatus`, `stampStandard`, `CODES` (every lint code with its level, meaning and fix) and `MANIFEST`.
 
 ## How it is tested
 

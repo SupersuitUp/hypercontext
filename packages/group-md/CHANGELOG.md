@@ -2,11 +2,14 @@
 
 ## 0.2.0
 
-- **Every group record is self-documenting.** A record names the standard it follows in `standard: "https://hypercontext.wiki/standards/group"`, directly after `kind:`, so an agent that has never seen this package can open the file and find its rules. The URL is exported as `STANDARD`.
+- **Every group record is self-documenting.** A record names the version of the standard it follows in `standard: "https://hypercontext.wiki/standards/group/v1"`, directly after `kind:`, so an agent that has never seen this package can open the file and find its rules. The URL is exported as `STANDARD`. A version's meaning never changes once published; a change to what a valid record is becomes `v2`. The unversioned `https://hypercontext.wiki/standards/group` is the page for the latest version, exported as `LATEST`, and a record never names it.
 - **Every writer stamps it.** `writeRecord`, `addAlias`, `applyPlan` (and so `reconcile --apply`) and `migrate --apply` insert the key after `kind:` when it is missing and correct a different URL in place. No other line moves.
-- **`lint` refuses a record without it**: new code `self-doc:missing`, level error, for a missing key or any other URL. Its message names the fix, `group-md migrate <dir> --apply`.
-- **`migrate` backfills it.** The dry run lists every record missing the stamp, and `--apply` writes it byte-preservingly, CRLF kept, idempotent. Each change in the JSON gains `stamp: boolean`; a stamp-only change has empty `legacy`, `threads` and `dropped`. The legacy thread-key behavior is unchanged.
-- **`stampStandard(text)`**: the stamp as a pure function over a file's text.
+- **`lint` refuses a record without it**: new code `self-doc:missing`, level error, for a missing key, the bare unversioned URL (the message says it predates versions and that `migrate --apply` upgrades it), or any other URL, another kind's standard included. Its message names the fix, `group-md migrate <dir> --apply`.
+- **`lint` refuses a version it does not implement**: new code `self-doc:version`, level error, for `.../standards/group/v<N>` other than v1. No writer and no migration touches such a record, so a newer record is never rewritten down to v1.
+- **Every code has a row in `CODES`**, exported: level, what it means, how to fix it. `lint` takes each finding's level from it.
+- **`migrate` backfills it.** The dry run lists every record missing the stamp or naming the bare unversioned URL, and `--apply` writes it (or upgrades the URL in place to `/v1`) byte-preservingly, CRLF kept, idempotent. Each change in the JSON gains `stamp: boolean`; a stamp-only change has empty `legacy`, `threads` and `dropped`. The legacy thread-key behavior is unchanged.
+- **`stampStandard(text)`**: the stamp as a pure function over a file's text. `standardStatus(value)` says whether a `standard:` value is `current`, `bare`, an unimplemented `version`, or `missing`.
+- **The standard as data.** The package ships `standards/group/v1.json`, the manifest for this version (header keys lint enforces, the validator commands, every code with its level, meaning and fix), exported as `MANIFEST` and as `@supersuit/group-md/standards/group/v1.json`. hypercontext.wiki publishes this file unchanged. A test proves its `standard` equals `STANDARD` and its codes and levels equal `CODES`.
 - The format document is now version 0.2.0 of the standard.
 
 ## 0.1.2

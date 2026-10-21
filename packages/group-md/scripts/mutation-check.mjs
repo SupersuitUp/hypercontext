@@ -61,13 +61,27 @@ const cases = [
   ['a legacy key is not read twice', 'record.mjs', 'record.test.mjs', 'threads.push(...legacyThreads(d, new Set(threads.map((t) => t.app))));', 'threads.push(...legacyThreads(d, new Set()));'],
   ['one thread belongs to one record', 'lint.mjs', 'lint.test.mjs', "    const [app, id] = key.split('\\u0000');", "    continue; const [app, id] = key.split('\\u0000');"],
   // ---- self-documenting
-  ['lint refuses a record that does not name its standard', 'lint.mjs', 'standard.test.mjs', 'if (data.standard !== STANDARD) {', 'if (false) {'],
+  ['lint refuses a record that does not name its standard', 'lint.mjs', 'standard.test.mjs', "} else if (status === 'missing') {", '} else if (false) {'],
+  ['lint refuses the bare unversioned URL', 'lint.mjs', 'standard.test.mjs', "if (status === 'bare') {", 'if (false) {'],
+  ['lint refuses a version it does not implement', 'lint.mjs', 'standard.test.mjs', "} else if (status === 'version') {", '} else if (false) {'],
+  ['the bare URL is not current', 'standard.mjs', 'standard.test.mjs', "if (value === LATEST) return 'bare';", "if (value === LATEST) return 'current';"],
+  ['only implemented versions are current', 'standard.mjs', 'standard.test.mjs', "return VERSIONS.includes(Number(m[1])) ? 'current' : 'version';", "return 'current';"],
+  ["another kind's standard is not this one", 'standard.mjs', 'standard.test.mjs', 'standards\\/group\\/v', 'standards\\/[a-z]+\\/v'],
+  ['a writer never downgrades a newer version', 'standard.mjs', 'standard.test.mjs', "if (standardStatus(readHeader(text).data.standard) === 'version') return text;", 'if (false) return text;'],
+  ['migrate upgrades the bare URL', 'migrate.mjs', 'standard.test.mjs', "const stamp = status === 'missing' || status === 'bare';", "const stamp = status === 'missing';"],
+  ['migrate leaves an unimplemented version alone', 'migrate.mjs', 'standard.test.mjs', "const stamp = status === 'missing' || status === 'bare';", "const stamp = status !== 'current';"],
   ['the standard is placed directly after kind', 'standard.mjs', 'standard.test.mjs', "placeKey(text, 'standard', STANDARD, 'kind')", "placeKey(text, 'standard', STANDARD, 'nope')"],
   ['an existing record is stamped when written', 'store.mjs', 'standard.test.mjs', '  const text = stampStandard(writeHeader(found.text, patch));\n  if (text !== found.text) writeFileSync(found.path, text);\n  return found.path;', '  const text = writeHeader(found.text, patch);\n  if (text !== found.text) writeFileSync(found.path, text);\n  return found.path;'],
   ['a patch stamps the record', 'store.mjs', 'standard.test.mjs', '  const text = stampStandard(writeHeader(found.text, patch));\n  if (text !== found.text) writeFileSync(found.path, text);\n  return { path', '  const text = writeHeader(found.text, patch);\n  if (text !== found.text) writeFileSync(found.path, text);\n  return { path'],
   ['a new record is stamped', 'record.mjs', 'standard.test.mjs', '    standard: STANDARD,\n', ''],
   ['migrate lists a missing stamp', 'migrate.mjs', 'standard.test.mjs', "if (stamp) changes.push(", "if (false) changes.push("],
-  ['a wrong standard URL is a finding', 'standard.mjs', 'standard.test.mjs', "export const STANDARD = 'https://hypercontext.wiki/standards/group';", "export const STANDARD = 'https://hypercontext.wiki/standards/groups';"],
+  ['a wrong standard URL is a finding', 'standard.mjs', 'standard.test.mjs', "export const LATEST = 'https://hypercontext.wiki/standards/group';", "export const LATEST = 'https://hypercontext.wiki/standards/groups';"],
+  ['the standard names version 1', 'standard.mjs', 'standard.test.mjs', 'export const STANDARD = `${LATEST}/v1`;', 'export const STANDARD = `${LATEST}/v2`;'],
+  // ---- the manifest
+  ['the manifest names the standard', 'standard.mjs', 'manifest.test.mjs', 'export const STANDARD = `${LATEST}/v1`;', 'export const STANDARD = `${LATEST}/v2`;'],
+  ["the manifest's levels are lint's levels", 'lint.mjs', 'manifest.test.mjs', "'self-doc:version': { level: 'error',", "'self-doc:version': { level: 'warn',"],
+  ["the manifest's codes are lint's codes", 'lint.mjs', 'manifest.test.mjs', "  'alias:collision': { level: 'warn',", "  'alias:collisions': { level: 'warn',"],
+  ['a finding takes its level from the code table', 'lint.mjs', 'lint.test.mjs', 'findings.push({ level: CODES[code].level, code,', "findings.push({ level: 'error', code,"],
   ['migrate keeps legacy keys unless asked', 'migrate.mjs', 'migrate.test.mjs', 'const dropped = dropLegacy ? legacy : [];', 'const dropped = legacy;'],
   // ---- the command line
   ['migrate is a dry run until applied', BIN, 'cli.test.mjs', 'migrate(need(dir), { apply: Boolean(opt.apply),', 'migrate(need(dir), { apply: true,'],
@@ -82,7 +96,7 @@ const survived = [];
 for (const [name, source, suite, before, after] of cases) {
   const dir = mkdtempSync(join(tmpdir(), 'group-md-mutation-'));
   try {
-    for (const part of ['src', 'test', 'bin']) cpSync(join(root, part), join(dir, part), { recursive: true });
+    for (const part of ['src', 'test', 'bin', 'standards']) cpSync(join(root, part), join(dir, part), { recursive: true });
     cpSync(join(root, 'package.json'), join(dir, 'package.json'));
     const file = join(dir, 'src', source), text = readFileSync(file, 'utf8');
     if (!text.includes(before)) throw new Error(`Mutation anchor missing: ${name}`);

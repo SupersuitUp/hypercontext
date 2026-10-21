@@ -6,12 +6,13 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { STANDARD, stampStandard, writeRecord, readRecord, addAlias, applyPlan, reconcile, lint, migrate } from '../src/index.mjs';
 import { tmpGroups, put, group } from './helpers.mjs';
 
-const URL = 'https://hypercontext.wiki/standards/group';
+const URL = 'https://hypercontext.wiki/standards/group/v1';
+const BARE = 'https://hypercontext.wiki/standards/group';
 const LINE = `standard: "${URL}"`;
 const UNSTAMPED = 'kind: group\nid: quiet-room\nname: "Quiet Room"\n# a comment that must survive\nsummary:   "odd spacing kept"\nthreads: []\nmembers: ["dana-reyes"]';
 const headerLines = (text) => text.split('\n').slice(1, text.split('\n').indexOf('---', 1));
 
-test('STANDARD is the group standard URL, exported from the entry point', () => {
+test('STANDARD is version 1 of the group standard, exported from the entry point', () => {
   assert.equal(STANDARD, URL);
 });
 
@@ -135,4 +136,70 @@ test('a stamped legacy record reports stamp: false', (t) => {
   const { dir } = tmpGroups(t);
   put(dir, 'night-shift', 'kind: group\nid: night-shift\nname: Night Shift\nimessage_group: "NIGHT SHIFT"');
   assert.deepEqual(migrate(dir).changes.map((c) => c.stamp), [false]);
+});
+
+// ---- versions: the link names the version, and a record written before versions is upgraded
+
+const withStandard = (url) => UNSTAMPED.replace('kind: group', `kind: group\nstandard: "${url}"`);
+
+test('stampStandard upgrades the bare unversioned URL in place to v1, byte for byte, and keeps CRLF', () => {
+  const lf = `---\n${withStandard(BARE)}\n---\n\nBody stays.\n`;
+  const out = stampStandard(lf);
+  assert.equal(out, lf.replace(`"${BARE}"`, `"${URL}"`));
+  assert.equal(stampStandard(out), out, 'idempotent');
+  const crlf = lf.replace(/\n/g, '\r\n');
+  const upgraded = stampStandard(crlf);
+  assert.equal(upgraded, crlf.replace(`"${BARE}"`, `"${URL}"`));
+  assert.equal(stampStandard(upgraded), upgraded);
+});
+
+test('stampStandard leaves a version of the group standard it does not implement alone', () => {
+  const future = `---\n${withStandard(`${BARE}/v2`)}\n---\n`;
+  assert.equal(stampStandard(future), future);
+});
+
+test('lint: the bare unversioned URL is self-doc:missing, says it predates versions, and names the upgrade', (t) => {
+  const { dir } = tmpGroups(t);
+  put(dir, 'quiet-room', withStandard(BARE), { stamp: false });
+  const f = lint(dir);
+  assert.deepEqual(f.map((x) => [x.level, x.code, x.id]), [['error', 'self-doc:missing', 'quiet-room']]);
+  assert.match(f[0].message, /predates versions/);
+  assert.match(f[0].message, /migrate <dir> --apply/);
+  assert.match(f[0].message, /standards\/group\/v1/);
+});
+
+test("lint: another kind's standard is self-doc:missing", (t) => {
+  const { dir } = tmpGroups(t);
+  put(dir, 'quiet-room', withStandard('https://hypercontext.wiki/standards/friend/v1'), { stamp: false });
+  assert.deepEqual(lint(dir).map((x) => [x.level, x.code]), [['error', 'self-doc:missing']]);
+});
+
+test('lint: a version this package does not implement is self-doc:version, and migrate leaves it alone', (t) => {
+  const { dir } = tmpGroups(t);
+  const path = put(dir, 'quiet-room', withStandard(`${BARE}/v2`), { stamp: false });
+  const f = lint(dir);
+  assert.deepEqual(f.map((x) => [x.level, x.code, x.id]), [['error', 'self-doc:version', 'quiet-room']]);
+  assert.match(f[0].message, /v2/);
+  assert.match(f[0].message, /implements v1/);
+  const before = readFileSync(path, 'utf8');
+  assert.deepEqual(migrate(dir, { apply: true }), { changes: [], applied: false });
+  assert.equal(readFileSync(path, 'utf8'), before);
+});
+
+test('lint: v1 is accepted', (t) => {
+  const { dir } = tmpGroups(t);
+  put(dir, 'quiet-room', withStandard(URL), { stamp: false });
+  assert.deepEqual(lint(dir), []);
+});
+
+test('migrate lists the bare URL as a stamp, and --apply upgrades it in place, idempotently', (t) => {
+  const { dir } = tmpGroups(t);
+  const path = put(dir, 'quiet-room', withStandard(BARE), { stamp: false, body: '\n## Now\n\nHistory.\n' });
+  const before = readFileSync(path, 'utf8');
+  assert.deepEqual(migrate(dir).changes.map((c) => [c.id, c.stamp]), [['quiet-room', true]]);
+  assert.equal(readFileSync(path, 'utf8'), before, 'a dry run writes nothing');
+  assert.equal(migrate(dir, { apply: true }).applied, true);
+  assert.equal(readFileSync(path, 'utf8'), before.replace(`"${BARE}"`, `"${URL}"`));
+  assert.deepEqual(lint(dir), []);
+  assert.deepEqual(migrate(dir, { apply: true }), { changes: [], applied: false });
 });

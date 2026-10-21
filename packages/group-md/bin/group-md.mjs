@@ -21,7 +21,7 @@ Usage:
   group-md reconcile <dir> --threads <file.json|-> [--apply] [--json] [--today YYYY-MM-DD] [--large-group N]
       Compare thread descriptors with the records and print the plan. Writes only with --apply.
   group-md migrate <dir> [--apply] [--drop-legacy] [--json]
-      Write legacy thread keys as threads:, and stamp a missing standard: URL. A dry run without --apply.
+      Write legacy thread keys as threads:, and stamp a missing standard: URL (or upgrade the unversioned one to /v1). A dry run without --apply.
   group-md --help | --version
 
 <dir> is the folder holding one <id>/group.md per group.

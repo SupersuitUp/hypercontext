@@ -16,12 +16,14 @@
   },
   "exports": {
     ".": "./src/index.mjs",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./standards/group/v1.json": "./standards/group/v1.json"
   },
   "files": [
     "bin/",
     "src/",
     "docs/",
+    "standards/",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"

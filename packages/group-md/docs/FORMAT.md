@@ -17,7 +17,7 @@ Names starting with `.` or `_`, and `README.md`, are not records.
 | key | required | shape |
 | --- | --- | --- |
 | `kind` | yes | the literal `group` |
-| `standard` | yes | the literal `https://hypercontext.wiki/standards/group`, directly after `kind` |
+| `standard` | yes | the literal `https://hypercontext.wiki/standards/group/v1`, directly after `kind` |
 | `id` | yes | equals the folder name; matches `^[a-z0-9][a-z0-9-]*$` |
 | `name` | yes | display name, any text |
 | `threads` | yes (may be an empty list) | block list of flow maps `{app, id, name, seen}` |
@@ -66,11 +66,18 @@ Every phrase the operator has used for the group. `group-md alias` appends one; 
 
 ## Self-documenting
 
-Every record names the standard it follows, so a reader with no other context can open the file and find its rules. That is the `standard:` key, holding `https://hypercontext.wiki/standards/group`, written directly after `kind:`.
+Every record names the version of the standard it follows, so a reader with no other context can open the file and find its rules. That is the `standard:` key, holding `https://hypercontext.wiki/standards/group/v1`, written directly after `kind:`.
 
-- Every writer in the package stamps it: a new record is created with it, and any write to an existing record inserts it after `kind:` (first in the header when there is no `kind:`) or replaces a different URL in place.
-- `lint` reports `self-doc:missing` (error) when it is absent or names any other URL.
-- `group-md migrate <dir>` lists the records missing it and `--apply` stamps them. The stamp is one inserted line; every other byte, CRLF line endings included, is kept, and a second run changes nothing. `stampStandard(text)` does the same to a string.
+The link names a version because a version's meaning never changes once published. A change to what a valid record is becomes `v2`; a fix to the prose does not. The unversioned `https://hypercontext.wiki/standards/group` is the page for the latest version and lists every version. A record never names it: one that does was written before versions existed.
+
+- Every writer in the package stamps it: a new record is created with it, and any write to an existing record inserts it after `kind:` (first in the header when there is no `kind:`), upgrades the bare unversioned URL in place to `/v1`, or replaces any other URL in place. A record naming a version of the group standard this package does not implement is never rewritten.
+- `lint` reports `self-doc:missing` (error) when it is absent, names the bare unversioned URL (the message says it predates versions and that `migrate --apply` upgrades it), or names any other URL, another kind's standard included.
+- `lint` reports `self-doc:version` (error) when it names `https://hypercontext.wiki/standards/group/v<N>` for a version this package does not implement. This package implements v1.
+- `group-md migrate <dir>` lists the records missing it or naming the bare URL, and `--apply` stamps or upgrades them. The stamp is one inserted line; every other byte, CRLF line endings included, is kept, and a second run changes nothing. `stampStandard(text)` does the same to a string.
+
+## The manifest
+
+Every version has a machine-readable twin, `https://hypercontext.wiki/standards/group/v1.json`. This package ships it as `standards/group/v1.json` and exports it as `MANIFEST`, and the wiki publishes that file unchanged. It names the standard, the header keys `lint` enforces (`kind`, `standard`, `id`, `name`, `threads`) with the constraints a reader can check without the package, the validator commands (`npx -y @supersuit/group-md@^0.2.0 lint people/groups --json`, and `migrate people/groups --apply` to backfill), and every code `lint` can report with its level, meaning and fix. A test in this package proves the manifest's `standard` is `STANDARD` and its codes and levels are exactly `lint`'s code table, `CODES`.
 
 ## Unknown keys
 

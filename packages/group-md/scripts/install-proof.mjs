@@ -37,10 +37,12 @@ try {
   // 1. The tarball holds only what it should, and nothing personal.
   const [pack] = JSON.parse(run('npm', ['pack', '--json', '--pack-destination', dir], 0, root).stdout);
   for (const file of pack.files) {
-    assert.ok(/^(src\/|bin\/|docs\/|README\.md$|CHANGELOG\.md$|LICENSE$|package\.json$)/.test(file.path), `Unexpected package payload: ${file.path}`);
+    assert.ok(/^(src\/|bin\/|docs\/|standards\/group\/v1\.json$|README\.md$|CHANGELOG\.md$|LICENSE$|package\.json$)/.test(file.path), `Unexpected package payload: ${file.path}`);
     const text = readFileSync(join(root, file.path), 'utf8');
     assert.doesNotMatch(text, /\/Users\/[^/]+\/|[\w.+-]+@[\w-]+\.(?:com|org|net|ai|io)\b/i, `Personal path or address in ${file.path}`);
   }
+
+  assert.ok(pack.files.some((f) => f.path === 'standards/group/v1.json'), 'the manifest ships');
 
   // 2. Installed into an empty project, with nothing else.
   writeFileSync(join(dir, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
@@ -96,8 +98,17 @@ try {
   assert.match(cli(['migrate', 'groups']).stdout, /Dry run: 1 record would change/);
   assert.equal(readFileSync(join(dir, 'groups', 'night-shift', 'group.md'), 'utf8'), LEGACY, 'a dry run writes nothing');
   assert.match(cli(['migrate', 'groups', '--apply']).stdout, /1 record migrated/);
-  assert.ok(readFileSync(join(dir, 'groups', 'night-shift', 'group.md'), 'utf8').includes('kind: group\nstandard: "https://hypercontext.wiki/standards/group"\nid: night-shift\nname: "Night Shift"\nkeep: home\nmembers: ["nora-lindqvist", "theo-park"]\nimessage_group: "Night Shift"\nthreads:\n'));
+  assert.ok(readFileSync(join(dir, 'groups', 'night-shift', 'group.md'), 'utf8').includes('kind: group\nstandard: "https://hypercontext.wiki/standards/group/v1"\nid: night-shift\nname: "Night Shift"\nkeep: home\nmembers: ["nora-lindqvist", "theo-park"]\nimessage_group: "Night Shift"\nthreads:\n'));
   cli(['migrate', 'groups', '--apply', '--drop-legacy']);
+  assert.deepEqual(json(['lint', 'groups']).findings.map((f) => f.code), ['thread:no-id']);
+
+  // a record written before versions names the bare URL; lint refuses it and migrate upgrades it in place
+  const quiet = '---\nkind: group\nstandard: "https://hypercontext.wiki/standards/group"\nid: quiet-room\nname: Quiet Room\nthreads: []\nmembers: []\n---\n\n## Now\n';
+  mkdirSync(join(dir, 'groups', 'quiet-room'));
+  writeFileSync(join(dir, 'groups', 'quiet-room', 'group.md'), quiet);
+  assert.match(cli(['lint', 'groups'], 1).stdout, /error\s+self-doc:missing\s+quiet-room\s+.*predates versions/);
+  cli(['migrate', 'groups', '--apply']);
+  assert.equal(readFileSync(join(dir, 'groups', 'quiet-room', 'group.md'), 'utf8'), quiet.replace('/standards/group"', '/standards/group/v1"'));
   assert.deepEqual(json(['lint', 'groups']).findings.map((f) => f.code), ['thread:no-id']);
 
   // an error makes lint exit 1
@@ -106,7 +117,7 @@ try {
   cli(['frobnicate'], 2);
 
   // 4. The library, imported by its package name.
-  const script = "import { find, listRecords, reconcile, applyPlan, lint, migrate, readRecord, writeRecord, addAlias, readHeader, writeHeader, toRecord, fromRecord, norm, slugify, STANDARD, stampStandard } from '@supersuit/group-md'; const r = find('launch crew', listRecords('groups')); if (r.match?.id !== 'launch-crew' || STANDARD !== 'https://hypercontext.wiki/standards/group' || [stampStandard, reconcile, applyPlan, lint, migrate, readRecord, writeRecord, addAlias, readHeader, writeHeader, toRecord, fromRecord, norm, slugify].some((f) => typeof f !== 'function')) process.exit(1);";
+  const script = "import { find, listRecords, reconcile, applyPlan, lint, migrate, readRecord, writeRecord, addAlias, readHeader, writeHeader, toRecord, fromRecord, norm, slugify, STANDARD, stampStandard, MANIFEST, CODES } from '@supersuit/group-md'; import { createRequire } from 'node:module'; const shipped = createRequire(import.meta.url)('@supersuit/group-md/standards/group/v1.json'); const r = find('launch crew', listRecords('groups')); if (r.match?.id !== 'launch-crew' || STANDARD !== 'https://hypercontext.wiki/standards/group/v1' || MANIFEST.standard !== STANDARD || shipped.standard !== STANDARD || MANIFEST.codes.length !== Object.keys(CODES).length || [stampStandard, reconcile, applyPlan, lint, migrate, readRecord, writeRecord, addAlias, readHeader, writeHeader, toRecord, fromRecord, norm, slugify].some((f) => typeof f !== 'function')) process.exit(1);";
   run(process.execPath, ['--input-type=module', '-e', script]);
 
   // 5. Nothing was written outside the groups directory and the files this proof made itself.

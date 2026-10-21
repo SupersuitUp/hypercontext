@@ -1,0 +1,122 @@
+{
+  "manifest_version": 1,
+  "standard": "https://hypercontext.wiki/standards/group/v1",
+  "kind": "group",
+  "version": 1,
+  "title": "A group of people",
+  "status": "current",
+  "superseded_by": null,
+  "latest": "https://hypercontext.wiki/standards/group",
+  "record": {
+    "path": "people/groups/<id>/group.md",
+    "format": "md"
+  },
+  "header": {
+    "required": [
+      "kind",
+      "standard",
+      "id",
+      "name",
+      "threads"
+    ],
+    "keys": {
+      "kind": {
+        "const": "group"
+      },
+      "standard": {
+        "const": "https://hypercontext.wiki/standards/group/v1"
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-]*$"
+      },
+      "name": {
+        "type": "string"
+      },
+      "threads": {
+        "type": "array"
+      }
+    }
+  },
+  "validator": {
+    "package": "@supersuit/group-md",
+    "implements_since": "0.2.0",
+    "check": "npx -y @supersuit/group-md@^0.2.0 lint people/groups --json",
+    "backfill": "npx -y @supersuit/group-md@^0.2.0 migrate people/groups --apply"
+  },
+  "codes": [
+    {
+      "code": "self-doc:missing",
+      "level": "error",
+      "means": "the record names no standard, the bare unversioned URL written before versions, or another kind's standard",
+      "fix": "group-md migrate <dir> --apply"
+    },
+    {
+      "code": "self-doc:version",
+      "level": "error",
+      "means": "the record names a version of the group standard this package does not implement",
+      "fix": "install a version of @supersuit/group-md that implements it, or correct the standard the record names"
+    },
+    {
+      "code": "kind:missing",
+      "level": "error",
+      "means": "kind is not group",
+      "fix": "set kind: group"
+    },
+    {
+      "code": "id:mismatch",
+      "level": "error",
+      "means": "id is missing, does not equal the folder name, or is not lowercase letters, digits and dashes",
+      "fix": "set id to the folder name, or rename the folder to a slug"
+    },
+    {
+      "code": "name:missing",
+      "level": "error",
+      "means": "the record has no name",
+      "fix": "set name to what the group is called"
+    },
+    {
+      "code": "threads:missing",
+      "level": "error",
+      "means": "the record has no threads list and no legacy key standing in for one",
+      "fix": "add threads: [] or the threads the group talks in"
+    },
+    {
+      "code": "thread:app",
+      "level": "error",
+      "means": "a thread entry is not a {app, id, name, seen} map, or its app is not imessage, whatsapp, telegram or signal",
+      "fix": "write the entry as a map with one of the four apps"
+    },
+    {
+      "code": "thread:duplicate",
+      "level": "error",
+      "means": "the same app and thread id is on two records, or twice on one",
+      "fix": "keep the thread on the one record it belongs to"
+    },
+    {
+      "code": "thread:no-id",
+      "level": "warn",
+      "means": "a thread is known only by its display name",
+      "fix": "group-md reconcile <dir> --threads <file> --apply fills the id from the app"
+    },
+    {
+      "code": "alias:collision",
+      "level": "warn",
+      "means": "the same alias is on two records, so the finder refuses it",
+      "fix": "remove the alias from the record it does not mean"
+    },
+    {
+      "code": "layout:flat",
+      "level": "warn",
+      "means": "the record is a flat <id>.md file, the legacy layout",
+      "fix": "move <dir>/<id>.md to <dir>/<id>/group.md"
+    },
+    {
+      "code": "legacy:keys",
+      "level": "warn",
+      "means": "the record still carries imessage_group, imessage_chat_guid or whatsapp_group",
+      "fix": "group-md migrate <dir> --apply, then --drop-legacy once nothing reads them"
+    }
+  ],
+  "umbrella": "npx -y @supersuit/hypercontext check <workspace>"
+}

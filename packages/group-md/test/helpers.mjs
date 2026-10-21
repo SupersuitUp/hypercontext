@@ -12,7 +12,7 @@ export function tmpGroups(t) {
   return { parent, dir };
 }
 
-const STANDARD_LINE = 'standard: "https://hypercontext.wiki/standards/group"';
+const STANDARD_LINE = 'standard: "https://hypercontext.wiki/standards/group/v1"';
 
 /** Header YAML as the standard writes it: `standard:` directly after `kind:`, or first. */
 export function stamped(yaml) {
