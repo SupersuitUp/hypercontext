@@ -1,0 +1,20 @@
+{
+  "name": "@supersuit/recurrent-md",
+  "version": "0.1.0",
+  "description": "A written standard for a recurrent, work that is complete every time it runs and never finishes: recurrents/<slug>.md, with a checker and a migration that moves its **Label:** body lines into the YAML header Supersuit's reader reads first.",
+  "keywords": ["recurrent", "recurring", "cadence", "markdown", "frontmatter", "records", "hypercontext", "agents"],
+  "type": "module",
+  "bin": { "recurrent-md": "bin/recurrent-md.mjs" },
+  "exports": { ".": "./src/index.mjs", "./package.json": "./package.json" },
+  "files": ["bin/", "src/", "docs/", "standards/", "README.md", "CHANGELOG.md", "LICENSE"],
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "mutation-check": "node scripts/mutation-check.mjs",
+    "install-proof": "node scripts/install-proof.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "license": "MIT",
+  "publishConfig": { "access": "public" },
+  "repository": { "type": "git", "url": "git+https://github.com/SupersuitUp/hypercontext.git", "directory": "packages/recurrent-md" },
+  "dependencies": { "@supersuit/hypercontext-core": "^0.1.0" }
+}
