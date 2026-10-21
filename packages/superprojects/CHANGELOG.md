@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.1 (2026-10-21)
+
+Every open atomic action is now something the product can start as a session, and the step says what that asks of the operator.
+
+- **`part:` on a step.** `none`, `pick` (they choose first), `approve` (a draft that reaches a person waits for their yes) or `show-up` (only they can do it, and the session books the time on their calendar). Parsed as `step.part` (null when absent); any other value is a parse problem naming the four. New export `PARTS`. The scaffold writes `part:` on its first step (`show-up` when a person owns it, else `none`). A patch release on purpose: the v1 validators pin `^0.7.0`, which in 0.x never reaches 0.8.0.
+- **Lint warns on an open step with no part** (`plan:step:no-part`, warn) and on a gate marked `none` (`plan:gate:part`, warn: a gate always asks a person for something). Warnings only, so a map written before 0.7.1 still lints clean of errors; both codes are in the table and the atomic-action-map manifest. The standard's version stays v1: the field is optional and the checks are additive.
+
 ## 0.7.0 (2026-10-20)
 
 Every superproject record file is self-documenting: it names the version of the standard it follows, so an agent that has never seen Supersuit can open it and find its rules, and each version ships as a machine-readable manifest.

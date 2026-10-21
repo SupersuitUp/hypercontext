@@ -75,7 +75,9 @@ test("the validator commands pin the package at the version that implements v1",
     assert.equal(m.validator.backfill, "npx -y @supersuit/superprojects@^0.7.0 migrate --root superprojects --stamp-standard --apply");
     assert.equal(m.umbrella, "npx -y @supersuit/hypercontext check <workspace>");
   }
-  assert.equal(pkg.version, "0.7.0");
+  // The validators pin ^0.7.0, which in 0.x matches 0.7.x only: a release past the 0.7 line would never
+  // run for anyone following the v1 manifest, so it must come with v2 manifests and new pins.
+  assert.match(pkg.version, /^0\.7\.\d+$/);
 });
 
 test("standards/ ships in the tarball and holds only the three manifests", () => {

@@ -91,6 +91,11 @@ function parseScenario(text, line) {
   return { name: name.trim(), working, overrides, text, line };
 }
 
+/** What launching a step asks of the operator (2026-10-21): every open step is a session the product
+ *  can start now. none: nothing; pick: they choose first; approve: a draft that reaches a person waits
+ *  for their yes; show-up: only they can do it, and the session books the time. */
+export const PARTS = ['none', 'pick', 'approve', 'show-up'];
+
 function normalizeStep(s, problems) {
   const f = s.fields;
   const bad = (what) => problems.push({ line: s.line, message: `${s.id}: ${what}` });
@@ -101,6 +106,7 @@ function normalizeStep(s, problems) {
     return v;
   };
   const status = f.status ? parseStatus(f.status) : { state: 'todo' };
+  if (f.part && !PARTS.includes(f.part)) bad(`part "${f.part}" is not none, pick, approve or show-up`);
   if (!status) bad(`status "${f.status}" is not todo, doing, done <date>, skipped or blocked: <why>`);
   return {
     id: s.id,
@@ -116,6 +122,7 @@ function normalizeStep(s, problems) {
     fallback: f.fallback || null,
     skill: f.skill || null,
     doneWhen: f['done-when'] || null,
+    part: PARTS.includes(f.part) ? f.part : null,
     booked: f.booked || null,
     status: status ?? { state: 'todo' },
     fields: f,
@@ -224,6 +231,10 @@ export function lintPlan(plan, { team = null, kind = 'finite', maxHumanEffort = 
     }
     if (s.effort && s.effort.minutes > maxHumanEffort && s.actors.some(isHuman))
       add('warn', 'plan:human:too-long', `${s.id}: ${s.effort.text} of human effort; split anything over ${maxHumanEffort / 60}h`, s);
+    if (open(s) && s.kind !== 'milestone' && !s.part && !s.fields.part)
+      add('warn', 'plan:step:no-part', `${s.id} does not say what launching it asks of the operator: part: none, pick, approve or show-up`, s);
+    if (s.kind === 'gate' && s.part === 'none')
+      add('warn', 'plan:gate:part', `${s.id} is a gate, which always asks a person for something: part: pick or show-up`, s);
     if (open(s) && (s.kind === 'gate' || s.kind === 'milestone') && !s.target)
       add('warn', 'plan:target:missing', `${s.id} is a ${s.kind} with no provisional date`, s);
   }
@@ -454,13 +465,14 @@ baseline: ${today}
 ---
 # Atomic action map
 
-Drafted with the superproject. Work backwards from the deliverable: every atomic action is one stretch of work with no handoff inside it and at most four hours of human time, with an actor, a duration that says where it came from and what it waits on. Waits and milestones are the joints between actions, and every gate and milestone gets a provisional date.
+Drafted with the superproject. Work backwards from the deliverable: every atomic action is one stretch of work with no handoff inside it and at most four hours of human time, with an actor, a duration that says where it came from, what it waits on, and its part: what launching it as a session asks of the operator (none, pick, approve or show-up). Waits and milestones are the joints between actions, and every gate and milestone gets a provisional date.
 
 ## Steps
 
 ### s01 ${String(nextAction || 'The first step').replace(/\n/g, ' ')}
 - actor: ${owner || 'agent'}
 - kind: work
+- part: ${owner ? 'show-up' : 'none'}
 - status: todo
 
 ### m1 ${String(deliverable || 'The deliverable exists').replace(/\n/g, ' ')}

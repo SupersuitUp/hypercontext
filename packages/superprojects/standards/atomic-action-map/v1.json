@@ -74,6 +74,12 @@
       "fix": "make a person the gate's actor"
     },
     {
+      "code": "plan:gate:part",
+      "level": "warn",
+      "means": "a gate says it asks nothing of anyone, and a gate always asks a person for something",
+      "fix": "set part: pick or show-up"
+    },
+    {
       "code": "plan:human:too-long",
       "level": "warn",
       "means": "a step asks a person for more than four hours of effort",
@@ -138,6 +144,12 @@
       "level": "error",
       "means": "a step other than a milestone names no actor",
       "fix": "set actor to agent, a person slug or outside: <name>"
+    },
+    {
+      "code": "plan:step:no-part",
+      "level": "warn",
+      "means": "an open step does not say what launching it asks of the operator",
+      "fix": "add part: none, pick, approve or show-up"
     },
     {
       "code": "plan:target:missing",
