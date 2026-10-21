@@ -1,0 +1,18 @@
+{
+  "name": "@supersuit/hypercontext-monorepo",
+  "private": true,
+  "description": "Every hypercontext record standard in one repository: each kind keeps its own npm package, one shared core, one release train.",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "npm test --workspaces --if-present && npm run drift",
+    "mutation-check": "npm run mutation-check --workspaces --if-present",
+    "drift": "node --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "SEE LICENSE IN packages/*/LICENSE"
+}
