@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { stamp } from '../src/stamp.mjs';
 import { check } from '../src/check.mjs';
-import { mayaWorkspace, stubPackages, STD } from './helpers.mjs';
+import { mayaWorkspace, stubPackages, STD, md } from './helpers.mjs';
 
 const kindRow = (s, k) => s.kinds.find((x) => x.kind === k);
 
@@ -46,15 +46,18 @@ test('a kind with a package is stamped by its package\'s own command', async () 
     superprojects: { name: '@supersuit/superprojects', bin: 'bin/superprojects.mjs', log },
     'self-md': { name: '@supersuit/self-md', bin: 'bin/self-md.mjs', log },
     'transcript-md': { name: '@supersuit/transcript-md', bin: 'lib/freedom-conversations-cli.mjs', log },
+    'piece-md': { name: '@supersuit/piece-md', bin: 'bin/piece-md.mjs', log },
   });
-  const ws = mayaWorkspace();
-  const s = await stamp(ws, { kinds: ['self', 'friend', 'group', 'superproject', 'state', 'conversation'], apply: true, packagesDir: pkgs });
+  const ws = mayaWorkspace({ 'documents/2032-01-05-1000-photo/piece.md': md('kind: piece\nid: 2032-01-05-1000-photo') });
+  const s = await stamp(ws, { kinds: ['self', 'friend', 'group', 'superproject', 'state', 'piece', 'conversation'], apply: true, packagesDir: pkgs });
   const calls = readFileSync(log, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
   assert.deepEqual(calls, [
     ['stamp-standard', '--workspace', ws, '--write'],
     ['stamp', '--people', join(ws, 'people'), '--apply'],
     ['migrate', join(ws, 'people/groups'), '--apply'],
     ['migrate', '--root', join(ws, 'superprojects'), '--stamp-standard', '--apply'],
+    ['stamp', join(ws, 'documents'), '--apply'],
+    ['stamp', join(ws, 'superprojects/2032-01-02-garden-book/documents'), '--apply'],
     ['stamp-standard', '--workspace', ws, '--apply'],
   ]);
   // state shares the superprojects run rather than running it twice
