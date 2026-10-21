@@ -1,0 +1,242 @@
+{
+  "manifest_version": 1,
+  "standard": "https://hypercontext.wiki/standards/document/v1",
+  "kind": "document",
+  "version": 1,
+  "title": "A document",
+  "status": "current",
+  "superseded_by": null,
+  "latest": "https://hypercontext.wiki/standards/document",
+  "record": {
+    "path": "documents/<YYYY-MM-DD-HHMMSS-slug>.md, or <superproject>/documents/<YYYY-MM-DD-HHMMSS-slug>.md",
+    "format": "md"
+  },
+  "header": {
+    "required": [
+      "standard",
+      "audience"
+    ],
+    "keys": {
+      "standard": {
+        "const": "https://hypercontext.wiki/standards/document/v1"
+      },
+      "title": {
+        "type": "string",
+        "maxLength": 400
+      },
+      "kind": {
+        "enum": [
+          "brief",
+          "spec",
+          "design",
+          "plan",
+          "decision",
+          "draft",
+          "analysis",
+          "transcript",
+          "other"
+        ]
+      },
+      "audience": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 400
+      },
+      "project": {
+        "type": "string",
+        "maxLength": 400
+      },
+      "people": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        }
+      },
+      "created": {
+        "type": "string",
+        "pattern": "^(?:\\d{4}-\\d{2}-\\d{2})?$"
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "active",
+          "approved",
+          "final",
+          "shipped",
+          "superseded"
+        ]
+      },
+      "supersedes": {
+        "type": "string",
+        "maxLength": 400
+      },
+      "superseded_by": {
+        "type": "string",
+        "maxLength": 400
+      },
+      "state": {
+        "type": "object"
+      },
+      "definitions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "define": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "narrator": {
+        "enum": [
+          "kokoro",
+          "elevenlabs"
+        ]
+      },
+      "theme": {
+        "enum": [
+          "light",
+          "dark",
+          "system"
+        ]
+      },
+      "comments": {
+        "enum": [
+          "off",
+          "anyone",
+          "signed-in"
+        ]
+      },
+      "comments_visible": {
+        "enum": [
+          "owner",
+          "readers"
+        ]
+      },
+      "to": {
+        "type": "string",
+        "maxLength": 400
+      }
+    }
+  },
+  "validator": {
+    "package": "@supersuit/document-md",
+    "implements_since": "0.1.0",
+    "check": "npx -y @supersuit/document-md@^0.1.0 lint . --json",
+    "backfill": "npx -y @supersuit/document-md@^0.1.0 stamp . --apply"
+  },
+  "codes": [
+    {
+      "code": "header:missing",
+      "level": "error",
+      "means": "the document has no YAML header, so it names no standard and says nobody it is for",
+      "fix": "write the header by hand (standard, title, kind, audience, created, status); document-md stamp cannot fix this, because it never gives a headerless file a header"
+    },
+    {
+      "code": "self-doc:missing",
+      "level": "error",
+      "means": "the document names no standard, the bare unversioned document URL written before versions, or another kind's standard",
+      "fix": "document-md stamp <home> --apply adds or upgrades it; a record naming another kind's standard is not a document, so move or fix it by hand"
+    },
+    {
+      "code": "self-doc:version",
+      "level": "error",
+      "means": "the document names a version of the document standard this validator does not implement",
+      "fix": "install the document-md version that implements it, or rewrite the record to https://hypercontext.wiki/standards/document/v1"
+    },
+    {
+      "code": "audience:missing",
+      "level": "error",
+      "means": "audience is missing or empty: the document does not say who it is for",
+      "fix": "set audience: freeda (the next session), self, a people slug, or a role in plain words (\"an investor\")"
+    },
+    {
+      "code": "name:pattern",
+      "level": "warn",
+      "means": "the file name is neither YYYY-MM-DD-HHMMSS-slug.md nor the legacy YYYY-MM-DD-slug.md",
+      "fix": "rename it to YYYY-MM-DD-HHMMSS-slug.md, the moment it was written"
+    },
+    {
+      "code": "kind:value",
+      "level": "error",
+      "means": "kind is not one of the document genres",
+      "fix": "set kind to brief, spec, design, plan, decision, draft, analysis, transcript or other"
+    },
+    {
+      "code": "status:value",
+      "level": "error",
+      "means": "status is not one of the document states",
+      "fix": "set status to draft, active, approved, final, shipped or superseded"
+    },
+    {
+      "code": "narrator:value",
+      "level": "error",
+      "means": "narrator is not one of the read-aloud engines",
+      "fix": "set narrator to kokoro or elevenlabs, or remove it"
+    },
+    {
+      "code": "theme:value",
+      "level": "error",
+      "means": "theme is not light, dark or system",
+      "fix": "set theme to light, dark or system, or remove it"
+    },
+    {
+      "code": "comments:value",
+      "level": "error",
+      "means": "comments is not off, anyone or signed-in",
+      "fix": "set comments to off, anyone or signed-in, or remove it"
+    },
+    {
+      "code": "comments_visible:value",
+      "level": "error",
+      "means": "comments_visible is not owner or readers",
+      "fix": "set comments_visible to owner or readers, or remove it"
+    },
+    {
+      "code": "created:date",
+      "level": "error",
+      "means": "created is not a real date written YYYY-MM-DD",
+      "fix": "set created to the date the document was written, YYYY-MM-DD"
+    },
+    {
+      "code": "people:slug",
+      "level": "error",
+      "means": "a name in people is not a person slug (lowercase, kebab-case)",
+      "fix": "write each person as their slug, e.g. dana-reyes"
+    },
+    {
+      "code": "state:map",
+      "level": "error",
+      "means": "state is not a map of key: value pairs",
+      "fix": "write state as a map, e.g. state: {visibility: private}, or remove it"
+    },
+    {
+      "code": "value:map",
+      "level": "error",
+      "means": "a key other than state holds a nested map; the header is flat",
+      "fix": "flatten it into keys of their own, or move it into the body"
+    },
+    {
+      "code": "value:string",
+      "level": "error",
+      "means": "a list holds something other than strings",
+      "fix": "make every list item a plain string"
+    },
+    {
+      "code": "value:shape",
+      "level": "error",
+      "means": "a list key (people, definitions, define) holds one value, or a one-value key holds a list",
+      "fix": "write people, definitions and define as lists, and every other known key as one value"
+    },
+    {
+      "code": "value:line",
+      "level": "error",
+      "means": "a one-value key holds more than one line or more than 400 characters",
+      "fix": "keep it to one line of at most 400 characters; a paragraph belongs in the body under a heading"
+    }
+  ],
+  "umbrella": "npx -y @supersuit/hypercontext check <workspace>"
+}
