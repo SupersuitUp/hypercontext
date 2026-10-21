@@ -4,7 +4,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { MANIFEST, STANDARD, CODES } from '../src/index.mjs';
+import { MANIFEST, STANDARD, CODES, lint } from '../src/index.mjs';
+import { tmpGroups, put } from './helpers.mjs';
 
 const onDisk = JSON.parse(readFileSync(new URL('../standards/group/v1.json', import.meta.url), 'utf8'));
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
@@ -46,8 +47,23 @@ test('the manifest names this package and commands at a version that implements 
 });
 
 test('the header keys are the ones lint enforces', () => {
-  assert.deepEqual(MANIFEST.header.required, ['kind', 'standard', 'id', 'name', 'threads']);
+  assert.deepEqual(MANIFEST.header.required, ['kind', 'standard', 'id', 'name', 'threads', 'members']);
   assert.equal(MANIFEST.header.keys.kind.const, 'group');
+  assert.equal(MANIFEST.header.keys.members.type, 'array');
+});
+
+test('every required header key is one lint refuses a record without, and the others are not', (t) => {
+  const CLEAN = ['kind: group', `standard: "${STANDARD}"`, 'id: quiet-room', 'name: Quiet Room', 'threads: []', 'members: []', 'aliases: []', 'purpose: ""'];
+  const keyOf = (line) => line.split(':')[0];
+  for (const line of CLEAN) {
+    const { dir } = tmpGroups(t);
+    put(dir, 'quiet-room', CLEAN.filter((l) => l !== line).join('\n'), { stamp: false });
+    const refused = lint(dir).some((f) => f.level === 'error');
+    assert.equal(refused, MANIFEST.header.required.includes(keyOf(line)), `without ${keyOf(line)}`);
+  }
+  const { dir } = tmpGroups(t);
+  put(dir, 'quiet-room', CLEAN.join('\n'), { stamp: false });
+  assert.deepEqual(lint(dir), [], 'the clean record is clean');
 });
 
 test('the manifest ships in the package', () => {

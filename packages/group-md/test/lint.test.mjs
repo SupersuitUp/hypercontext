@@ -38,7 +38,7 @@ test('id:mismatch fires on a missing id, a different id, and a bad shape', (t) =
 
 test('name:missing', (t) => {
   const { dir } = tmpGroups(t);
-  put(dir, 'x', 'kind: group\nid: x\nname: ""\nthreads: []');
+  put(dir, 'x', 'kind: group\nid: x\nname: ""\nthreads: []\nmembers: []');
   assert.deepEqual(codes(lint(dir)), ['name:missing']);
 });
 
@@ -47,6 +47,17 @@ test('threads:missing fires with no threads key and no legacy key, and on a non-
   put(dir, 'x', 'kind: group\nid: x\nname: X');
   put(dir, 'y', 'kind: group\nid: y\nname: Y\nthreads: soon');
   assert.deepEqual(only(lint(dir), 'threads:missing').map((f) => [f.level, f.id]), [['error', 'x'], ['error', 'y']]);
+});
+
+test('members:missing fires with no members key and on a non-list; an empty list is present', (t) => {
+  const { dir } = tmpGroups(t);
+  put(dir, 'x', 'kind: group\nid: x\nname: X\nthreads: []');
+  put(dir, 'y', 'kind: group\nid: y\nname: Y\nthreads: []\nmembers: dana-reyes');
+  put(dir, 'z', 'kind: group\nid: z\nname: Z\nthreads: []\nmembers: []');
+  const f = only(lint(dir), 'members:missing');
+  assert.deepEqual(f.map((x) => [x.level, x.id]), [['error', 'x'], ['error', 'y']]);
+  assert.match(f[0].message, /members is missing/);
+  assert.match(f[1].message, /not a list/);
 });
 
 test('thread:app fires on an unknown app and on an entry that is not a map', (t) => {
@@ -60,7 +71,7 @@ test('thread:app fires on an unknown app and on an entry that is not a map', (t)
 
 test('thread:no-id is a warning', (t) => {
   const { dir } = tmpGroups(t);
-  put(dir, 'x', 'kind: group\nid: x\nname: X\nthreads:\n  - {app: imessage, id: "", name: "NIGHT SHIFT", seen: 2026-10-13}');
+  put(dir, 'x', 'kind: group\nid: x\nname: X\nthreads:\n  - {app: imessage, id: "", name: "NIGHT SHIFT", seen: 2026-10-13}\nmembers: []');
   assert.deepEqual(lint(dir).map((f) => [f.level, f.code]), [['warn', 'thread:no-id']]);
 });
 
@@ -78,15 +89,15 @@ test('thread:duplicate names both records', (t) => {
 
 test('the same thread id on two different apps is not a duplicate', (t) => {
   const { dir } = tmpGroups(t);
-  put(dir, 'a', 'kind: group\nid: a\nname: A\nthreads:\n  - {app: imessage, id: same, name: A, seen: 2026-10-13}');
-  put(dir, 'b', 'kind: group\nid: b\nname: B\nthreads:\n  - {app: signal, id: same, name: B, seen: 2026-10-13}');
+  put(dir, 'a', 'kind: group\nid: a\nname: A\nthreads:\n  - {app: imessage, id: same, name: A, seen: 2026-10-13}\nmembers: []');
+  put(dir, 'b', 'kind: group\nid: b\nname: B\nthreads:\n  - {app: signal, id: same, name: B, seen: 2026-10-13}\nmembers: []');
   assert.deepEqual(lint(dir), []);
 });
 
 test('alias:collision is a warning naming both records', (t) => {
   const { dir } = tmpGroups(t);
-  put(dir, 'a', 'kind: group\nid: a\nname: A\nthreads: []\naliases: ["The Crew"]');
-  put(dir, 'b', 'kind: group\nid: b\nname: B\nthreads: []\naliases: ["the crew!"]');
+  put(dir, 'a', 'kind: group\nid: a\nname: A\nthreads: []\naliases: ["The Crew"]\nmembers: []');
+  put(dir, 'b', 'kind: group\nid: b\nname: B\nthreads: []\naliases: ["the crew!"]\nmembers: []');
   const f = lint(dir);
   assert.deepEqual(f.map((x) => [x.level, x.code]), [['warn', 'alias:collision']]);
   assert.deepEqual(f[0].ids, ['a', 'b']);
@@ -94,7 +105,7 @@ test('alias:collision is a warning naming both records', (t) => {
 
 test('layout:flat and legacy:keys are warnings, and a legacy record is not threads:missing', (t) => {
   const { dir } = tmpGroups(t);
-  put(dir, 'night-shift', 'kind: group\nid: night-shift\nname: Night Shift\nimessage_group: "NIGHT SHIFT"\nimessage_chat_guid: "chat1"', { flat: true });
+  put(dir, 'night-shift', 'kind: group\nid: night-shift\nname: Night Shift\nimessage_group: "NIGHT SHIFT"\nimessage_chat_guid: "chat1"\nmembers: []', { flat: true });
   assert.deepEqual(lint(dir).map((f) => [f.level, f.code, f.id]), [
     ['warn', 'layout:flat', 'night-shift'],
     ['warn', 'legacy:keys', 'night-shift'],
@@ -103,6 +114,6 @@ test('layout:flat and legacy:keys are warnings, and a legacy record is not threa
 
 test('a legacy record without an id warns thread:no-id too', (t) => {
   const { dir } = tmpGroups(t);
-  put(dir, 'x', 'kind: group\nid: x\nname: X\nwhatsapp_group: "Dana : Freedom"');
+  put(dir, 'x', 'kind: group\nid: x\nname: X\nwhatsapp_group: "Dana : Freedom"\nmembers: []');
   assert.deepEqual(codes(lint(dir)), ['legacy:keys', 'thread:no-id']);
 });

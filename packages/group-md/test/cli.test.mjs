@@ -69,7 +69,7 @@ test('lint: exit 0 clean, 0 on warnings alone, 1 on an error', (t) => {
   assert.deepEqual(clean.json(), { findings: [], errors: 0, warnings: 0, records: 2 });
   assert.match(run(['lint', dir]).out, /clean: 2 records/);
 
-  put(dir, 'night-shift', 'kind: group\nid: night-shift\nname: Night Shift\nimessage_group: "NIGHT SHIFT"');
+  put(dir, 'night-shift', 'kind: group\nid: night-shift\nname: Night Shift\nimessage_group: "NIGHT SHIFT"\nmembers: []');
   const warned = run(['lint', dir, '--json']);
   assert.equal(warned.code, 0);
   assert.deepEqual(warned.json().findings.map((f) => f.code), ['legacy:keys', 'thread:no-id']);
@@ -223,7 +223,7 @@ test('reconcile --apply: writes, reads threads from stdin, and a second run does
 
 test('migrate: a dry run by default, --apply writes, --drop-legacy removes the old keys', (t) => {
   const { dir } = tmpGroups(t);
-  const path = put(dir, 'night-shift', 'kind: group\nid: night-shift\nname: Night Shift\nimessage_group: "NIGHT SHIFT"\nimessage_chat_guid: "chat000111"');
+  const path = put(dir, 'night-shift', 'kind: group\nid: night-shift\nname: Night Shift\nimessage_group: "NIGHT SHIFT"\nimessage_chat_guid: "chat000111"\nmembers: []');
   const before = readFileSync(path, 'utf8');
   const dry = run(['migrate', dir]);
   assert.equal(dry.code, 0);

@@ -17,6 +17,7 @@ export const CODES = Object.freeze({
   'id:mismatch': { level: 'error', means: 'id is missing, does not equal the folder name, or is not lowercase letters, digits and dashes', fix: 'set id to the folder name, or rename the folder to a slug' },
   'name:missing': { level: 'error', means: 'the record has no name', fix: 'set name to what the group is called' },
   'threads:missing': { level: 'error', means: 'the record has no threads list and no legacy key standing in for one', fix: 'add threads: [] or the threads the group talks in' },
+  'members:missing': { level: 'error', means: 'the record has no members list (an empty list is present and valid)', fix: 'add members: [] or the person slugs of everyone in the group but the operator' },
   'thread:app': { level: 'error', means: 'a thread entry is not a {app, id, name, seen} map, or its app is not imessage, whatsapp, telegram or signal', fix: 'write the entry as a map with one of the four apps' },
   'thread:duplicate': { level: 'error', means: 'the same app and thread id is on two records, or twice on one', fix: 'keep the thread on the one record it belongs to' },
   'thread:no-id': { level: 'warn', means: 'a thread is known only by its display name', fix: 'group-md reconcile <dir> --threads <file> --apply fills the id from the app' },
@@ -73,6 +74,9 @@ export function lint(dir) {
     const listed = Array.isArray(data.threads);
     if (!listed && (data.threads !== undefined || !legacy.length)) {
       add('threads:missing', slug, data.threads === undefined ? 'threads is missing (an empty list is allowed)' : 'threads is not a list');
+    }
+    if (!Array.isArray(data.members)) {
+      add('members:missing', slug, data.members === undefined ? 'members is missing (an empty list is allowed)' : 'members is not a list');
     }
     for (const t of listed ? data.threads : []) {
       if (!isMap(t)) { add('thread:app', slug, `thread entry "${t}" is not a {app, id, name, seen} map`); continue; }

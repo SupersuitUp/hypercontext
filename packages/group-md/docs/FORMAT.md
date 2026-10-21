@@ -47,7 +47,7 @@ A group may hold more than one thread: the same people on two apps, or a thread 
 
 ### members and handles
 
-`members` holds person slugs. What a slug points at is the caller's business; this package never reads or writes a person record.
+`members` holds person slugs. What a slug points at is the caller's business; this package never reads or writes a person record. The key is required: `lint` reports `members:missing` (error) when it is absent or is not a list. `members: []` is present and valid.
 
 `handles` holds the members who have no person record, exactly as the app shows them:
 
@@ -77,7 +77,7 @@ The link names a version because a version's meaning never changes once publishe
 
 ## The manifest
 
-Every version has a machine-readable twin, `https://hypercontext.wiki/standards/group/v1.json`. This package ships it as `standards/group/v1.json` and exports it as `MANIFEST`, and the wiki publishes that file unchanged. It names the standard, the header keys `lint` enforces (`kind`, `standard`, `id`, `name`, `threads`) with the constraints a reader can check without the package, the validator commands (`npx -y @supersuit/group-md@^0.2.0 lint people/groups --json`, and `migrate people/groups --apply` to backfill), and every code `lint` can report with its level, meaning and fix. A test in this package proves the manifest's `standard` is `STANDARD` and its codes and levels are exactly `lint`'s code table, `CODES`.
+Every version has a machine-readable twin, `https://hypercontext.wiki/standards/group/v1.json`. This package ships it as `standards/group/v1.json` and exports it as `MANIFEST`, and the wiki publishes that file unchanged. It names the standard, the header keys `lint` enforces (`kind`, `standard`, `id`, `name`, `threads`, `members`) with the constraints a reader can check without the package, the validator commands (`npx -y @supersuit/group-md@^0.2.0 lint people/groups --json`, and `migrate people/groups --apply` to backfill), and every code `lint` can report with its level, meaning and fix. A test in this package proves the manifest's `standard` is `STANDARD` and its codes and levels are exactly `lint`'s code table, `CODES`.
 
 ## Unknown keys
 

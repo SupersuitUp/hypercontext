@@ -196,6 +196,7 @@ It exits 1 when any finding is an error. Warnings alone exit 0.
 | `id:mismatch` | error | `id` is missing, is not the folder name, or is not a slug |
 | `name:missing` | error | no `name` |
 | `threads:missing` | error | no `threads` list and no legacy key standing in for one |
+| `members:missing` | error | no `members` list; `members: []` is present and valid |
 | `thread:app` | error | a thread's app is not one of the four, or the entry is not a map |
 | `thread:duplicate` | error | the same app and id on two records, or twice on one |
 | `thread:no-id` | warn | a thread known only by its name |

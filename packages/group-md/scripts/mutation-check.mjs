@@ -81,6 +81,9 @@ const cases = [
   ['the manifest names the standard', 'standard.mjs', 'manifest.test.mjs', 'export const STANDARD = `${LATEST}/v1`;', 'export const STANDARD = `${LATEST}/v2`;'],
   ["the manifest's levels are lint's levels", 'lint.mjs', 'manifest.test.mjs', "'self-doc:version': { level: 'error',", "'self-doc:version': { level: 'warn',"],
   ["the manifest's codes are lint's codes", 'lint.mjs', 'manifest.test.mjs', "  'alias:collision': { level: 'warn',", "  'alias:collisions': { level: 'warn',"],
+  ['lint refuses a record without members', 'lint.mjs', 'lint.test.mjs', 'if (!Array.isArray(data.members)) {', 'if (false) {'],
+  ['an empty members list is present', 'lint.mjs', 'lint.test.mjs', 'if (!Array.isArray(data.members)) {', 'if (!data.members?.length) {'],
+  ['a required header key is one lint refuses', 'lint.mjs', 'manifest.test.mjs', 'if (!Array.isArray(data.members)) {', 'if (false) {'],
   ['a finding takes its level from the code table', 'lint.mjs', 'lint.test.mjs', 'findings.push({ level: CODES[code].level, code,', "findings.push({ level: 'error', code,"],
   ['migrate keeps legacy keys unless asked', 'migrate.mjs', 'migrate.test.mjs', 'const dropped = dropLegacy ? legacy : [];', 'const dropped = legacy;'],
   // ---- the command line

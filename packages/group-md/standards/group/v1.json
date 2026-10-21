@@ -17,7 +17,8 @@
       "standard",
       "id",
       "name",
-      "threads"
+      "threads",
+      "members"
     ],
     "keys": {
       "kind": {
@@ -34,6 +35,9 @@
         "type": "string"
       },
       "threads": {
+        "type": "array"
+      },
+      "members": {
         "type": "array"
       }
     }
@@ -80,6 +84,12 @@
       "level": "error",
       "means": "the record has no threads list and no legacy key standing in for one",
       "fix": "add threads: [] or the threads the group talks in"
+    },
+    {
+      "code": "members:missing",
+      "level": "error",
+      "means": "the record has no members list (an empty list is present and valid)",
+      "fix": "add members: [] or the person slugs of everyone in the group but the operator"
     },
     {
       "code": "thread:app",
