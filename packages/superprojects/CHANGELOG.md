@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.2 (2026-10-23)
+
+The save gate names the stale or missing field the way the STATE.md actually holds it.
+
+- **`resumability()` quotes `last_worked:` and `phase:` as frontmatter keys.** The mismatch message used to quote `**Last worked:**` whatever form the file used, but the engine writes those fields as the frontmatter keys `last_worked:` and `phase:`, so an operator searching the file for the quoted text found nothing. It now quotes the legacy body label only when the file has one, and otherwise names `last_worked:` (frontmatter); the two missing-field messages name the frontmatter keys the engine writes. Reported by an operator (ContinentalWorks/freedom#320).
+
 ## 0.7.1 (2026-10-21)
 
 Every open atomic action is now something the product can start as a session, and the step says what that asks of the operator.
