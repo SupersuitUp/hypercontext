@@ -570,3 +570,19 @@ test("the save gate reads a whole section, past a letter z and up to the end of 
     "a last section with no z in it and nothing after it is found",
   );
 });
+
+// ContinentalWorks/freedom#320: the save gate quoted "**Last worked:**" for a STATE.md whose field is
+// the frontmatter key last_worked:, so a search for the quoted text found nothing.
+test("the save gate names the last-worked field the way the file holds it", () => {
+  const E = factory();
+  const fm = E.renderStateMd({ today: "2026-10-01", phase: "drafting", nextAction: "Read the proof" });
+  assert.match(fm, /^last_worked:/m, "the engine writes frontmatter");
+  const [p] = E.resumability(fm, { today: "2026-10-04", changedToday: true, changedOn: "2026-10-04" });
+  assert.equal(p, "`last_worked:` (frontmatter) says 2026-10-01 but the superproject changed on 2026-10-04");
+  const legacy = "# State\n\n**Last worked:** 2026-10-01\n**Phase:** drafting\n\n## Next action\n\nRead the proof\n";
+  const lp = E.resumability(legacy, { today: "2026-10-04", changedToday: true, changedOn: "2026-10-04" });
+  assert.ok(lp.includes("**Last worked:** says 2026-10-01 but the superproject changed on 2026-10-04"), lp.join("\n"));
+  const none = E.resumability("---\nphase: \"\"\n---\n# State\n\n## Next action\n\nx\n", { today: "2026-10-04" });
+  assert.ok(none.some((x) => x.startsWith("no `last_worked:` (frontmatter)")), none.join("\n"));
+  assert.ok(none.some((x) => x.startsWith("no `phase:` (frontmatter)")), none.join("\n"));
+});

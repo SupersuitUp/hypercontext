@@ -2042,19 +2042,25 @@ export function createProjectEngine(options = {}) {
       );
     }
 
+    // Name the field the way this file holds it, so a search for the quoted text finds it: a legacy
+    // body label, else the frontmatter key the engine itself writes (ContinentalWorks/freedom#320).
+    const field = (key, label) =>
+      new RegExp(`^\\*\\*${label}:\\*\\*`, "m").test(body)
+        ? `**${label}:**`
+        : `\`${key}:\` (frontmatter)`;
     const lastWorked = S.last_worked;
     if (!lastWorked) {
       problems.push(
-        "no **Last worked:** line, so staleness cannot be read without opening git",
+        "no `last_worked:` (frontmatter), so staleness cannot be read without opening git",
       );
     } else if (changedToday && changedOn && dateOf(lastWorked) !== changedOn) {
       problems.push(
-        `**Last worked:** says ${lastWorked} but the superproject changed on ${changedOn}`,
+        `${field("last_worked", "Last worked")} says ${lastWorked} but the superproject changed on ${changedOn}`,
       );
     }
 
     if (!phase) {
-      problems.push("no **Phase:** line saying where the superproject stands");
+      problems.push("no `phase:` (frontmatter) saying where the superproject stands");
     }
 
     return problems;
