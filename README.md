@@ -22,8 +22,9 @@ A hypercontext record is a file that names the version of the standard it follow
 | [packages/hdsop-md](packages/hdsop-md) | `@supersuit/hdsop-md` | `hdsop`, `workflow-catalog` | 0.1.0 |
 | [packages/recurrent-md](packages/recurrent-md) | `@supersuit/recurrent-md` | `recurrent` | 0.1.0 |
 | [packages/tile-app-md](packages/tile-app-md) | `@supersuit/tile-app-md` | `tile-app` | 0.1.0 |
+| [packages/rules-md](packages/rules-md) | `@supersuit/rules-md` | `rules` | 0.1.0 |
 
-Fifteen kinds in all, each owned by exactly one package. Each package ships its manifests at `standards/<kind>/v<N>.json`, and the wiki publishes those files unchanged (`npx @supersuit/hypercontext manifests --out <dir>`).
+Sixteen kinds in all, each owned by exactly one package. Each package ships its manifests at `standards/<kind>/v<N>.json`, and the wiki publishes those files unchanged (`npx @supersuit/hypercontext manifests --out <dir>`).
 
 group-md, self-md, piece-md, superobjective, document-md, checkpoint-md, hdsop-md, recurrent-md, tile-app-md and hypercontext read headers through core. friend-md (`src/yaml.mjs`), superprojects (`src/frontmatter/`) and transcript-md (`lib/frontmatter/`) keep their own codecs because their formats differ; folding those in is a separate decision.
 

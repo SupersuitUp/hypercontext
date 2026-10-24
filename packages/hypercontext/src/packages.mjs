@@ -145,6 +145,11 @@ export const LINTS = {
     const r = runJson(dir, bin, ['lint', join(ws, 'recurrents')]);
     return r.ok ? { ran: true, findings: findingsOf(r.json).map((f) => normalize({ ...f, path: f.recurrent ?? f.path }, (s) => `recurrents/${s}`)) } : { ran: false, note: r.error };
   },
+  // rules-md finds the why files itself (root and one folder down) and names them relative to the workspace.
+  rules: (dir, bin, ws) => {
+    const r = runJson(dir, bin, ['lint', '--workspace', ws, '--json']);
+    return r.ok ? { ran: true, findings: findingsOf(r.json).map((f) => normalize(f)) } : { ran: false, note: r.error };
+  },
   // tile-app-md finds the apps itself from the workspace, and names each by its absolute path.
   'tile-app': (dir, bin, ws) => {
     const r = runJson(dir, bin, ['lint', ws]);

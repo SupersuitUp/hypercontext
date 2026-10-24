@@ -21,6 +21,17 @@ test('every kind finds its records in a Supersuit layout', () => {
   assert.deepEqual(got.recurrent, ['recurrents/sunday-dinner.md']);
   assert.deepEqual(got['tile-app'], ['helm/tile-apps/poems/app.json']);
   assert.deepEqual(got.conversation, ['meeting-transcripts/2032-01-05-call/transcript.md']);
+  assert.deepEqual(got.rules, [], 'a workspace with no why file has no rules records');
+});
+
+test('a why file is found at the root and one folder down, and nothing deeper', () => {
+  const ws = mayaWorkspace({
+    'AGENTS-WHY.md': md('kind: rules\nrules_file: AGENTS.md'),
+    'agent-config/AGENTS-WHY.md': md('kind: rules\nrules_file: AGENTS.md'),
+    'agent-config/deep/OTHER-WHY.md': md('kind: rules'),
+    'node_modules/x/LIB-WHY.md': md('kind: rules'),
+  });
+  assert.deepEqual(findRecords(ws, 'rules'), ['AGENTS-WHY.md', 'agent-config/AGENTS-WHY.md']);
 });
 
 test('an archived person is still a friend record', () => {

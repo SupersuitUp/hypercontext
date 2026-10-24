@@ -141,6 +141,13 @@ export function findRecords(ws, kind, fs = fsDefault) {
       }
       return out;
     }
+    case 'rules': {
+      // A why file: *-WHY.md at the root or one folder down. Its header says kind: rules; a file
+      // that merely shares the suffix is the umbrella's to report as naming no standard.
+      const why = (n) => /-WHY\.md$/.test(n);
+      return [...filesIn(ws, '.', fs, why).map((p) => p.replace(/^\.\//, '')),
+        ...dirsIn(ws, '.', fs).filter((d) => !d.startsWith('.') && d !== 'node_modules').flatMap((d) => filesIn(ws, d, fs, why))];
+    }
     default:
       throw new Error(`no such kind: ${kind}`);
   }

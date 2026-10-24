@@ -38,6 +38,7 @@ This package defines no record type. A kind's shape belongs to its package. The 
 | hdsop, workflow-catalog | /standards/hdsop, /workflow-catalog | @supersuit/hdsop-md |
 | recurrent | /standards/recurrent | @supersuit/recurrent-md |
 | tile-app | /standards/tile-app | @supersuit/tile-app-md |
+| rules | /standards/rules | @supersuit/rules-md |
 
 Every kind has a package. A kind added later without one would still be checked for the shared property, with a `validator:missing` warning saying nothing checks its shape.
 
