@@ -1,0 +1,132 @@
+{
+  "manifest_version": 1,
+  "standard": "https://hypercontext.wiki/standards/rules/v1",
+  "kind": "rules",
+  "version": 1,
+  "title": "A rules file and its why file",
+  "status": "current",
+  "superseded_by": null,
+  "latest": "https://hypercontext.wiki/standards/rules",
+  "record": {
+    "path": "<name>-WHY.md beside the rules file it explains (AGENTS-WHY.md for AGENTS.md)",
+    "format": "md"
+  },
+  "header": {
+    "required": [
+      "kind",
+      "standard",
+      "rules_file"
+    ],
+    "keys": {
+      "kind": {
+        "const": "rules"
+      },
+      "standard": {
+        "const": "https://hypercontext.wiki/standards/rules/v1"
+      },
+      "rules_file": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "validator": {
+    "package": "@supersuit/rules-md",
+    "implements_since": "0.1.0",
+    "check": "npx -y @supersuit/rules-md@^0.1.0 lint --workspace . --json",
+    "backfill": "npx -y @supersuit/rules-md@^0.1.0 add-missing <why-file> --apply"
+  },
+  "codes": [
+    {
+      "code": "self-doc:missing",
+      "level": "error",
+      "means": "the why file names no standard, the bare unversioned rules URL, or another kind's standard",
+      "fix": "set standard: https://hypercontext.wiki/standards/rules/v1 in its header"
+    },
+    {
+      "code": "self-doc:version",
+      "level": "error",
+      "means": "the why file names a version of the rules standard this validator does not implement",
+      "fix": "install the rules-md version that implements it, or rewrite the header to https://hypercontext.wiki/standards/rules/v1"
+    },
+    {
+      "code": "kind:missing",
+      "level": "error",
+      "means": "kind is missing or is not \"rules\"",
+      "fix": "set kind: rules in the why file's header"
+    },
+    {
+      "code": "rules_file:missing",
+      "level": "error",
+      "means": "the header names no rules_file, or the file it names is not there, so nothing can be checked against it",
+      "fix": "set rules_file to the rules file's path, relative to the why file"
+    },
+    {
+      "code": "rule:id",
+      "level": "error",
+      "means": "a marker's id is not a lowercase slug of at most 48 characters",
+      "fix": "use letters, digits and single hyphens (git-pathspec); give a new id rather than renaming an old one"
+    },
+    {
+      "code": "rule:duplicate",
+      "level": "error",
+      "means": "two markers in the rules file carry the same id, so a citation cannot say which rule it means",
+      "fix": "give the second rule its own id, or merge the two rules"
+    },
+    {
+      "code": "rule:no-why",
+      "level": "error",
+      "means": "a rule has no section in the why file, so nobody can look up why it exists",
+      "fix": "add a ## <id> section with status: live and the story; rules-md add-missing --apply scaffolds one"
+    },
+    {
+      "code": "why:duplicate",
+      "level": "error",
+      "means": "two why sections carry the same id",
+      "fix": "merge them into one section"
+    },
+    {
+      "code": "why:orphan",
+      "level": "error",
+      "means": "a why section is live but no rule carries its id, so the rule was deleted or renamed without being retired",
+      "fix": "restore the rule, or set status: retired with replaced_by naming what took its place"
+    },
+    {
+      "code": "why:retired-present",
+      "level": "error",
+      "means": "a rule marked retired in the why file is still in the rules file",
+      "fix": "remove the rule from the rules file, or set it back to status: live"
+    },
+    {
+      "code": "why:no-replacement",
+      "level": "warn",
+      "means": "a retired rule does not say what replaced it",
+      "fix": "set replaced_by to the rule id, hook or skill that took its place, or none"
+    },
+    {
+      "code": "why:status",
+      "level": "error",
+      "means": "status is not live or retired",
+      "fix": "set status: live or status: retired"
+    },
+    {
+      "code": "why:no-text",
+      "level": "warn",
+      "means": "a live why section records no fingerprint of its rule, so a rewording cannot be noticed",
+      "fix": "read the rule and its story, then run rules-md stamp --id <id> --apply"
+    },
+    {
+      "code": "why:text-drift",
+      "level": "warn",
+      "means": "the rule's words changed after its why section was last read against them",
+      "fix": "read the why section against the new wording, fix whichever is wrong, then rules-md stamp --id <id> --apply"
+    },
+    {
+      "code": "why:date",
+      "level": "warn",
+      "means": "an earned date is not a real date written YYYY-MM-DD",
+      "fix": "write each date YYYY-MM-DD, comma separated"
+    }
+  ],
+  "umbrella": "npx -y @supersuit/hypercontext check <workspace>"
+}

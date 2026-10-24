@@ -18,7 +18,7 @@ import { validateManifest } from '@supersuit/hypercontext-core';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const PACKAGES = join(ROOT, 'packages');
-const KIND_COUNT = 15;
+const KIND_COUNT = 16;
 
 const packages = readdirSync(PACKAGES)
   .filter((d) => existsSync(join(PACKAGES, d, 'package.json')))

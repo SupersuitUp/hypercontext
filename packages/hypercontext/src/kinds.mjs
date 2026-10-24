@@ -72,6 +72,11 @@ export const KINDS = Object.freeze([
     pkg: { name: '@supersuit/recurrent-md', repo: 'recurrent-md', bin: 'bin/recurrent-md.mjs' } },
   { kind: 'tile-app', label: 'tile apps, <app>/app.json', standard: url('tile-app'), format: 'json', context: [],
     pkg: { name: '@supersuit/tile-app-md', repo: 'tile-app-md', bin: 'bin/tile-app-md.mjs' } },
+  // A why file is written by a person, rule by rule, so nothing stamps one: a header added by a
+  // tool would claim a pair was checked that nobody has paired.
+  { kind: 'rules', label: 'rule why files, *-WHY.md', standard: url('rules'), format: 'md', context: [],
+    pkg: { name: '@supersuit/rules-md', repo: 'rules-md', bin: 'bin/rules-md.mjs' },
+    stampable: false, why: 'a why file is written by a person beside its rules file; rules-md add-missing scaffolds its sections' },
 ]);
 
 export const byKind = (k) => KINDS.find((x) => x.kind === k);
